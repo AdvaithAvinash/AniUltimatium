@@ -12,6 +12,10 @@
 //   `aniwatch` (HiAnime), @consumet/extensions AnimePahe / AnimeKai / HiAnime.
 // Optional env vars: ANIWATCH_URLS, CONSUMET_URLS (extra remote instances), ANIWATCH_DOMAIN.
 
+// Scraper libraries sometimes reject after the race is already won; never let that crash the function.
+process.on('unhandledRejection', e => console.error('unhandledRejection:', e && e.message));
+process.on('uncaughtException', e => console.error('uncaughtException:', e && e.message));
+
 const ANILIST = 'https://graphql.anilist.co';
 // Optional extra remote instances (comma separated base URLs). Empty by default: the scrapers
 // below run inside this function, so no third-party host has to be alive.
@@ -96,12 +100,18 @@ async function home() {
     ${shelf('comedy', 'genre:"Comedy",sort:POPULARITY_DESC')}
     ${shelf('fantasy', 'genre:"Fantasy",sort:POPULARITY_DESC')}
   } ${FRAG}`;
-  const d = await anilist(q, { season: currentSeason(), year: new Date().getUTCFullYear() });
+  let d;
+  try {
+    d = await anilist(q, { season: currentSeason(), year: new Date().getUTCFullYear() });
+  } catch (e) {
+    console.error('home query failed, falling back to trending:', e.message);
+    return { rows: [{ title: 'Trending Now', items: await trending() }] };
+  }
   const titles = [
     ['trending', 'Trending Now'], ['season', 'Popular This Season'], ['top', 'Top Rated'],
     ['action', 'Action'], ['romance', 'Romance'], ['comedy', 'Comedy'], ['fantasy', 'Fantasy'],
   ];
-  return { rows: titles.map(([k, title]) => ({ title, items: d[k].media.map(mapMedia) })).filter(r => r.items.length) };
+  return { rows: titles.map(([k, title]) => ({ title, items: ((d[k] && d[k].media) || []).map(mapMedia) })).filter(r => r.items.length) };
 }
 
 // ---------- Stream providers ----------
@@ -193,6 +203,70 @@ async function viaConsumetLib(name, titles, ep) {
   return result(d);
 }
 
+
+// 5) AllAnime (the API ani-cli uses): plain JSON, no HTML scraping, English-subbed ("sub")
+const AA_API = 'https://api.allanime.day/api';
+const AA_REFR = 'https://allmanga.to';
+const AA_BASE = 'https://allanime.day';
+async function aaQuery(query, variables) {
+  const u = `${AA_API}?variables=${encodeURIComponent(JSON.stringify(variables))}&query=${encodeURIComponent(query)}`;
+  const d = await fetchJson(u, { headers: { Referer: AA_REFR, Origin: AA_REFR } }, 12000);
+  if (d.errors && !d.data) throw new Error(d.errors[0].message);
+  let data = d.data;
+  if (data && data.tobeparsed) data = aaDecrypt(data.tobeparsed);
+  return data;
+}
+// Newer API responses wrap the payload in AES-256-CTR ("tobeparsed"); same scheme ani-cli uses.
+function aaDecrypt(blob) {
+  const crypto = require('crypto');
+  const buf = Buffer.from(blob, 'base64');
+  const key = crypto.createHash('sha256').update('Xot36i3lK3:v1').digest();
+  const iv = Buffer.concat([buf.subarray(1, 13), Buffer.from([0, 0, 0, 2])]);
+  const dec = crypto.createDecipheriv('aes-256-ctr', key, iv);
+  const plain = Buffer.concat([dec.update(buf.subarray(13, buf.length - 16)), dec.final()]).toString('utf8');
+  const j = JSON.parse(plain);
+  return j.data || j;
+}
+function aaDecodeUrl(u) {
+  if (!u.startsWith('--')) return u;
+  let out = '';
+  for (let i = 2; i + 1 < u.length; i += 2) out += String.fromCharCode(parseInt(u.substr(i, 2), 16) ^ 56);
+  return out;
+}
+async function viaAllAnime(titles, ep) {
+  const SEARCH = 'query($search:SearchInput,$limit:Int,$page:Int,$translationType:VaildTranslationTypeEnumType,$countryOrigin:VaildCountryOriginEnumType){shows(search:$search,limit:$limit,page:$page,translationType:$translationType,countryOrigin:$countryOrigin){edges{_id name englishName availableEpisodes}}}';
+  let hit = null;
+  for (const t of titles) {
+    const d = await aaQuery(SEARCH, { search: { allowAdult: false, allowUnknown: false, query: t }, limit: 20, page: 1, translationType: 'sub', countryOrigin: 'ALL' });
+    const edges = ((d.shows && d.shows.edges) || []).filter(e => e.availableEpisodes && e.availableEpisodes.sub >= ep);
+    hit = bestMatch(edges, titles, e => [e.englishName, e.name].filter(Boolean).join(' '));
+    if (hit) break;
+  }
+  if (!hit) throw new Error('no match');
+  const EP = 'query($showId:String!,$translationType:VaildTranslationTypeEnumType!,$episodeString:String!){episode(showId:$showId,translationType:$translationType,episodeString:$episodeString){episodeString sourceUrls}}';
+  const d = await aaQuery(EP, { showId: hit._id, translationType: 'sub', episodeString: String(ep) });
+  const urls = ((d.episode && d.episode.sourceUrls) || [])
+    .map(s => ({ name: s.sourceName, prio: s.priority || 0, url: aaDecodeUrl(s.sourceUrl || '') }))
+    .filter(s => s.url.startsWith('/')).sort((a, b) => b.prio - a.prio);
+  if (!urls.length) throw new Error('no usable sources');
+  let last;
+  for (const s of urls) {
+    try {
+      const j = await fetchJson(AA_BASE + s.url.replace('clock?', 'clock.json?'), { headers: { Referer: AA_REFR } }, 10000);
+      const links = (j.links || []).filter(l => l && l.link);
+      if (!links.length) continue;
+      const best = links.find(l => l.hls || /m3u8/.test(l.link)) || links[0];
+      const subs = (best.subtitles || []).map(t => ({ url: t.src || t.url, lang: t.lang || t.label || '' }));
+      return result({
+        sources: [{ url: best.link, isM3U8: !!best.hls || /m3u8/.test(best.link) }],
+        headers: Object.assign({ Referer: AA_REFR }, best.headers || {}),
+        subtitles: subs,
+      });
+    } catch (e) { last = e; }
+  }
+  throw last || new Error('no playable link');
+}
+
 // Optional remote instances (only used if ANIWATCH_URLS / CONSUMET_URLS are set)
 async function viaAniwatchRemote(base, titles, ep) {
   let hit = null;
@@ -221,6 +295,7 @@ async function viaConsumetRemote(base, titles, ep) {
 function providerJobs(titles, ep) {
   const T = 25000;
   return [
+    ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
     ['aniwatch', () => withTimeout(viaAniwatchLib(titles, ep), T, 'aniwatch')],
     ['animepahe', () => withTimeout(viaConsumetLib('AnimePahe', titles, ep), T, 'animepahe')],
     ['animekai', () => withTimeout(viaConsumetLib('AnimeKai', titles, ep), T, 'animekai')],
