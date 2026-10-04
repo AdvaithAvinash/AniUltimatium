@@ -24,8 +24,11 @@ Laptop: open `http://localhost:3000`. TV: open the app → **Settings** → *Str
 Keep the computer on and on the same Wi-Fi as the TV while watching.
 
 ## Stream sources
-Verified live (from a cloud server IP): **AnimeHeaven** (direct hard-subbed English MP4, best quality) and **gogoanime.by**
-(Google-Video MP4, relayed through the server). Together they matched 87 of the 101 titles on the AniList home page; the
-rest were brand-new 2026 episodes not uploaded anywhere yet, or oddly-named Gintama seasons.
-AllAnime is tried too but is usually behind Cloudflare. Set `EXTRA_PROVIDERS=1` to also try the Cloudflare-blocked
-HiAnime/AnimePahe/AnimeKai scrapers (slow, mostly fail).
+**Anivexa API** ([walterwhite-69/Anivexa-API](https://github.com/walterwhite-69/Anivexa-API), installed as the `all-api`
+dependency and run in-process) is the primary source. It aggregates AniZone, AniKoto, AnimeGG, KickAssAnime, AniWaves, Senshi …
+by AniList id and returns **adaptive HLS up to 1080p with English soft-subs** (SRT/ASS are converted to WebVTT by the proxy).
+Fallbacks: AnimeHeaven (720p hard-subbed MP4) and gogoanime.by.
+Press **Q** in the player (or click the quality button) to cycle Auto / 1080p / 720p / 360p.
+
+These sites block cloud/datacenter IPs, so **run the app locally** (`npm install && npm start`) for best results.
+To use a separately hosted Anivexa instance instead, set `ANIVEXA_URL`.

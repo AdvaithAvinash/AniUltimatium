@@ -349,7 +349,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var pr = getProg()[a.id];
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     pmsg('Finding an English-subbed stream…', true);
-    api({ action: 'sources', title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep }).then(function (d) {
+    api({ action: 'sources', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep }).then(function (d) {
       if (tk !== state.token) return;
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
@@ -361,6 +361,27 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     while (video.firstChild) video.removeChild(video.firstChild);
     state.trackUrls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
     state.trackUrls = [];
+  }
+  // Start at the best quality the connection can sustain (hls.js default starts low); Q cycles Auto/1080p/720p/360p
+  function newHls() {
+    var h = new Hls({ maxBufferLength: 40, abrEwmaDefaultEstimate: 10000000, startLevel: -1, capLevelToPlayerSize: false });
+    h.on(Hls.Events.MANIFEST_PARSED, function () { setQualityLabel(); });
+    h.on(Hls.Events.LEVEL_SWITCHED, function () { setQualityLabel(); });
+    return h;
+  }
+  function setQualityLabel() {
+    var b = document.querySelector('[data-act="quality"]'); if (!b) return;
+    if (!state.hls || !state.hls.levels || !state.hls.levels.length) { b.textContent = 'HD'; return; }
+    var cur = state.hls.currentLevel;
+    b.textContent = cur === -1 ? 'Auto' + (state.hls.levels[state.hls.loadLevel] ? ' ' + state.hls.levels[state.hls.loadLevel].height + 'p' : '') : state.hls.levels[cur].height + 'p';
+  }
+  function cycleQuality() {
+    var h = state.hls;
+    if (!h || !h.levels || h.levels.length < 2) { toast('Quality: single stream'); return; }
+    var heights = h.levels.map(function (l, i) { return { i: i, h: l.height }; }).sort(function (a, b) { return b.h - a.h; });
+    var order = [-1].concat(heights.map(function (x) { return x.i; }));
+    var pos = order.indexOf(h.currentLevel); h.currentLevel = order[(pos + 1) % order.length];
+    setQualityLabel(); toast(h.currentLevel === -1 ? 'Quality: Auto' : 'Quality: ' + h.levels[h.currentLevel].height + 'p');
   }
   function startVideo(d, startAt, tk) {
     clearTracks();
@@ -379,7 +400,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     state.hasSoftSubs = !!(d.subtitles && d.subtitles.length);
     var isHls = d.type === 'hls' || /m3u8/i.test(d.url);
     if (isHls && window.Hls && Hls.isSupported()) {
-      state.hls = new Hls({ maxBufferLength: 30 });
+      state.hls = newHls();
       state.hls.loadSource(d.url);
       state.hls.attachMedia(video);
       state.hls.on(Hls.Events.ERROR, function (_, e) { if (e.fatal && !fallbackToProxy()) pmsg('Playback error: ' + e.details, false); });
@@ -404,7 +425,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     state.startAt = at;
     if (state.hls) { state.hls.destroy(); state.hls = null; }
     if (/m3u8/i.test(d.proxyUrl) || d.type === 'hls') {
-      if (window.Hls && Hls.isSupported()) { state.hls = new Hls({ maxBufferLength: 30 }); state.hls.loadSource(d.proxyUrl); state.hls.attachMedia(video); }
+      if (window.Hls && Hls.isSupported()) { state.hls = newHls(); state.hls.loadSource(d.proxyUrl); state.hls.attachMedia(video); }
       else video.src = d.proxyUrl;
     } else video.src = d.proxyUrl;
     var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
@@ -467,7 +488,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function playerAct(a) {
     ({ back: closePlayer, toggle: togglePlay, rew: function () { seek(-10); }, ff: function () { seek(10); },
-       prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS })[a]();
+       prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, quality: cycleQuality })[a]();
   }
   $('player').addEventListener('click', function (e) {
     var b = up(e.target, 'pbtn');
@@ -590,6 +611,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       else if (k === 70) toggleFS();
       else if (k === 77) { video.muted = !video.muted; toast(video.muted ? 'Muted' : 'Unmuted'); }
       else if (k === 67) toggleCC();
+      else if (k === 81) cycleQuality();
       else if (k === 78) stepEp(1);
       else if (k === 80) stepEp(-1);
       else hud();

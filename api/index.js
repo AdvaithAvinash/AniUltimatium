@@ -250,6 +250,64 @@ async function consumetOnce(name, domain, titles, ep) {
 
 
 
+
+// 00) Anivexa API (https://github.com/walterwhite-69/Anivexa-API): aggregates AniZone, AniKoto, AnimeGG, KickAssAnime,
+//     AniWaves, Senshi ... keyed by AniList id. Runs in-process (dependency `all-api`) or remotely via ANIVEXA_URL.
+//     Gives HLS masters (up to 1080p) with English soft-subs, so it is the quality source.
+let avWorker = null;
+async function avGet(pathname) {
+  if (process.env.ANIVEXA_URL) return fetchJson(process.env.ANIVEXA_URL.replace(/\/+$/, '') + pathname, {}, 25000);
+  if (!avWorker) {
+    const file = require('path').join(__dirname, '..', 'node_modules', 'all-api', 'index.js');
+    avWorker = (await import(require('url').pathToFileURL(file).href)).default;
+  }
+  const res = await avWorker.fetch(new Request('http://anivexa.local' + pathname), {});
+  if (!res.ok) throw new Error('anivexa HTTP ' + res.status);
+  return res.json();
+}
+const AV_ORDER = ['anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi'];
+function avSubtitles(list) {
+  const rank = t => {
+    const l = String(t.language || t.lang || t.label || '');
+    if (!/english/i.test(l)) return -1;
+    if (/forced|signs|songs|dub|\bai\b/i.test(l)) return 1;
+    if (/sdh|cc/i.test(l)) return 2;
+    return 3;
+  };
+  return (list || []).filter(t => t && t.url && rank(t) > 0 && /\.(vtt|srt|ass)(\?|$)/i.test(t.url))
+    .sort((a, b) => rank(b) - rank(a)).slice(0, 1).map(t => ({ lang: 'English', url: t.url }));
+}
+function avPick(d) {
+  let streams = (d.streams || d.sources || []).filter(x => x && x.url && /^https?:/.test(x.url));
+  if (!streams.length) throw new Error('no streams');
+  const usable = streams.filter(x => x.type === 'hls' || x.type === 'mp4' || /\.(m3u8|mp4)(\?|$)/i.test(x.url));
+  if (!usable.length) throw new Error('only embeds');
+  const q = x => parseInt(x.quality, 10) || 0;
+  const pick = usable.slice().sort((a, b) => (b.isActive ? 1 : 0) - (a.isActive ? 1 : 0) || q(b) - q(a))[0];
+  // AnimeGG lists one mp4 per quality: take the best
+  const best = pick.type === 'mp4' ? usable.filter(x => x.type === 'mp4').sort((a, b) => q(b) - q(a))[0] : pick;
+  const headers = Object.assign({}, d.headers || {}, best.headers || {});
+  if (best.referer && !headers.Referer) headers.Referer = best.referer;
+  return {
+    url: best.url, headers,
+    subtitles: avSubtitles(best.subtitles || best.tracks || d.subtitles),
+    mp4: best.type === 'mp4' || /\.mp4(\?|$)/i.test(best.url),
+    quality: best.quality || (best.type === 'hls' ? 'adaptive' : ''),
+  };
+}
+async function viaAnivexa(anilistId, ep) {
+  if (!anilistId) throw new Error('no anilist id');
+  const T = 14000;
+  const runs = AV_ORDER.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/sub/${p}-${ep}`).then(d => ({ ...avPick(d), via: p })), T, p));
+  runs.forEach(r => r.catch(() => {}));
+  const errs = [];
+  for (let i = 0; i < runs.length; i++) {            // priority order; all already running in parallel
+    try { const r = await runs[i]; return { ...r, matched: AV_ORDER[i] + (r.quality ? ' ' + r.quality : '') }; }
+    catch (e) { errs.push(AV_ORDER[i] + ': ' + clean(e.message, 50)); }
+  }
+  throw new Error(errs.join('; '));
+}
+
 // 0) AnimeHeaven — plain HTML + direct, hard-subbed (English) MP4 links, no bot protection.
 //    Verified live: search.php -> anime.php (episode ids) -> gate.php (cookie key=<id>) -> <source src=...mp4>
 const AH = 'https://animeheaven.me';
@@ -427,9 +485,10 @@ async function viaConsumetRemote(base, titles, ep) {
   return result(await fetchJson(`${base}/anime/animepahe/watch?episodeId=${encodeURIComponent(episode.id)}`));
 }
 
-function providerJobs(titles, ep) {
-  const T = 25000;
+function providerJobs(titles, ep, anilistId) {
+  const T = 40000;
   return [
+    ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep), T, 'anivexa')],
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
     ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
@@ -453,21 +512,21 @@ function parseQuery(q) {
 async function sources(req, q, origin) {
   const { titles, ep } = parseQuery(q);
   const only = q.only ? String(q.only).split(',') : null;
-  const all = providerJobs(titles, ep).filter(([n]) => !only || only.includes(n));
-  // AnimeHeaven (best quality) goes first; the rest only start if it fails or is slow (>3.5s)
-  const primary = all.find(([n]) => n === 'animeheaven');
+  const all = providerJobs(titles, ep, q.id).filter(([n]) => !only || only.includes(n));
+  // Anivexa (HLS up to 1080p, soft English subs) goes first; the rest only start if it fails or is slow (>6s)
+  const primary = all.find(([n]) => n === 'anivexa') && q.id ? all.find(([n]) => n === 'anivexa') : all.find(([n]) => n === 'animeheaven');
   const primaryRun = primary ? primary[1]() : null;
-  const gate = primaryRun ? Promise.race([primaryRun.then(() => new Promise(() => {}), () => {}), new Promise(r => setTimeout(r, 3500))]) : Promise.resolve();
+  const gate = primaryRun ? Promise.race([primaryRun.then(() => new Promise(() => {}), () => {}), new Promise(r => setTimeout(r, 6000))]) : Promise.resolve();
   const jobs = all.map(([name, job]) => (job === (primary && primary[1]) ? primaryRun : gate.then(job)).then(r => ({ ...r, provider: name }), e => { throw new Error(name + ': ' + clean(e.message, 260)); }));
   try {
     // Race every provider; first one that yields a stream wins
     const r = await Promise.any(jobs);
     const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
     const isHls = /m3u8/i.test(r.url);
-    // Route through our proxy when the CDN demands a Referer (TV browsers can't set it)
-    const url = ref || r.forceProxy ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
+    // Route through our proxy when the CDN demands a Referer / CORS (browsers can't set it); HLS always goes through it
+    const url = ref || r.forceProxy || isHls ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
     // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
-    const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&url=${encodeURIComponent(t.url)}` }));
+    const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt&url=${encodeURIComponent(t.url)}` }));
     // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
     const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
     return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched };
@@ -482,12 +541,34 @@ async function sources(req, q, origin) {
 // Diagnostic: runs every provider to completion and reports what each one did
 async function debug(q) {
   const { titles, ep } = parseQuery(q);
-  const out = await Promise.all(providerJobs(titles, ep).map(async ([name, job]) => {
+  const out = await Promise.all(providerJobs(titles, ep, q.id).map(async ([name, job]) => {
     const t0 = Date.now();
     try { const r = await job(); return { provider: name, ok: true, ms: Date.now() - t0, matched: r.matched, url: r.url, subtitles: r.subtitles.length }; }
     catch (e) { return { provider: name, ok: false, ms: Date.now() - t0, error: e.message }; }
   }));
   return { titles, ep, node: process.version, providers: out };
+}
+
+
+// Subtitle conversion so any browser/TV <track> can show them: SRT / ASS -> WebVTT
+function toVtt(text, url) {
+  text = text.replace(/^﻿/, '').replace(/\r/g, '');
+  if (/^WEBVTT/.test(text)) return text;
+  if (/\.ass(\?|$)/i.test(url) || /^\[Script Info\]/m.test(text)) {
+    const t = x => { const m = x.match(/(\d+):(\d+):(\d+)[.](\d+)/); return m ? `${String(m[1]).padStart(2, '0')}:${m[2]}:${m[3]}.${(m[4] + '00').slice(0, 3)}` : '00:00:00.000'; };
+    let fmt = [], cues = [];
+    for (const line of text.split('\n')) {
+      if (/^Format:/i.test(line) && !fmt.length) fmt = line.slice(7).split(',').map(x => x.trim().toLowerCase());
+      else if (/^Dialogue:/i.test(line)) {
+        const parts = line.slice(9).split(','), n = fmt.length || 10;
+        const o = {}; fmt.forEach((k, i) => { o[k] = i === n - 1 ? parts.slice(i).join(',') : parts[i]; });
+        const txt = (o.text || '').replace(/\{[^}]*\}/g, '').replace(/\\N/gi, '\n').replace(/\\h/g, ' ').trim();
+        if (txt) cues.push(`${t(o.start)} --> ${t(o.end)}\n${txt}`);
+      }
+    }
+    return 'WEBVTT\n\n' + cues.join('\n\n') + '\n';
+  }
+  return 'WEBVTT\n\n' + text.replace(/(\d+:\d+:\d+),(\d+)/g, '$1.$2');
 }
 
 // ---------- Proxy ----------
@@ -500,6 +581,11 @@ async function proxy(req, res, q, origin) {
   if (req.headers.range) headers.Range = req.headers.range;
   const r = await fetch(target, { headers });
   cors(res);
+  if (q.fmt === 'vtt') {
+    res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(toVtt(await r.text(), target));
+  }
   const type = r.headers.get('content-type') || '';
   if (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target)) {
     const text = await r.text();
