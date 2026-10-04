@@ -116,7 +116,15 @@ async function home() {
 }
 
 // ---------- Stream providers ----------
-const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const norm = s => {
+  let t = (s || '').toLowerCase().replace(/&#0?39;/g, "'").replace(/[^a-z0-9]+/g, ' ').trim();
+  // "2nd season" / "second season" / "season ii" / trailing "ii" -> "season 2"
+  const words = { second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6 }, roman = { ii: 2, iii: 3, iv: 4 };
+  t = t.replace(/\b(\d+)(?:st|nd|rd|th) season\b/g, 'season $1')
+       .replace(/\b(second|third|fourth|fifth|sixth) season\b/g, (_, w) => 'season ' + words[w])
+       .replace(/\bseason (ii|iii|iv)\b/g, (_, r) => 'season ' + roman[r]);
+  return t;
+};
 function bestMatch(list, titles, getName, minScore = 55) {
   const wants = titles.map(norm).filter(Boolean);
   let best = null, score = -1;
@@ -281,6 +289,56 @@ async function viaAnimeHeaven(titles, ep) {
   return { url: srcs[0], headers: {}, subtitles: [], mp4: true, matched: hit.name };
 }
 
+
+// 0b) gogoanime.by — WordPress site; its "blogger" player exposes a Google Video MP4 (English sub).
+//     Those links are locked to the requesting IP, so they are always relayed through this server.
+const GG = 'https://gogoanime.by';
+async function ggText(urlOrPath, headers = {}, timeout = 12000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const r = await fetch(urlOrPath.startsWith('http') ? urlOrPath : GG + urlOrPath, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...headers } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+async function viaGogoanime(titles, ep) {
+  const queries = [...new Set([...titles, ...titles.map(t => norm(t).split(' ').slice(0, 2).join(' '))])].filter(q => q.length > 2);
+  let hit = null;
+  for (const q of queries) {
+    const html = await ggText('/?s=' + encodeURIComponent(q));
+    const seen = new Set(), items = [];
+    for (const m of html.matchAll(/class="bsx"[^>]*>\s*<a href="(https:\/\/gogoanime\.by\/series\/[^"]+)"[^>]*title="([^"]+)"/g)) {
+      if (!seen.has(m[1])) { seen.add(m[1]); items.push({ url: m[1], name: decodeEnt(m[2]).replace(/\s*GoGoanime$/i, '') }); }
+    }
+    hit = bestMatch(items.filter(i => !/\bdub\b/i.test(i.name)), titles, i => i.name);
+    if (hit) break;
+  }
+  if (!hit) throw new Error('no match');
+  const page = await ggText(hit.url);
+  const base = hit.url.split('/series/')[1].replace(/\/$/, '').split('-').slice(0, 2).join('-');
+  let epUrl = null;
+  for (const m of page.matchAll(/href="(https:\/\/gogoanime\.by\/([^"\/]*)-episode-(\d+)-[^"\/]*\/)"/g)) {
+    if (m[2].startsWith(base) && Number(m[3]) === ep) { epUrl = m[1]; break; }
+  }
+  if (!epUrl) throw new Error('episode not found');
+  const epHtml = await ggText(epUrl, { Referer: hit.url });
+  const players = [...epHtml.matchAll(/data-src="(https:\/\/gogoanime\.by\/player\/[^"]+)"/g)].map(m => decodeEnt(m[1]));
+  if (!players.length) throw new Error('no players');
+  let last;
+  for (const pl of players) {
+    try {
+      const ph = await ggText(pl, { Referer: epUrl });
+      const m = ph.match(/var sources = (\[.*?\]);/s);
+      if (!m) continue;
+      const files = JSON.parse(m[1]).filter(f => f && f.file);
+      files.sort((a, b) => (parseInt(b.label, 10) || 0) - (parseInt(a.label, 10) || 0));
+      if (files.length) return { url: files[0].file, headers: {}, subtitles: [], mp4: true, matched: hit.name, forceProxy: true };
+    } catch (e) { last = e; }
+  }
+  throw last || new Error('no playable source');
+}
+
 // 5) AllAnime (the API ani-cli uses): plain JSON, no HTML scraping, English-subbed ("sub")
 const AA_API = 'https://api.allanime.day/api';
 const AA_REFR = 'https://allmanga.to';
@@ -373,11 +431,15 @@ function providerJobs(titles, ep) {
   const T = 25000;
   return [
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
+    ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
     ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
-    ['aniwatch', () => withTimeout(viaAniwatchLib(titles, ep), T, 'aniwatch')],
-    ['animepahe', () => withTimeout(viaConsumetLib('AnimePahe', titles, ep), T, 'animepahe')],
-    ['animekai', () => withTimeout(viaConsumetLib('AnimeKai', titles, ep), T, 'animekai')],
-    ['hianime', () => withTimeout(viaConsumetLib('Hianime', titles, ep), T, 'hianime')],
+    // Cloudflare-blocked scrapers: off by default (they only add 20s of waiting). Set EXTRA_PROVIDERS=1 to try them.
+    ...(process.env.EXTRA_PROVIDERS ? [
+      ['aniwatch', () => withTimeout(viaAniwatchLib(titles, ep), T, 'aniwatch')],
+      ['animepahe', () => withTimeout(viaConsumetLib('AnimePahe', titles, ep), T, 'animepahe')],
+      ['animekai', () => withTimeout(viaConsumetLib('AnimeKai', titles, ep), T, 'animekai')],
+      ['hianime', () => withTimeout(viaConsumetLib('Hianime', titles, ep), T, 'hianime')],
+    ] : []),
     ...ANIWATCH.map((b, i) => ['aniwatch-remote' + i, () => viaAniwatchRemote(b, titles, ep)]),
     ...CONSUMET.map((b, i) => ['consumet-remote' + i, () => viaConsumetRemote(b, titles, ep)]),
   ];
@@ -390,21 +452,28 @@ function parseQuery(q) {
 
 async function sources(req, q, origin) {
   const { titles, ep } = parseQuery(q);
-  const jobs = providerJobs(titles, ep).map(([name, job]) => job().then(r => ({ ...r, provider: name }), e => { throw new Error(name + ': ' + clean(e.message, 260)); }));
+  const only = q.only ? String(q.only).split(',') : null;
+  const all = providerJobs(titles, ep).filter(([n]) => !only || only.includes(n));
+  // AnimeHeaven (best quality) goes first; the rest only start if it fails or is slow (>3.5s)
+  const primary = all.find(([n]) => n === 'animeheaven');
+  const primaryRun = primary ? primary[1]() : null;
+  const gate = primaryRun ? Promise.race([primaryRun.then(() => new Promise(() => {}), () => {}), new Promise(r => setTimeout(r, 3500))]) : Promise.resolve();
+  const jobs = all.map(([name, job]) => (job === (primary && primary[1]) ? primaryRun : gate.then(job)).then(r => ({ ...r, provider: name }), e => { throw new Error(name + ': ' + clean(e.message, 260)); }));
   try {
     // Race every provider; first one that yields a stream wins
     const r = await Promise.any(jobs);
     const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
     const isHls = /m3u8/i.test(r.url);
     // Route through our proxy when the CDN demands a Referer (TV browsers can't set it)
-    const url = ref ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
+    const url = ref || r.forceProxy ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
     // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
     const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&url=${encodeURIComponent(t.url)}` }));
     // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
     const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
     return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched };
   } catch (e) {
-    const err = new Error('No stream found. ' + (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 400));
+    const err = new Error('Not available yet — this title or episode has not been found on any source. Try another episode or title.');
+    err.detail = (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 600);
     err.status = 502;
     throw err;
   }
@@ -483,6 +552,6 @@ module.exports = async (req, res) => {
         return send(res, 200, { results: await trending() });
     }
   } catch (e) {
-    return send(res, e.status || 500, { error: e.message }, 'no-store');
+    return send(res, e.status || 500, { error: e.message, detail: e.detail }, 'no-store');
   }
 };
