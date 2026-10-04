@@ -408,7 +408,7 @@ module.exports = async (req, res) => {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   const q = req.query || {};
-  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const proto = req.headers['x-forwarded-proto'] || 'http';
   const origin = `${proto}://${req.headers.host}`;
   try {
     switch (q.action) {
