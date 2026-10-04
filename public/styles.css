@@ -17,8 +17,9 @@ svg.ic{width:1.3em;height:1.3em;fill:currentColor;vertical-align:-.25em;flex:non
 
 /* ---------- Nav ---------- */
 #nav{transition:background .25s;position:fixed;top:0;left:0;right:0;height:var(--nav);z-index:20;display:flex;align-items:center;gap:2.5rem;padding:0 3rem;background:linear-gradient(rgba(11,11,18,.96),rgba(11,11,18,0))}
-.brand{font-size:1.7rem;font-weight:800;letter-spacing:.04em}
-.brand span{color:var(--accent)}
+.brand{display:flex;align-items:center;gap:.7rem;font-size:1.6rem;font-weight:800;letter-spacing:.03em}
+.brand .logo{width:2.6rem;height:2.6rem;border-radius:.6rem;box-shadow:0 0 1.2rem rgba(255,61,127,.45)}
+.brand b{color:var(--accent);font-weight:800}
 #tabs{display:flex;gap:.8rem}
 .tab{display:flex;align-items:center;gap:.5rem;padding:.55rem 1.2rem;font-size:1.1rem;font-weight:600;color:var(--muted);border-radius:2rem;background:rgba(255,255,255,.06)}
 .tab.active{color:#fff;background:rgba(255,61,127,.28)}

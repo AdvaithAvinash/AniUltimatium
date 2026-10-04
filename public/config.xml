@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
-        id="http://yourdomain/EnglishAnime"
+        id="http://yourdomain/Aniultimatium"
         version="2.3"
         viewmodes="maximized">
   <tizen:application id="oXabc12345.EnglishAnime" package="oXabc12345" required_version="2.3"/>
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.all"/>
   <icon src="icon.png"/>
-  <name>English Anime</name>
+  <name>Aniultimatium</name>
   <tizen:profile name="tv"/>
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
