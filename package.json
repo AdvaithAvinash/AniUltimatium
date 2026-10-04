@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@consumet/extensions": "1.8.8",
+    "all-api": "github:walterwhite-69/Anivexa-API",
     "aniwatch": "2.27.9"
   },
   "scripts": {
