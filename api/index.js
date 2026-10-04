@@ -5,16 +5,18 @@
 //   ?action=sources&title=...&alt=...&ep=1     -> { url, type, subtitles:[{lang,url}] }
 //   ?action=proxy&url=...&ref=...               -> CORS/Referer-safe relay (m3u8 rewritten)
 //
-// Metadata: AniList GraphQL (English titles). Streams: HiAnime-compatible "aniwatch-api"
-// instances (sub = hard/soft English subtitles) with Consumet as a fallback.
-// Override providers with env vars (comma separated base URLs):
-//   ANIWATCH_URLS, CONSUMET_URLS
+//   ?action=debug&title=...&ep=1                -> per-provider status/timing (use this to diagnose 502s)
+//
+// Metadata: AniList GraphQL (English titles).
+// Streams: scrapers bundled with the function and raced in parallel (first success wins):
+//   `aniwatch` (HiAnime), @consumet/extensions AnimePahe / AnimeKai / HiAnime.
+// Optional env vars: ANIWATCH_URLS, CONSUMET_URLS (extra remote instances), ANIWATCH_DOMAIN.
 
 const ANILIST = 'https://graphql.anilist.co';
-const ANIWATCH = (process.env.ANIWATCH_URLS || 'https://aniwatch-api-v1-0.onrender.com,https://aniwatch.up.railway.app')
-  .split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
-const CONSUMET = (process.env.CONSUMET_URLS || 'https://api.consumet.org')
-  .split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
+// Optional extra remote instances (comma separated base URLs). Empty by default: the scrapers
+// below run inside this function, so no third-party host has to be alive.
+const ANIWATCH = (process.env.ANIWATCH_URLS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
+const CONSUMET = (process.env.CONSUMET_URLS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
 const UA = 'Mozilla/5.0 (SMART-TV; Tizen 6.5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0 TV Safari/537.36';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
@@ -124,15 +126,75 @@ function bestMatch(list, titles, getName) {
 }
 function pickSubtitles(tracks, base) {
   return (tracks || [])
-    .filter(t => t && (t.url || t.file) && (!t.kind || t.kind === 'captions' || t.kind === 'subtitles') && /english/i.test(t.lang || t.label || ''))
+    .filter(t => t && (t.url || t.file) && (!t.kind || t.kind === 'captions' || t.kind === 'subtitles') && /english|^en\b/i.test(t.lang || t.label || ''))
     .map(t => ({ lang: 'English', url: t.url || t.file, default: !!t.default }));
 }
+
+const withTimeout = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + ' timed out')), ms))]);
+const nameOf = r => {
+  const t = r.title || r.name;
+  return typeof t === 'string' ? t : t ? [t.english, t.romaji, t.userPreferred, t.native].filter(Boolean).join(' ') : '';
+};
+function findHit(results, titles) {
+  const list = (results || []).filter(r => !/\bdub\b/i.test(nameOf(r)));
+  return bestMatch(list, titles, nameOf);
+}
+function qualityOf(v) { return parseInt(String(v.quality || '').replace(/\D/g, ''), 10) || 0; }
 function pickSource(sources) {
-  const list = sources || [];
-  return list.find(s => s.isM3U8 || /m3u8/.test(s.url)) || list[0];
+  const list = (sources || []).filter(s => s && s.url);
+  const hls = list.filter(s => s.isM3U8 || /\.m3u8/i.test(s.url));
+  const pool = hls.length ? hls : list;
+  return pool.slice().sort((a, b) => qualityOf(b) - qualityOf(a))[0];
+}
+function result(d) {
+  const pick = pickSource(d.sources);
+  if (!pick) throw new Error('no sources');
+  return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.subtitles || d.tracks) };
 }
 
-async function viaAniwatch(base, titles, ep) {
+// 1) HiAnime scraped in-process via the `aniwatch` package (English sub, softsubs)
+async function viaAniwatchLib(titles, ep) {
+  const { HiAnime } = await import('aniwatch');
+  const hi = new HiAnime.Scraper();
+  let hit = null;
+  for (const t of titles) {
+    const s = await hi.search(t);
+    hit = bestMatch(s.animes || [], titles, a => a.name);
+    if (hit) break;
+  }
+  if (!hit) throw new Error('no match');
+  const eps = await hi.getEpisodes(hit.id);
+  const episode = (eps.episodes || []).find(x => x.number === ep);
+  if (!episode || !episode.episodeId) throw new Error('episode not found');
+  let last;
+  for (const server of ['hd-1', 'hd-2', 'megacloud']) {
+    try { return result(await hi.getEpisodeSources(episode.episodeId, server, 'sub')); } catch (e) { last = e; }
+  }
+  throw last || new Error('no server worked');
+}
+
+// 2-4) @consumet/extensions scrapers (AnimePahe, AnimeKai, HiAnime) — all English-subbed
+async function viaConsumetLib(name, titles, ep) {
+  const { ANIME, SubOrSub } = require('@consumet/extensions');
+  const p = new ANIME[name]();
+  let hit = null;
+  for (const t of titles) {
+    const r = await p.search(t);
+    hit = findHit(r.results, titles);
+    if (hit) break;
+  }
+  if (!hit) throw new Error('no match');
+  const info = await p.fetchAnimeInfo(hit.id);
+  const episode = (info.episodes || []).find(x => Number(x.number) === ep);
+  if (!episode) throw new Error('episode not found');
+  const d = name === 'AnimePahe'
+    ? await p.fetchEpisodeSources(episode.id)
+    : await p.fetchEpisodeSources(episode.id, undefined, SubOrSub.SUB);
+  return result(d);
+}
+
+// Optional remote instances (only used if ANIWATCH_URLS / CONSUMET_URLS are set)
+async function viaAniwatchRemote(base, titles, ep) {
   let hit = null;
   for (const t of titles) {
     const s = await fetchJson(`${base}/api/v2/hianime/search?q=${encodeURIComponent(t)}`);
@@ -144,51 +206,64 @@ async function viaAniwatch(base, titles, ep) {
   const episode = ((e.data && e.data.episodes) || []).find(x => x.number === ep);
   if (!episode) throw new Error('episode not found');
   const src = await fetchJson(`${base}/api/v2/hianime/episode/sources?animeEpisodeId=${encodeURIComponent(episode.episodeId)}&category=sub`);
-  const d = src.data;
-  const pick = pickSource(d.sources);
-  if (!pick) throw new Error('no sources');
-  return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.tracks) };
+  return result({ sources: src.data.sources, headers: src.data.headers, subtitles: src.data.subtitles || src.data.tracks });
 }
-async function viaConsumet(base, titles, ep) {
-  let hit = null;
-  for (const t of titles) {
-    const s = await fetchJson(`${base}/anime/gogoanime/${encodeURIComponent(t)}`);
-    hit = bestMatch((s.results || []).filter(r => !/dub/i.test(r.id + r.title)), titles, a => a.title);
-    if (hit) break;
-  }
+async function viaConsumetRemote(base, titles, ep) {
+  const s = await fetchJson(`${base}/anime/animepahe/${encodeURIComponent(titles[0])}`);
+  const hit = findHit(s.results, titles);
   if (!hit) throw new Error('no match');
-  const info = await fetchJson(`${base}/anime/gogoanime/info/${encodeURIComponent(hit.id)}`);
+  const info = await fetchJson(`${base}/anime/animepahe/info/${encodeURIComponent(hit.id)}`);
   const episode = (info.episodes || []).find(x => Number(x.number) === ep);
   if (!episode) throw new Error('episode not found');
-  const d = await fetchJson(`${base}/anime/gogoanime/watch/${encodeURIComponent(episode.id)}`);
-  const pick = pickSource(d.sources);
-  if (!pick) throw new Error('no sources');
-  return { url: pick.url, headers: d.headers || {}, subtitles: [] }; // gogoanime sub = softsub/hardsub English
+  return result(await fetchJson(`${base}/anime/animepahe/watch?episodeId=${encodeURIComponent(episode.id)}`));
+}
+
+function providerJobs(titles, ep) {
+  const T = 25000;
+  return [
+    ['aniwatch', () => withTimeout(viaAniwatchLib(titles, ep), T, 'aniwatch')],
+    ['animepahe', () => withTimeout(viaConsumetLib('AnimePahe', titles, ep), T, 'animepahe')],
+    ['animekai', () => withTimeout(viaConsumetLib('AnimeKai', titles, ep), T, 'animekai')],
+    ['hianime', () => withTimeout(viaConsumetLib('Hianime', titles, ep), T, 'hianime')],
+    ...ANIWATCH.map((b, i) => ['aniwatch-remote' + i, () => viaAniwatchRemote(b, titles, ep)]),
+    ...CONSUMET.map((b, i) => ['consumet-remote' + i, () => viaConsumetRemote(b, titles, ep)]),
+  ];
+}
+function parseQuery(q) {
+  const titles = [q.title, q.alt].filter(Boolean);
+  if (!titles.length) { const e = new Error('title required'); e.status = 400; throw e; }
+  return { titles, ep: parseInt(q.ep, 10) || 1 };
 }
 
 async function sources(req, q, origin) {
-  const titles = [q.title, q.alt].filter(Boolean);
-  const ep = parseInt(q.ep, 10) || 1;
-  if (!titles.length) throw new Error('title required');
-  const jobs = [
-    ...ANIWATCH.map(b => () => viaAniwatch(b, titles, ep)),
-    ...CONSUMET.map(b => () => viaConsumet(b, titles, ep)),
-  ];
+  const { titles, ep } = parseQuery(q);
+  const jobs = providerJobs(titles, ep).map(([name, job]) => job().then(r => ({ ...r, provider: name }), e => { e.message = name + ': ' + e.message; throw e; }));
   try {
-    // Race every provider; first one that yields a stream wins (keeps us inside the function timeout)
-    const r = await Promise.any(jobs.map(job => job()));
+    // Race every provider; first one that yields a stream wins
+    const r = await Promise.any(jobs);
     const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
     const isHls = /m3u8/i.test(r.url);
     // Route through our proxy when the CDN demands a Referer (TV browsers can't set it)
     const url = ref ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
     // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
     const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&url=${encodeURIComponent(t.url)}` }));
-    return { url, type: isHls ? 'hls' : 'mp4', subtitles };
+    return { url, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider };
   } catch (e) {
     const err = new Error('No provider returned a stream: ' + (e.errors || [e]).map(x => x.message).join(' | '));
     err.status = 502;
     throw err;
   }
+}
+
+// Diagnostic: runs every provider to completion and reports what each one did
+async function debug(q) {
+  const { titles, ep } = parseQuery(q);
+  const out = await Promise.all(providerJobs(titles, ep).map(async ([name, job]) => {
+    const t0 = Date.now();
+    try { const r = await job(); return { provider: name, ok: true, ms: Date.now() - t0, url: r.url, subtitles: r.subtitles.length }; }
+    catch (e) { return { provider: name, ok: false, ms: Date.now() - t0, error: e.message }; }
+  }));
+  return { titles, ep, node: process.version, providers: out };
 }
 
 // ---------- Proxy ----------
@@ -235,6 +310,8 @@ module.exports = async (req, res) => {
         return send(res, 200, { results: await search(q.q, q.genre) });
       case 'sources':
         return send(res, 200, await sources(req, q, origin), 's-maxage=60');
+      case 'debug':
+        return send(res, 200, await debug(q), 'no-store');
       case 'proxy':
         return await proxy(req, res, q, origin);
       case 'home':
