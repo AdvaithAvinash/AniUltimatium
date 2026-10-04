@@ -2,48 +2,110 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=1920, height=1080, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b12">
 <title>English Anime</title>
+<link rel="icon" href="icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="desktop">
 <div id="app">
-  <header id="topbar">
-    <h1 class="logo">English<span>Anime</span></h1>
-    <div id="searchWrap">
-      <input id="searchInput" class="focusable" type="text" placeholder="Search anime..." autocomplete="off">
-      <button id="searchBtn" class="focusable">Search</button>
-    </div>
+  <header id="nav">
+    <div class="brand">English<span>Anime</span></div>
+    <nav id="tabs">
+      <button class="tab focusable" data-tab="home"></button>
+      <button class="tab focusable" data-tab="search"></button>
+      <button class="tab focusable" data-tab="list"></button>
+    </nav>
   </header>
 
-  <main id="home">
-    <h2 id="gridTitle">Trending Now</h2>
-    <div id="status"></div>
-    <section id="grid"></section>
+  <main id="viewHome" class="view">
+    <section id="hero">
+      <div id="heroBg"></div>
+      <div id="heroShade"></div>
+      <div id="heroBody">
+        <div id="heroTags"></div>
+        <h1 id="heroTitle"></h1>
+        <div id="heroMeta"></div>
+        <p id="heroDesc"></p>
+        <div id="heroBtns">
+          <button id="heroPlay" class="btn primary focusable"></button>
+          <button id="heroInfo" class="btn focusable"></button>
+        </div>
+      </div>
+      <div id="heroDots"></div>
+    </section>
+    <div id="homeMsg"></div>
+    <div id="rows"></div>
+  </main>
+
+  <main id="viewSearch" class="view hidden">
+    <div class="pagehead">
+      <input id="searchInput" class="focusable" type="text" placeholder="Search anime (English titles)…" autocomplete="off" spellcheck="false">
+      <div id="chips"></div>
+    </div>
+    <div id="searchMsg" class="msg"></div>
+    <div id="searchGrid" class="cards"></div>
+  </main>
+
+  <main id="viewList" class="view hidden">
+    <div class="pagehead"><h2>My List</h2></div>
+    <div id="listMsg" class="msg"></div>
+    <div id="listGrid" class="cards"></div>
   </main>
 
   <section id="detail" class="hidden">
-    <div id="detailInfo">
-      <img id="detailCover" alt="">
-      <div>
-        <h2 id="detailTitle"></h2>
-        <p id="detailMeta"></p>
-        <p id="detailDesc"></p>
+    <div id="dBg"></div>
+    <div id="dShade"></div>
+    <div id="dScroll">
+      <button id="dBack" class="btn ghost focusable"></button>
+      <div id="dTop">
+        <img id="dCover" alt="">
+        <div id="dInfo">
+          <h2 id="dTitle"></h2>
+          <div id="dMeta"></div>
+          <div id="dGenres"></div>
+          <p id="dDesc"></p>
+          <div id="dBtns">
+            <button id="dPlay" class="btn primary focusable"></button>
+            <button id="dList" class="btn focusable"></button>
+          </div>
+        </div>
       </div>
+      <h3 class="sec">Episodes</h3>
+      <div id="dRanges"></div>
+      <div id="dEps"></div>
     </div>
-    <h3>Episodes</h3>
-    <div id="episodes"></div>
-    <button id="detailBack" class="focusable">&larr; Back</button>
   </section>
 
   <section id="player" class="hidden">
     <video id="video" playsinline></video>
-    <div id="playerHud">
-      <div id="playerTitle"></div>
-      <div id="playerMsg"></div>
-      <div id="progress"><div id="progressBar"></div></div>
+    <div id="phud">
+      <div class="ptop">
+        <button class="pbtn" data-act="back" title="Back"></button>
+        <div id="pTitle"></div>
+      </div>
+      <div id="pCenter"><div id="spinner"></div><div id="pMsg"></div></div>
+      <div class="pbottom">
+        <div id="seek"><div id="seekBuf"></div><div id="seekBar"></div></div>
+        <div class="pctrl">
+          <span id="pTime">0:00 / 0:00</span>
+          <div class="pbtns">
+            <button class="pbtn" data-act="prev" title="Previous episode (P)"></button>
+            <button class="pbtn txt" data-act="rew" title="Back 10s">-10</button>
+            <button class="pbtn big" data-act="toggle" title="Play / Pause (Space)"></button>
+            <button class="pbtn txt" data-act="ff" title="Forward 10s">+10</button>
+            <button class="pbtn" data-act="next" title="Next episode (N)"></button>
+          </div>
+          <div class="pright">
+            <button class="pbtn" data-act="cc" title="Subtitles (C)"></button>
+            <button class="pbtn" data-act="fs" title="Fullscreen (F)"></button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
+  <div id="toast"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
 <script src="main.js"></script>

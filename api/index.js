@@ -1,6 +1,7 @@
 // Vercel Serverless Function: /api
+//   ?action=home                                -> { rows:[{title,items}] } (hero + shelves)
 //   ?action=trending
-//   ?action=search&q=naruto
+//   ?action=search&q=naruto[&genre=Action]
 //   ?action=sources&title=...&alt=...&ep=1     -> { url, type, subtitles:[{lang,url}] }
 //   ?action=proxy&url=...&ref=...               -> CORS/Referer-safe relay (m3u8 rewritten)
 //
@@ -16,8 +17,9 @@ const CONSUMET = (process.env.CONSUMET_URLS || 'https://api.consumet.org')
   .split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
 const UA = 'Mozilla/5.0 (SMART-TV; Tizen 6.5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0 TV Safari/537.36';
 
-const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large} description(asHtml:false)
-  episodes format seasonYear averageScore status`;
+const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
+  episodes nextAiringEpisode{episode} format seasonYear averageScore status genres`;
+const FRAG = `fragment F on Media{${MEDIA_FIELDS}}`;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -55,12 +57,15 @@ function mapMedia(m) {
     id: m.id,
     title: m.title.english || m.title.romaji,          // strictly English-first
     titleRomaji: m.title.romaji,
-    titleNative: m.title.romaji,
     cover: m.coverImage.extraLarge || m.coverImage.large,
+    banner: m.bannerImage || null,
+    color: m.coverImage.color || null,
     description: (m.description || '').replace(/<[^>]+>/g, '').trim(),
-    episodes: m.episodes,
+    episodes: m.episodes || (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null),
     format: m.format,
     year: m.seasonYear,
+    status: m.status,
+    genres: m.genres || [],
     score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
   };
 }
@@ -68,9 +73,33 @@ async function trending() {
   const d = await anilist(`query{Page(perPage:30){media(type:ANIME,sort:TRENDING_DESC,isAdult:false){${MEDIA_FIELDS}}}}`, {});
   return d.Page.media.map(mapMedia);
 }
-async function search(q) {
-  const d = await anilist(`query($s:String){Page(perPage:30){media(type:ANIME,search:$s,sort:SEARCH_MATCH,isAdult:false){${MEDIA_FIELDS}}}}`, { s: q });
+async function search(q, genre) {
+  const d = await anilist(
+    `query($s:String,$g:String,$sort:[MediaSort]){Page(perPage:30){media(type:ANIME,search:$s,genre:$g,sort:$sort,isAdult:false){${MEDIA_FIELDS}}}}`,
+    { s: q || undefined, g: genre || undefined, sort: [q ? 'SEARCH_MATCH' : 'POPULARITY_DESC'] });
   return d.Page.media.map(mapMedia);
+}
+function currentSeason() {
+  const m = new Date().getUTCMonth();
+  return ['WINTER', 'SPRING', 'SUMMER', 'FALL'][Math.floor(m / 3)];
+}
+async function home() {
+  const shelf = (alias, args) => `${alias}:Page(perPage:20){media(type:ANIME,isAdult:false,${args}){...F}}`;
+  const q = `query($season:MediaSeason,$year:Int){
+    ${shelf('trending', 'sort:TRENDING_DESC')}
+    ${shelf('season', 'season:$season,seasonYear:$year,sort:POPULARITY_DESC')}
+    ${shelf('top', 'sort:SCORE_DESC')}
+    ${shelf('action', 'genre:"Action",sort:POPULARITY_DESC')}
+    ${shelf('romance', 'genre:"Romance",sort:POPULARITY_DESC')}
+    ${shelf('comedy', 'genre:"Comedy",sort:POPULARITY_DESC')}
+    ${shelf('fantasy', 'genre:"Fantasy",sort:POPULARITY_DESC')}
+  } ${FRAG}`;
+  const d = await anilist(q, { season: currentSeason(), year: new Date().getUTCFullYear() });
+  const titles = [
+    ['trending', 'Trending Now'], ['season', 'Popular This Season'], ['top', 'Top Rated'],
+    ['action', 'Action'], ['romance', 'Romance'], ['comedy', 'Comedy'], ['fantasy', 'Fantasy'],
+  ];
+  return { rows: titles.map(([k, title]) => ({ title, items: d[k].media.map(mapMedia) })).filter(r => r.items.length) };
 }
 
 // ---------- Stream providers ----------
@@ -104,9 +133,12 @@ function pickSource(sources) {
 }
 
 async function viaAniwatch(base, titles, ep) {
-  const s = await fetchJson(`${base}/api/v2/hianime/search?q=${encodeURIComponent(titles[0])}`);
-  const animes = (s.data && s.data.animes) || [];
-  const hit = bestMatch(animes, titles, a => a.name);
+  let hit = null;
+  for (const t of titles) {
+    const s = await fetchJson(`${base}/api/v2/hianime/search?q=${encodeURIComponent(t)}`);
+    hit = bestMatch((s.data && s.data.animes) || [], titles, a => a.name);
+    if (hit) break;
+  }
   if (!hit) throw new Error('no match');
   const e = await fetchJson(`${base}/api/v2/hianime/anime/${encodeURIComponent(hit.id)}/episodes`);
   const episode = ((e.data && e.data.episodes) || []).find(x => x.number === ep);
@@ -118,8 +150,12 @@ async function viaAniwatch(base, titles, ep) {
   return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.tracks) };
 }
 async function viaConsumet(base, titles, ep) {
-  const s = await fetchJson(`${base}/anime/gogoanime/${encodeURIComponent(titles[0])}`);
-  const hit = bestMatch((s.results || []).filter(r => !/dub/i.test(r.id + r.title)), titles, a => a.title);
+  let hit = null;
+  for (const t of titles) {
+    const s = await fetchJson(`${base}/anime/gogoanime/${encodeURIComponent(t)}`);
+    hit = bestMatch((s.results || []).filter(r => !/dub/i.test(r.id + r.title)), titles, a => a.title);
+    if (hit) break;
+  }
   if (!hit) throw new Error('no match');
   const info = await fetchJson(`${base}/anime/gogoanime/info/${encodeURIComponent(hit.id)}`);
   const episode = (info.episodes || []).find(x => Number(x.number) === ep);
@@ -138,20 +174,21 @@ async function sources(req, q, origin) {
     ...ANIWATCH.map(b => () => viaAniwatch(b, titles, ep)),
     ...CONSUMET.map(b => () => viaConsumet(b, titles, ep)),
   ];
-  const errors = [];
-  for (const job of jobs) {
-    try {
-      const r = await job();
-      const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
-      const isHls = /m3u8/i.test(r.url);
-      // Route through our proxy when the CDN demands a Referer (TV browsers can't set it)
-      const url = ref ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
-      return { url, type: isHls ? 'hls' : 'mp4', subtitles: r.subtitles };
-    } catch (e) { errors.push(e.message); }
+  try {
+    // Race every provider; first one that yields a stream wins (keeps us inside the function timeout)
+    const r = await Promise.any(jobs.map(job => job()));
+    const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
+    const isHls = /m3u8/i.test(r.url);
+    // Route through our proxy when the CDN demands a Referer (TV browsers can't set it)
+    const url = ref ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
+    // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
+    const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&url=${encodeURIComponent(t.url)}` }));
+    return { url, type: isHls ? 'hls' : 'mp4', subtitles };
+  } catch (e) {
+    const err = new Error('No provider returned a stream: ' + (e.errors || [e]).map(x => x.message).join(' | '));
+    err.status = 502;
+    throw err;
   }
-  const err = new Error('No provider returned a stream: ' + errors.join(' | '));
-  err.status = 502;
-  throw err;
 }
 
 // ---------- Proxy ----------
@@ -194,12 +231,14 @@ module.exports = async (req, res) => {
   try {
     switch (q.action) {
       case 'search':
-        if (!q.q) return send(res, 400, { error: 'q required' }, 'no-store');
-        return send(res, 200, { results: await search(q.q) });
+        if (!q.q && !q.genre) return send(res, 400, { error: 'q or genre required' }, 'no-store');
+        return send(res, 200, { results: await search(q.q, q.genre) });
       case 'sources':
         return send(res, 200, await sources(req, q, origin), 's-maxage=60');
       case 'proxy':
         return await proxy(req, res, q, origin);
+      case 'home':
+        return send(res, 200, await home());
       case 'trending':
       default:
         return send(res, 200, { results: await trending() });
