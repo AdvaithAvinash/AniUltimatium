@@ -1,4 +1,4 @@
-const VERCEL_API_URL = "YOUR_VERCEL_URL_HERE";
+const VERCEL_API_URL = "https://aniultimatium.vercel.app";
 
 (function () {
   'use strict';
