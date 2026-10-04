@@ -563,7 +563,9 @@ function finish(r, origin) {
   // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
   const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
   const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
-  return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities };
+  // sources whose picture already has English subtitles burned in (so no overlay is added automatically)
+  const hardsub = ['animeheaven', 'gogoanime'].includes(r.provider) || /^animegg/.test(r.matched || '');
+  return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities, hardsub };
 }
 
 // Intro / outro timestamps (AniSkip, keyed by MyAnimeList id)

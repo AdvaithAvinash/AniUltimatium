@@ -61,3 +61,11 @@ This app combines all anime apis into one.
 - **Audio**: Japanese (original) or English dub. HLS streams with several audio tracks (AniZone) switch live; otherwise the server fetches the dub from the
   Anivexa providers that have one. Your choice is remembered, and it falls back to Japanese when no dub exists.
 - A controls notice is shown when the app opens; **Don't show again** hides it (turn it back on under Settings → Tips).
+
+## Automatic OpenSubtitles
+- Subtitles turn on by themselves: **OpenSubtitles in your remembered language (English by default)** for anime and movies. Streams that already have English burned into
+  the picture (AnimeHeaven, Gogoanime, AnimeGG) are left alone.
+- **Auto-alignment**: when the stream ships its own English track, every OpenSubtitles English file is compared with it (nearest-cue histogram) and the best-aligned file is
+  chosen and offset automatically — OpenSubtitles text, with timing locked to your exact release.
+- Menu → **Subtitles** (language: English, Japanese, Malayalam, Hindi, Tamil, Telugu first, then Arabic, Chinese, French, German, Indonesian, Italian, Korean, Portuguese, Russian, Spanish, Turkish, Vietnamese …
+  whatever exists for the title), **Subtitle file** (OpenSubtitles #1…#n or the stream's own track) and **Subtitle sync**. Your language is remembered.
