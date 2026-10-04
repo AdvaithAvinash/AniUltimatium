@@ -5,6 +5,7 @@ English-subtitled anime for **Samsung Tizen TVs** and **laptops/desktops** (same
 - `public/` – the front-end. On Vercel it is served at the site root, so laptops just open your Vercel URL.
 - `api/index.js` – Vercel serverless backend (AniList metadata + stream lookup, CORS `*`).
 - `tools/build_wgt.py` – zips `public/` into `app.wgt` for the TV (sign with your Samsung certificate before installing).
+Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
 
 Set `VERCEL_API_URL` at the top of `public/main.js`, then run `python3 tools/build_wgt.py`.
 
@@ -32,6 +33,7 @@ In the player press **Up** (remote) / **Q** / click the quality button to open t
 
 These sites block cloud/datacenter IPs, so **run the app locally** (`npm install && npm start`) for best results.
 To use a separately hosted Anivexa instance instead, set `ANIVEXA_URL`.
+This app combines all anime apis into one.
 
 ## Movies, accounts, history
 - **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Streams come from (1) any Stremio-compatible addons you set in
