@@ -24,6 +24,8 @@ Laptop: open `http://localhost:3000`. TV: open the app → **Settings** → *Str
 Keep the computer on and on the same Wi-Fi as the TV while watching.
 
 ## Stream sources
-`AnimeHeaven` is the primary source: plain HTML, direct hard-subbed English MP4 links, no bot protection (verified live
-for Solo Leveling, Frieren, Attack on Titan, One Piece, Demon Slayer, Dandadan, Death Note, FMA:B …).
-The others are fallbacks; many are blocked by Cloudflare and may fail depending on your network.
+Verified live (from a cloud server IP): **AnimeHeaven** (direct hard-subbed English MP4, best quality) and **gogoanime.by**
+(Google-Video MP4, relayed through the server). Together they matched 87 of the 101 titles on the AniList home page; the
+rest were brand-new 2026 episodes not uploaded anywhere yet, or oddly-named Gintama seasons.
+AllAnime is tried too but is usually behind Cloudflare. Set `EXTRA_PROVIDERS=1` to also try the Cloudflare-blocked
+HiAnime/AnimePahe/AnimeKai scrapers (slow, mostly fail).
