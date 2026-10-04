@@ -296,15 +296,16 @@ function avPick(d) {
     qualities: best.type === 'mp4' ? usable.filter(x => x.type === 'mp4' && x.quality).sort((a, b) => q(b) - q(a)).map(x => ({ label: x.quality, url: x.url })) : undefined,
   };
 }
-async function viaAnivexa(anilistId, ep) {
+async function viaAnivexa(anilistId, ep, only) {
   if (!anilistId) throw new Error('no anilist id');
+  const order = only && AV_ORDER.includes(only) ? [only] : AV_ORDER;
   const T = 14000;
-  const runs = AV_ORDER.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/sub/${p}-${ep}`).then(d => ({ ...avPick(d), via: p })), T, p));
+  const runs = order.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/sub/${p}-${ep}`).then(d => ({ ...avPick(d), via: p })), T, p));
   runs.forEach(r => r.catch(() => {}));
   const errs = [];
   for (let i = 0; i < runs.length; i++) {            // priority order; all already running in parallel
-    try { const r = await runs[i]; return { ...r, matched: AV_ORDER[i] + (r.quality ? ' ' + r.quality : '') }; }
-    catch (e) { errs.push(AV_ORDER[i] + ': ' + clean(e.message, 50)); }
+    try { const r = await runs[i]; return { ...r, matched: order[i] + (r.quality ? ' ' + r.quality : '') }; }
+    catch (e) { errs.push(order[i] + ': ' + clean(e.message, 50)); }
   }
   throw new Error(errs.join('; '));
 }
@@ -486,10 +487,10 @@ async function viaConsumetRemote(base, titles, ep) {
   return result(await fetchJson(`${base}/anime/animepahe/watch?episodeId=${encodeURIComponent(episode.id)}`));
 }
 
-function providerJobs(titles, ep, anilistId) {
+function providerJobs(titles, ep, anilistId, via) {
   const T = 40000;
   return [
-    ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep), T, 'anivexa')],
+    ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via), T, 'anivexa')],
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
     ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
@@ -512,8 +513,11 @@ function parseQuery(q) {
 
 async function sources(req, q, origin) {
   const { titles, ep } = parseQuery(q);
-  const only = q.only ? String(q.only).split(',') : null;
-  const all = providerJobs(titles, ep, q.id).filter(([n]) => !only || only.includes(n));
+  // forced source from the player's menu: an Anivexa sub-provider, or animeheaven / gogoanime
+  const via = q.via && q.via !== 'auto' ? String(q.via) : null;
+  const avVia = via && AV_ORDER.includes(via) ? via : null;
+  const only = q.only ? String(q.only).split(',') : via ? [avVia ? 'anivexa' : via] : null;
+  const all = providerJobs(titles, ep, q.id, avVia).filter(([n]) => !only || only.includes(n));
   // Anivexa (HLS up to 1080p, soft English subs) goes first; the rest only start if it fails or is slow (>6s)
   const primary = all.find(([n]) => n === 'anivexa') && q.id ? all.find(([n]) => n === 'anivexa') : all.find(([n]) => n === 'animeheaven');
   const primaryRun = primary ? primary[1]() : null;
