@@ -53,7 +53,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
     genre: '', epRange: 0, searchTimer: null, trackUrls: [],
-    mode: 'anime', smode: 'anime', cache: {}, skip: null
+    mode: 'anime', smode: 'anime', cache: {}, skip: null, mvia: store.get('ea_msrc', 'auto')
   };
 
   // ======================= Persistence =======================
@@ -426,10 +426,29 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     $('dDesc').textContent = a.description || 'No description available.';
     $('dBack').innerHTML = ic('back') + 'Back';
     $('detail').setAttribute('data-kind', movie ? 'movie' : 'anime');
+    closeSrcList(false); if (movie) renderSrcBtn();
     paintDetailButtons();
     renderEpisodes();
     $('dScroll').scrollTop = 0;
     setFocus($('dPlay'));
+  }
+  // ----- movie source dropdown -----
+  var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else VidCore'], ['vidcore', 'VidCore', 'embedded player'], ['vidsrc', 'VidSrc', 'embedded player'],
+                       ['cinesrc', 'CineSrc', 'embedded player'], ['archive', 'Public domain', 'our own player']];
+  function movieSrcName(v) { for (var i = 0; i < MOVIE_SOURCES.length; i++) if (MOVIE_SOURCES[i][0] === v) return MOVIE_SOURCES[i][1]; return 'Auto (best)'; }
+  function renderSrcBtn() { $('dSrcBtn').innerHTML = '<span>Source: ' + esc(movieSrcName(state.mvia)) + '</span><span>▾</span>'; }
+  function srcListOpen() { return $('dSrcList').className !== 'hidden'; }
+  function closeSrcList(refocus) { $('dSrcList').className = 'hidden'; if (refocus) setFocus($('dSrcBtn')); }
+  function openSrcList() {
+    var box = $('dSrcList'); box.innerHTML = ''; var sel = null;
+    MOVIE_SOURCES.forEach(function (o) {
+      var d = el('div', 'dsopt focusable' + (o[0] === state.mvia ? ' on' : ''), '<span>' + esc(o[1]) + (o[0] === state.mvia ? ' ✓' : '') + '</span><span class="hint2">' + esc(o[2]) + '</span>');
+      d.__srcval = o[0]; if (o[0] === state.mvia) sel = d; box.appendChild(d);
+    });
+    box.className = ''; setFocus(sel || box.firstChild);
+  }
+  function pickSource(v) {
+    state.mvia = v; store.set('ea_msrc', v); renderSrcBtn(); closeSrcList(false); setFocus($('dPlay')); toast('Source: ' + movieSrcName(v));
   }
   function paintDetailButtons() {
     var a = state.anime, p = progOf(a), movie = a.kind === 'movie';
@@ -600,10 +619,10 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function menuRows() {
     var opts = qualityOptions(), qi = curQualityIndex(opts);
     var movie = state.anime && state.anime.kind === 'movie';
-    var vias = movie ? ['auto', 'embed', 'archive'] : SOURCES, cur = movie ? (state.mvia || 'auto') : (state.via || 'auto'), vi = Math.max(0, vias.indexOf(cur));
-    var names = movie ? { auto: 'Auto', embed: 'Embedded player', archive: 'Public domain' } : SRC_NAMES;
+    var vias = movie ? MOVIE_SOURCES.map(function (o) { return o[0]; }) : SOURCES, cur = movie ? (state.mvia || 'auto') : (state.via || 'auto'), vi = Math.max(0, vias.indexOf(cur));
+    var names = movie ? (function () { var n = {}; MOVIE_SOURCES.forEach(function (o) { n[o[0]] = o[1]; }); return n; })() : SRC_NAMES;
     if (movie && state.embed) return [{ key: 'source', label: 'Source', value: names[vias[vi]], change: function (dir) {
-      state.mvia = vias[(vi + dir + vias.length) % vias.length]; closeMenu(); play(state.anime, 1, 0, true); } }];
+      state.mvia = vias[(vi + dir + vias.length) % vias.length]; store.set('ea_msrc', state.mvia); closeMenu(); play(state.anime, 1, 0, true); } }];
     return [
       { key: 'quality', label: 'Quality', value: opts.length ? opts[qi].label : 'Single stream',
         change: function (dir) { if (opts.length < 2) { toast('This source has a single quality'); return; }
@@ -612,7 +631,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       { key: 'source', label: 'Source', value: names[vias[vi]] || vias[vi],
         change: function (dir) {
           var nv = vias[(vi + dir + vias.length) % vias.length];
-          if (movie) state.mvia = nv; else state.via = nv;
+          if (movie) { state.mvia = nv; store.set('ea_msrc', nv); } else state.via = nv;
           var at = video.currentTime; toast('Source: ' + (names[nv] || nv));
           closeMenu(); play(state.anime, state.ep, at > 5 ? at : 0, true);
         } }
@@ -844,6 +863,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (e.id === 'accLogout') { logout(); return; }
     if (e.id === 'accSync') { syncNow(true); return; }
     if (e.id === 'clearHist') { clearHist(); renderHistory(); toast('History cleared'); setFocus($('clearHist')); return; }
+    if (e.id === 'dSrcBtn') { srcListOpen() ? closeSrcList(true) : openSrcList(); return; }
+    if (e.__srcval !== undefined) { pickSource(e.__srcval); return; }
     if (e.id === 'dRemove') { removeProg(keyOf(state.anime)); paintDetailButtons(); renderEpisodes(); toast('Removed from Continue Watching'); setFocus($('dPlay')); return; }
     if (e.id === 'dBack') { closeDetail(); return; }
     if (e.id === 'dPlay') { startFromDetail(); return; }
@@ -883,6 +904,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
 
   function goBack() {
+    if (state.view === 'detail' && srcListOpen()) { closeSrcList(true); return; }
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
     else if (state.tab !== 'home') showTab('home', true);
@@ -947,6 +969,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (state.view === 'player') return;
     var rb = up(e.target, 'rowbtn');
     if (rb) { var tr = rb.parentNode.parentNode.parentNode.querySelector('.track'); tr.scrollLeft += parseInt(rb.getAttribute('data-dir'), 10) * tr.clientWidth * 0.8; return; }
+    if (state.view === 'detail' && srcListOpen() && !up(e.target, 'dsopt') && e.target.id !== 'dSrcBtn' && !up(e.target, 'focusable')) closeSrcList(false);
     var cx = up(e.target, 'cx');
     if (cx) { removeCard(up(cx, 'card')); return; }
     var f = up(e.target, 'focusable');

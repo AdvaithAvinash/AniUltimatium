@@ -219,3 +219,13 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
 #player[data-embed] .ptop{background:none;padding:1rem 1.5rem;position:absolute;top:0;left:0}
 #player[data-embed] .ptop .pbtn{pointer-events:auto;background:rgba(0,0,0,.65)}
 #player[data-embed] #phud.fade{opacity:1}
+
+/* Movie source dropdown (detail page) */
+#detail:not([data-kind=movie]) #dSrcWrap{display:none}
+#dSrcWrap{position:relative;margin:0 0 1rem;display:inline-block;z-index:8}
+#dSrcBtn{min-width:20rem;justify-content:space-between}
+#dSrcList{position:absolute;left:0;top:calc(100% + .4rem);min-width:100%;padding:.5rem;border-radius:.8rem;background:rgba(14,14,22,.98);border:.12rem solid #33334a;box-shadow:0 1rem 3rem rgba(0,0,0,.7);z-index:9}
+.dsopt{display:flex;align-items:center;justify-content:space-between;gap:1.2rem;padding:.75rem 1rem;margin-bottom:.3rem;border-radius:.6rem;background:var(--card);font-size:1.15rem;font-weight:700;white-space:nowrap;cursor:pointer}
+.dsopt:last-child{margin-bottom:0}
+.dsopt.on{color:var(--accent)}
+.dsopt .hint2{font-size:.85rem;font-weight:600;color:var(--muted)}

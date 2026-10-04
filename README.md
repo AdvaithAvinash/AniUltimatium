@@ -37,7 +37,8 @@ This app combines all anime apis into one.
 
 ## Movies, accounts, history
 - **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Playback: public-domain films from the Internet Archive play in our
-  own player (quality/subtitle menu, resume, skip); every other movie opens the hosted **VidCore** embed player (TMDB id) in an iframe.
+  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player (**VidCore**, **VidSrc** or **CineSrc**, all keyed by TMDB id) in an iframe.
+  On a movie's page, the **Source** dropdown picks Auto / VidCore / VidSrc / CineSrc / Public domain before you press Play (remembered).
   Embedded players run their own controls, so resume/skip aren't available there. In the menu (Up / Q) choose Source: Auto / Embedded / Public domain.
 - **Accounts**: Account tab -> create account / sign in. Continue Watching, My List and History sync between devices.
   Storage: `data/` folder when you run `npm start`; Upstash Redis on Vercel (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
