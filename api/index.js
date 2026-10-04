@@ -16,6 +16,9 @@
 process.on('unhandledRejection', e => console.error('unhandledRejection:', e && e.message));
 process.on('uncaughtException', e => console.error('uncaughtException:', e && e.message));
 
+const accounts = require('../lib/accounts');
+const movies = require('../lib/movies');
+
 const ANILIST = 'https://graphql.anilist.co';
 // Optional extra remote instances (comma separated base URLs). Empty by default: the scrapers
 // below run inside this function, so no third-party host has to be alive.
@@ -24,13 +27,13 @@ const CONSUMET = (process.env.CONSUMET_URLS || '').split(',').map(s => s.trim().
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
-  episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms`;
+  idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms`;
 const FRAG = `fragment F on Media{${MEDIA_FIELDS}}`;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, *');
 }
 function send(res, code, body, cache) {
   cors(res);
@@ -61,6 +64,8 @@ async function anilist(query, variables) {
 function mapMedia(m) {
   return {
     id: m.id,
+    mal: m.idMal || null,
+    kind: 'anime',
     title: m.title.english || m.title.romaji,          // strictly English-first
     titleRomaji: m.title.romaji,
     cover: m.coverImage.extraLarge || m.coverImage.large,
@@ -526,22 +531,43 @@ async function sources(req, q, origin) {
   try {
     // Race every provider; first one that yields a stream wins
     const r = await Promise.any(jobs);
-    const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
-    const isHls = /m3u8/i.test(r.url);
-    // Route through our proxy when the CDN demands a Referer / CORS (browsers can't set it); HLS always goes through it
-    const url = ref || r.forceProxy || isHls ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
-    // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
-    const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt&url=${encodeURIComponent(t.url)}` }));
-    // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
-    const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
-    const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
-    return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities };
+    return finish(r, origin);
   } catch (e) {
     const err = new Error('Not available yet — this title or episode has not been found on any source. Try another episode or title.');
     err.detail = (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 600);
     err.status = 502;
     throw err;
   }
+}
+
+
+// Turn a provider result into the response the app plays (proxying where a browser/TV could not fetch directly)
+function finish(r, origin) {
+  const ref = (r.headers && (r.headers.Referer || r.headers.referer)) || '';
+  const isHls = /m3u8/i.test(r.url);
+  // Route through our proxy when the CDN demands a Referer / CORS (browsers can't set it); HLS always goes through it
+  const url = ref || r.forceProxy || isHls ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
+  // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
+  const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt&url=${encodeURIComponent(t.url)}` }));
+  // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
+  const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
+  const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
+  return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities };
+}
+
+// Intro / outro timestamps (AniSkip, keyed by MyAnimeList id)
+async function skipTimes(mal, ep) {
+  if (!mal) return { op: null, ed: null };
+  try {
+    const d = await fetchJson(`https://api.aniskip.com/v2/skip-times/${encodeURIComponent(mal)}/${encodeURIComponent(ep)}?types=op&types=ed&episodeLength=0`, {}, 8000);
+    const pick = t => { const x = (d.results || []).find(r => r.skipType === t); return x ? { start: x.interval.startTime, end: x.interval.endTime } : null; };
+    return { op: pick('op'), ed: pick('ed') };
+  } catch (e) { return { op: null, ed: null }; }
+}
+
+async function readBody(req) {
+  if (req.body !== undefined && req.body !== null && req.body !== '') return typeof req.body === 'string' ? (JSON.parse(req.body || '{}')) : req.body;
+  return {};
 }
 
 // Diagnostic: runs every provider to completion and reports what each one did
@@ -620,6 +646,8 @@ async function proxy(req, res, q, origin) {
   stream.pipe(res);
 }
 
+const bearer = req => String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+
 module.exports = async (req, res) => {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -635,6 +663,24 @@ module.exports = async (req, res) => {
         return send(res, 200, await sources(req, q, origin), 's-maxage=60');
       case 'debug':
         return send(res, 200, await debug(q), 'no-store');
+      // ---- movies (Cinemeta metadata; Stremio addons + Internet Archive streams) ----
+      case 'movies_home':
+        return send(res, 200, await movies.home(), 's-maxage=1800');
+      case 'movies_search':
+        if (!q.q) return send(res, 400, { error: 'q required' }, 'no-store');
+        return send(res, 200, { results: await movies.search(q.q) }, 's-maxage=600');
+      case 'movie_sources': {
+        const r = await movies.sources(q);
+        return send(res, 200, finish(r, origin), 'no-store');
+      }
+      case 'skip':
+        return send(res, 200, await skipTimes(q.mal, q.ep || 1), 's-maxage=86400');
+      // ---- accounts & sync ----
+      case 'register': return send(res, 200, await accounts.register(await readBody(req)), 'no-store');
+      case 'login': return send(res, 200, await accounts.login(await readBody(req)), 'no-store');
+      case 'me': return send(res, 200, await accounts.me(bearer(req)), 'no-store');
+      case 'sync_get': return send(res, 200, await accounts.syncGet(bearer(req)), 'no-store');
+      case 'sync_put': return send(res, 200, await accounts.syncPut(bearer(req), (await readBody(req)).data), 'no-store');
       case 'proxy':
         return await proxy(req, res, q, origin);
       case 'home':

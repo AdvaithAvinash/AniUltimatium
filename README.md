@@ -32,3 +32,15 @@ In the player press **Up** (remote) / **Q** / click the quality button to open t
 
 These sites block cloud/datacenter IPs, so **run the app locally** (`npm install && npm start`) for best results.
 To use a separately hosted Anivexa instance instead, set `ANIVEXA_URL`.
+
+## Movies, accounts, history
+- **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Streams come from (1) any Stremio-compatible addons you set in
+  `STREMIO_ADDONS` (comma separated base URLs; only direct HTTP streams are used, never torrents) and (2) the Internet Archive's
+  public-domain feature films. Most commercial "western" streaming sites sit behind Cloudflare or encrypted embeds and could not be
+  scraped reliably, so add an addon you trust for wider coverage.
+- **Accounts**: Account tab -> create account / sign in. Continue Watching, My List and History sync between devices.
+  Storage: `data/` folder when you run `npm start`; Upstash Redis on Vercel (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
+  optional `AUTH_SECRET`). Without Upstash, Vercel only keeps accounts temporarily.
+- **Skip intro / outro** (AniSkip) button appears during openings/endings (Enter on the remote, or click).
+- **Remove from Continue Watching**: ✕ on the card (mouse), Delete / X / red button on a focused card, or the button on the detail page.
+  **History** tab lists everything watched; remove single items the same way or "Clear all history".
