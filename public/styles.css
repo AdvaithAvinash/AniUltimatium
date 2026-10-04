@@ -151,3 +151,15 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
   #heroBody{left:1.2rem;width:calc(100% - 2.4rem)}#heroDots{display:none}
   #dTop{flex-direction:column}#dCover{width:10rem;height:15rem}
 }
+
+/* ---------- Settings ---------- */
+#setPanel{padding:1rem 3rem;max-width:62rem}
+#setPanel h3{font-size:1.5rem;margin-bottom:.6rem}
+.hint{font-size:1.1rem;line-height:1.5;color:var(--muted);margin-bottom:1.2rem}
+.hint b{color:#fff}
+#serverInput{width:100%;height:3.4rem;padding:0 1.4rem;font-size:1.4rem;background:var(--card);border:.15rem solid #33334a;border-radius:.8rem;outline:none}
+#serverInput:focus{border-color:var(--glow)}
+#setBtns{display:flex;gap:1rem;margin:1.2rem 0;flex-wrap:wrap}
+#setUsing{font-size:1.05rem;color:var(--muted);margin-bottom:.8rem;word-break:break-all}
+#setOut{font:1.05rem/1.55 Consolas,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#d6d6e4}
+.ok{color:#5be584}.bad{color:#ff7a90}

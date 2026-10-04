@@ -16,6 +16,7 @@
       <button class="tab focusable" data-tab="home"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
+      <button class="tab focusable" data-tab="settings"></button>
     </nav>
   </header>
 
@@ -52,6 +53,23 @@
     <div class="pagehead"><h2>My List</h2></div>
     <div id="listMsg" class="msg"></div>
     <div id="listGrid" class="cards"></div>
+  </main>
+
+  <main id="viewSettings" class="view hidden">
+    <div class="pagehead"><h2>Settings</h2></div>
+    <div id="setPanel">
+      <h3>Stream server</h3>
+      <p class="hint">Streaming sites block most cloud servers. If playback fails, run <b>npm start</b> on your computer
+        (it prints a TV address) and enter it here, e.g. <b>http://192.168.1.20:3000</b>. Leave empty to use the cloud backend.</p>
+      <input id="serverInput" class="focusable" type="text" placeholder="http://192.168.1.20:3000" autocomplete="off" spellcheck="false">
+      <div id="setBtns">
+        <button id="setSave" class="btn primary focusable"></button>
+        <button id="setTest" class="btn focusable"></button>
+        <button id="setReset" class="btn focusable"></button>
+      </div>
+      <div id="setUsing"></div>
+      <pre id="setOut"></pre>
+    </div>
   </main>
 
   <section id="detail" class="hidden">

@@ -18,6 +18,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     fs: 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z',
     search: 'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
     home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z', list: 'M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z',
+    gear: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
     star: 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'
   };
   function ic(n) { return '<svg class="ic" viewBox="0 0 24 24"><path d="' + ICONS[n] + '"/></svg>'; }
@@ -80,10 +81,16 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
 
   // ======================= API =======================
+  // Which backend to use: user-set server (Settings) > the local server that served this page > cloud (Vercel)
+  function apiBase() {
+    var custom = (store.get('ea_server', '') || '').trim();
+    if (custom) return (/^https?:\/\//i.test(custom) ? custom : 'http://' + custom).replace(/\/+$/, '');
+    if (/^https?:$/.test(location.protocol) && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)) return location.origin;
+    return VERCEL_API_URL.replace(/\/+$/, '');
+  }
   function api(params) {
-    var base = VERCEL_API_URL.replace(/\/+$/, '');
     var qs = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
-    return fetch(base + '/api?' + qs).then(function (r) {
+    return fetch(apiBase() + '/api?' + qs).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
         return j;
@@ -151,7 +158,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       var unset = VERCEL_API_URL.indexOf('YOUR_VERCEL') === 0;
       $('homeMsg').innerHTML = esc(unset ? 'Set VERCEL_API_URL in main.js' : 'Could not load anime: ' + e.message) +
         '<button class="retry focusable" id="retryHome">Retry</button>';
-      setFocus($('retryHome'));
+      if (state.tab === 'home') setFocus($('retryHome'));
     });
   }
   function renderContinue() {
@@ -203,17 +210,17 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
 
   // ======================= Tabs =======================
   function paintTabs() {
-    var tabs = document.querySelectorAll('.tab'), names = { home: 'Home', search: 'Search', list: 'My List' };
+    var tabs = document.querySelectorAll('.tab'), names = { home: 'Home', search: 'Search', list: 'My List', settings: 'Settings' };
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
-      tabs[i].innerHTML = ic(t === 'list' ? 'list' : t) + names[t];
+      tabs[i].innerHTML = ic(t === 'settings' ? 'gear' : t === 'list' ? 'list' : t) + names[t];
       tabs[i].className = 'tab focusable' + (t === state.tab ? ' active' : '') + (tabs[i] === state.focusEl ? ' focused' : '');
       tabs[i].__tab = t;
     }
   }
   function showTab(t, focusContent) {
     state.tab = t; state.view = t;
-    ['home', 'search', 'list'].forEach(function (n) {
+    ['home', 'search', 'list', 'settings'].forEach(function (n) {
       $('view' + n.charAt(0).toUpperCase() + n.slice(1)).className = 'view' + (n === t ? '' : ' hidden');
     });
     $('nav').className = activeView().scrollTop > 40 ? 'solid' : '';
@@ -224,6 +231,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       if (focusContent !== false) { setFocus($('searchInput')); if (!IS_TV) $('searchInput').focus(); }
     }
     if (t === 'list') renderList();
+    if (t === 'settings') { $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('serverInput')); }
     if (focusContent && t === 'home') setFocus($('heroPlay'));
     if (focusContent && t === 'list') { var f = $('listGrid').firstChild; if (f) setFocus(f); }
   }
@@ -512,10 +520,13 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
 
   function activate(e) {
-    if (e.id === 'searchInput') { e.focus(); return; }
+    if (e.tagName === 'INPUT') { e.focus(); return; }
     if (e.__tab) { showTab(e.__tab, e.__tab !== 'search'); if (e.__tab === 'search') setFocus($('searchInput')); return; }
     if (e.id === 'heroPlay') { var h = state.hero[state.heroIdx]; if (h) { state.returnFocus = e; var p = getProg()[h.id]; play(h, p ? p.ep : 1); } return; }
     if (e.id === 'heroInfo') { var h2 = state.hero[state.heroIdx]; if (h2) openDetail(h2); return; }
+    if (e.id === 'setSave') { store.set('ea_server', $('serverInput').value.trim()); $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Saved'); loadHome(); return; }
+    if (e.id === 'setReset') { store.set('ea_server', ''); $('serverInput').value = ''; $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Reset to default'); loadHome(); return; }
+    if (e.id === 'setTest') { testStreams(); return; }
     if (e.id === 'retryHome') { loadHome(); return; }
     if (e.id === 'dBack') { closeDetail(); return; }
     if (e.id === 'dPlay') { startFromDetail(); return; }
@@ -525,6 +536,18 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (e.__ep) { play(state.anime, e.__ep); return; }
     if (e.__cont) { state.returnFocus = e; state.anime = e.__anime; play(e.__anime, e.__cont.ep); return; }
     if (e.__anime) { openDetail(e.__anime); }
+  }
+
+  function testStreams() {
+    var out = $('setOut'); out.textContent = 'Testing every scraper (can take ~30s)…';
+    store.set('ea_server', $('serverInput').value.trim());
+    $('setUsing').textContent = 'Currently using: ' + apiBase();
+    api({ action: 'debug', title: 'Solo Leveling', alt: 'Ore dake Level Up na Ken', ep: 1 }).then(function (d) {
+      out.innerHTML = d.providers.map(function (p) {
+        return p.ok ? '<span class="ok">✔ ' + esc(p.provider) + '  ' + p.ms + 'ms</span>'
+                    : '<span class="bad">✘ ' + esc(p.provider) + ': ' + esc(String(p.error).slice(0, 160)) + '</span>';
+      }).join('\n');
+    }).catch(function (e) { out.innerHTML = '<span class="bad">Server unreachable: ' + esc(e.message) + '</span>'; });
   }
 
   function goBack() {
@@ -552,12 +575,12 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       else hud();
       return;
     }
-    var typing = document.activeElement === $('searchInput');
+    var ae = document.activeElement, typing = ae && ae.tagName === 'INPUT';
     if (typing) {
-      if (k === KEY.ENTER) { e.preventDefault(); clearTimeout(state.searchTimer); $('searchInput').blur(); runSearch(); return; }
-      if (k === KEY.BACK || k === KEY.ESC) { e.preventDefault(); $('searchInput').blur(); return; }
-      if (k === KEY.DOWN) { e.preventDefault(); $('searchInput').blur(); move('down'); }
-      else if (k === KEY.UP) { e.preventDefault(); $('searchInput').blur(); move('up'); }
+      if (k === KEY.ENTER) { e.preventDefault(); ae.blur(); if (ae.id === 'searchInput') { clearTimeout(state.searchTimer); runSearch(); } return; }
+      if (k === KEY.BACK || k === KEY.ESC) { e.preventDefault(); ae.blur(); return; }
+      if (k === KEY.DOWN) { e.preventDefault(); ae.blur(); move('down'); }
+      else if (k === KEY.UP) { e.preventDefault(); ae.blur(); move('up'); }
       return; // everything else edits the text
     }
     switch (k) {
@@ -577,7 +600,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   document.addEventListener('mouseover', function (e) {
     if (state.view === 'player') return;
     var f = up(e.target, 'focusable');
-    if (f && f !== state.focusEl && f.id !== 'searchInput') setFocus(f, true);
+    if (f && f !== state.focusEl && f.tagName !== 'INPUT') setFocus(f, true);
   });
   document.addEventListener('click', function (e) {
     if (state.view === 'player') return;
@@ -592,7 +615,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     clearTimeout(state.searchTimer);
     state.searchTimer = setTimeout(runSearch, 450);
   });
-  ['viewHome', 'viewSearch', 'viewList'].forEach(function (id) {
+  ['viewHome', 'viewSearch', 'viewList', 'viewSettings'].forEach(function (id) {
     $(id).addEventListener('scroll', function () { $('nav').className = this.scrollTop > 40 ? 'solid' : ''; });
   });
   document.addEventListener('visibilitychange', function () { if (document.hidden && state.view === 'player') video.pause(); });
