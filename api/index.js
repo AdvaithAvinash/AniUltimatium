@@ -272,16 +272,25 @@ async function avGet(pathname) {
   return res.json();
 }
 const AV_ORDER = ['anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi'];
+// Keep several subtitle tracks (English variants first, then Japanese and a few other languages) so the player can offer a language choice.
+const LANG_CODES = { english: 'en', japanese: 'ja', spanish: 'es', portuguese: 'pt', french: 'fr', german: 'de', arabic: 'ar', italian: 'it', indonesian: 'id', russian: 'ru' };
 function avSubtitles(list) {
-  const rank = t => {
+  const langOf = t => { const l = String(t.language || t.lang || t.label || '').toLowerCase(); for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) return LANG_CODES[k]; return null; };
+  const rank = t => {                       // English variants: dialogue/plain best, forced/songs/AI worst
     const l = String(t.language || t.lang || t.label || '');
-    if (!/english/i.test(l)) return -1;
     if (/forced|signs|songs|dub|\bai\b/i.test(l)) return 1;
     if (/sdh|cc/i.test(l)) return 2;
     return 3;
   };
-  return (list || []).filter(t => t && t.url && rank(t) > 0 && /\.(vtt|srt|ass)(\?|$)/i.test(t.url))
-    .sort((a, b) => rank(b) - rank(a)).slice(0, 1).map(t => ({ lang: 'English', url: t.url }));
+  const usable = (list || []).filter(t => t && t.url && /\.(vtt|srt|ass)(\?|$)/i.test(t.url) && langOf(t));
+  const out = [], seen = {};
+  usable.sort((a, b) => rank(b) - rank(a)).forEach(t => {
+    const code = langOf(t), cap = code === 'en' ? 2 : 1;
+    seen[code] = (seen[code] || 0) + 1;
+    if (seen[code] <= cap) out.push({ lang: code, label: String(t.language || t.lang || t.label || code).replace(/\s*\(.*?\)\s*/g, ' ').trim(), url: t.url });
+  });
+  const order = { en: 0, ja: 1 };
+  return out.sort((a, b) => (order[a.lang] ?? 9) - (order[b.lang] ?? 9)).slice(0, 8);
 }
 function avPick(d) {
   let streams = (d.streams || d.sources || []).filter(x => x && x.url && /^https?:/.test(x.url));
@@ -302,11 +311,12 @@ function avPick(d) {
     qualities: best.type === 'mp4' ? usable.filter(x => x.type === 'mp4' && x.quality).sort((a, b) => q(b) - q(a)).map(x => ({ label: x.quality, url: x.url })) : undefined,
   };
 }
-async function viaAnivexa(anilistId, ep, only) {
+async function viaAnivexa(anilistId, ep, only, audio) {
   if (!anilistId) throw new Error('no anilist id');
-  const order = only && AV_ORDER.includes(only) ? [only] : AV_ORDER;
+  const aud = audio === 'dub' ? 'dub' : 'sub';
+  const order = (only && AV_ORDER.includes(only) ? [only] : AV_ORDER).filter(p => aud === 'sub' || p !== 'anizone');   // AniZone has no separate dub (its HLS carries an English audio track)
   const T = 14000;
-  const runs = order.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/sub/${p}-${ep}`).then(d => ({ ...avPick(d), via: p })), T, p));
+  const runs = order.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/${aud}/${p}-${ep}`).then(d => ({ ...avPick(d), via: p })), T, p));
   runs.forEach(r => r.catch(() => {}));
   const errs = [];
   for (let i = 0; i < runs.length; i++) {            // priority order; all already running in parallel
@@ -493,10 +503,10 @@ async function viaConsumetRemote(base, titles, ep) {
   return result(await fetchJson(`${base}/anime/animepahe/watch?episodeId=${encodeURIComponent(episode.id)}`));
 }
 
-function providerJobs(titles, ep, anilistId, via) {
+function providerJobs(titles, ep, anilistId, via, audio) {
   const T = 40000;
   return [
-    ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via), T, 'anivexa')],
+    ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via, audio), T, 'anivexa')],
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
     ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
@@ -523,7 +533,7 @@ async function sources(req, q, origin) {
   const via = q.via && q.via !== 'auto' ? String(q.via) : null;
   const avVia = via && AV_ORDER.includes(via) ? via : null;
   const only = q.only ? String(q.only).split(',') : via ? [avVia ? 'anivexa' : via] : null;
-  const all = providerJobs(titles, ep, q.id, avVia).filter(([n]) => !only || only.includes(n));
+  const all = providerJobs(titles, ep, q.id, avVia, q.audio).filter(([n]) => (!only || only.includes(n)) && (q.audio !== 'dub' || n === 'anivexa'));
   // Anivexa (HLS up to 1080p, soft English subs) goes first; the rest only start if it fails or is slow (>6s)
   const primary = all.find(([n]) => n === 'anivexa') && q.id ? all.find(([n]) => n === 'anivexa') : all.find(([n]) => n === 'animeheaven');
   const primaryRun = primary ? primary[1]() : null;
@@ -532,9 +542,9 @@ async function sources(req, q, origin) {
   try {
     // Race every provider; first one that yields a stream wins
     const r = await Promise.any(jobs);
-    return finish(r, origin);
+    return { ...finish(r, origin), audio: q.audio === 'dub' ? 'dub' : 'sub' };
   } catch (e) {
-    const err = new Error('Not available yet — this title or episode has not been found on any source. Try another episode or title.');
+    const err = new Error(q.audio === 'dub' ? 'No English dub was found for this episode.' : 'Not available yet — this title or episode has not been found on any source. Try another episode or title.');
     err.detail = (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 600);
     err.status = 502;
     throw err;
