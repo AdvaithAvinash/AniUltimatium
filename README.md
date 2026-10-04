@@ -1,4 +1,4 @@
-# English Anime
+# Aniultimatium
 
 English-subtitled anime for **Samsung Tizen TVs** and **laptops/desktops** (same code, responsive UI).
 

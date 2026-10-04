@@ -10,7 +10,7 @@ const handler = require('../api/index.js');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const PUBLIC = path.join(__dirname, '..', 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.xml': 'text/xml', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.xml': 'text/xml', '.json': 'application/json' };
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
@@ -31,7 +31,7 @@ http.createServer(async (req, res) => {
     res.end(data);
   });
 }).listen(PORT, '0.0.0.0', () => {
-  console.log('\nEnglish Anime local server running\n');
+  console.log('\nAniultimatium local server running\n');
   console.log('  Laptop : http://localhost:' + PORT);
   Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === 'IPv4' && !i.internal)
     .forEach(i => console.log('  TV     : http://' + i.address + ':' + PORT + '   <- enter this in the TV app: Settings > Stream server'));
