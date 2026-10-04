@@ -24,7 +24,7 @@ const CONSUMET = (process.env.CONSUMET_URLS || '').split(',').map(s => s.trim().
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
-  episodes nextAiringEpisode{episode} format seasonYear averageScore status genres`;
+  episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms`;
 const FRAG = `fragment F on Media{${MEDIA_FIELDS}}`;
 
 function cors(res) {
@@ -72,6 +72,7 @@ function mapMedia(m) {
     year: m.seasonYear,
     status: m.status,
     genres: m.genres || [],
+    synonyms: (m.synonyms || []).filter(x => /^[\x20-\x7e]+$/.test(x)).slice(0, 4),
     score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
   };
 }
@@ -116,23 +117,27 @@ async function home() {
 
 // ---------- Stream providers ----------
 const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-function bestMatch(list, titles, getName) {
+function bestMatch(list, titles, getName, minScore = 55) {
   const wants = titles.map(norm).filter(Boolean);
   let best = null, score = -1;
   for (const item of list) {
     const n = norm(getName(item));
+    if (!n) continue;
     let s = 0;
     for (const w of wants) {
-      if (n === w) s = Math.max(s, 100);
-      else if (n.includes(w) || w.includes(n)) s = Math.max(s, 60);
-      else {
+      if (n === w) { s = 100; break; }
+      if (n.includes(w) || w.includes(n)) {
+        // substring only counts when lengths are close ("Attack on Titan" must not pick "... Final Season")
+        const ratio = Math.max(n.length, w.length) / Math.min(n.length, w.length);
+        if (ratio <= 1.6) s = Math.max(s, 90 - (ratio - 1) * 25);
+      } else {
         const a = new Set(n.split(' ')), b = w.split(' ');
-        s = Math.max(s, 40 * b.filter(x => a.has(x)).length / Math.max(b.length, 1));
+        s = Math.max(s, 85 * b.filter(x => a.has(x)).length / Math.max(a.size, b.length));
       }
     }
     if (s > score) { score = s; best = item; }
   }
-  return best;
+  return score >= minScore ? best : null;
 }
 function pickSubtitles(tracks, base) {
   return (tracks || [])
@@ -174,7 +179,7 @@ function pickSource(sources) {
 function result(d) {
   const pick = pickSource(d.sources);
   if (!pick) throw new Error('no sources');
-  return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.subtitles || d.tracks) };
+  return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.subtitles || d.tracks), mp4: !pick.isM3U8 && !/m3u8/i.test(pick.url) };
 }
 
 // 1) HiAnime scraped in-process via the `aniwatch` package (English sub, softsubs).
@@ -235,6 +240,46 @@ async function consumetOnce(name, domain, titles, ep) {
   return result(d);
 }
 
+
+
+// 0) AnimeHeaven — plain HTML + direct, hard-subbed (English) MP4 links, no bot protection.
+//    Verified live: search.php -> anime.php (episode ids) -> gate.php (cookie key=<id>) -> <source src=...mp4>
+const AH = 'https://animeheaven.me';
+const decodeEnt = t => t.replace(/&amp;/g, '&').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+async function ahText(pathname, headers = {}, timeout = 12000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const r = await fetch(AH + pathname, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...headers } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+async function viaAnimeHeaven(titles, ep) {
+  let hit = null;
+  // the site's search is literal: also try the first words of each title ("Solo Leveling Season 2 ..." -> "Solo Leveling")
+  const queries = [...new Set([...titles, ...titles.map(t => norm(t).split(' ').slice(0, 2).join(' '))])].filter(q => q.length > 2);
+  for (const t of queries) {
+    const html = await ahText('/search.php?s=' + encodeURIComponent(t));
+    const seen = new Set(), items = [];
+    for (const m of html.matchAll(/<a href='anime\.php\?(\w+)' class='c'>([^<]+)<\/a>/g)) {
+      if (!seen.has(m[1])) { seen.add(m[1]); items.push({ id: m[1], name: decodeEnt(m[2]) }); }
+    }
+    hit = bestMatch(items.filter(i => !/\bdub\b/i.test(i.name)), titles, i => i.name);
+    if (hit) break;
+  }
+  if (!hit) throw new Error('no match');
+  const page = await ahText('/anime.php?' + hit.id);
+  let epId = null;
+  for (const m of page.matchAll(/id ="([a-f0-9]{32})"[^>]*>[\s\S]*?watch2 bc\s*'\s*>\s*([\d.]+)\s*</g)) {
+    if (Number(m[2]) === ep) { epId = m[1]; break; }
+  }
+  if (!epId) throw new Error('episode not found');
+  const gate = await ahText('/gate.php', { Cookie: 'key=' + epId, Referer: AH + '/anime.php?' + hit.id });
+  const srcs = [...gate.matchAll(/<source src='([^']+\.mp4[^']*)'/g)].map(m => decodeEnt(m[1])).filter(u => !/&error/.test(u));
+  if (!srcs.length) throw new Error('no video link');
+  return { url: srcs[0], headers: {}, subtitles: [], mp4: true, matched: hit.name };
+}
 
 // 5) AllAnime (the API ani-cli uses): plain JSON, no HTML scraping, English-subbed ("sub")
 const AA_API = 'https://api.allanime.day/api';
@@ -327,6 +372,7 @@ async function viaConsumetRemote(base, titles, ep) {
 function providerJobs(titles, ep) {
   const T = 25000;
   return [
+    ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
     ['aniwatch', () => withTimeout(viaAniwatchLib(titles, ep), T, 'aniwatch')],
     ['animepahe', () => withTimeout(viaConsumetLib('AnimePahe', titles, ep), T, 'animepahe')],
@@ -337,7 +383,7 @@ function providerJobs(titles, ep) {
   ];
 }
 function parseQuery(q) {
-  const titles = [q.title, q.alt].filter(Boolean);
+  const titles = [q.title, q.alt, ...String(q.syn || '').split('|')].map(x => (x || '').trim()).filter(Boolean);
   if (!titles.length) { const e = new Error('title required'); e.status = 400; throw e; }
   return { titles, ep: parseInt(q.ep, 10) || 1 };
 }
@@ -354,7 +400,9 @@ async function sources(req, q, origin) {
     const url = ref ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
     // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
     const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&url=${encodeURIComponent(t.url)}` }));
-    return { url, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider };
+    // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
+    const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
+    return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched };
   } catch (e) {
     const err = new Error('No stream found. ' + (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 400));
     err.status = 502;
@@ -367,7 +415,7 @@ async function debug(q) {
   const { titles, ep } = parseQuery(q);
   const out = await Promise.all(providerJobs(titles, ep).map(async ([name, job]) => {
     const t0 = Date.now();
-    try { const r = await job(); return { provider: name, ok: true, ms: Date.now() - t0, url: r.url, subtitles: r.subtitles.length }; }
+    try { const r = await job(); return { provider: name, ok: true, ms: Date.now() - t0, matched: r.matched, url: r.url, subtitles: r.subtitles.length }; }
     catch (e) { return { provider: name, ok: false, ms: Date.now() - t0, error: e.message }; }
   }));
   return { titles, ep, node: process.version, providers: out };
@@ -398,10 +446,17 @@ async function proxy(req, res, q, origin) {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).send(out);
   }
+  // Stream everything else (mp4 etc.) straight through, honouring Range requests
   res.setHeader('Content-Type', type || 'application/octet-stream');
-  const cr = r.headers.get('content-range'); if (cr) res.setHeader('Content-Range', cr);
+  ['content-range', 'content-length', 'accept-ranges'].forEach(h => { const v = r.headers.get(h); if (v) res.setHeader(h, v); });
   res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.status(r.status).send(Buffer.from(await r.arrayBuffer()));
+  res.statusCode = r.status;
+  if (!r.body) return res.end();
+  const { Readable } = require('stream');
+  const stream = Readable.fromWeb(r.body);
+  res.on('close', () => stream.destroy());
+  stream.on('error', () => res.end());
+  stream.pipe(res);
 }
 
 module.exports = async (req, res) => {

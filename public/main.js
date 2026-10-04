@@ -56,7 +56,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function slim(a) {
     return { id: a.id, title: a.title, titleRomaji: a.titleRomaji, cover: a.cover, banner: a.banner, color: a.color,
              description: (a.description || '').slice(0, 500), episodes: a.episodes, format: a.format, year: a.year,
-             status: a.status, genres: a.genres || [], score: a.score };
+             status: a.status, genres: a.genres || [], synonyms: a.synonyms || [], score: a.score };
   }
   function getProg() { return store.get('ea_progress', {}); }
   function setProg(a, ep, time, dur) {
@@ -349,7 +349,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var pr = getProg()[a.id];
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     pmsg('Finding an English-subbed stream…', true);
-    api({ action: 'sources', title: a.title, alt: a.titleRomaji || '', ep: ep }).then(function (d) {
+    api({ action: 'sources', title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep }).then(function (d) {
       if (tk !== state.token) return;
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
@@ -364,6 +364,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function startVideo(d, startAt, tk) {
     clearTracks();
+    state.src = d; state.triedProxy = false; state.startAt = startAt;
     // Subtitles are fetched through the API (CORS-open) and attached as same-origin blobs
     (d.subtitles || []).forEach(function (s) {
       fetch(s.url).then(function (r) { return r.blob(); }).then(function (b) {
@@ -381,7 +382,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       state.hls = new Hls({ maxBufferLength: 30 });
       state.hls.loadSource(d.url);
       state.hls.attachMedia(video);
-      state.hls.on(Hls.Events.ERROR, function (_, e) { if (e.fatal) pmsg('Playback error: ' + e.details, false); });
+      state.hls.on(Hls.Events.ERROR, function (_, e) { if (e.fatal && !fallbackToProxy()) pmsg('Playback error: ' + e.details, false); });
     } else {
       video.src = d.url; // native HLS (Tizen/Safari) or mp4
     }
@@ -393,7 +394,26 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   video.addEventListener('playing', function () { pmsg('', false); paintPlayBtn(); });
   video.addEventListener('pause', function () { paintPlayBtn(); hud(); });
   video.addEventListener('waiting', function () { pmsg('', true); });
-  video.addEventListener('error', function () { if (video.getAttribute('src')) pmsg('Video error — the stream could not be played', false); });
+  // If the direct link fails in this viewer's browser/TV, retry once through our own server
+  function fallbackToProxy() {
+    var d = state.src;
+    if (!d || !d.proxyUrl || state.triedProxy || d.proxyUrl === d.url) return false;
+    state.triedProxy = true;
+    pmsg('Switching route…', true);
+    var at = video.currentTime > 5 ? video.currentTime : state.startAt;
+    state.startAt = at;
+    if (state.hls) { state.hls.destroy(); state.hls = null; }
+    if (/m3u8/i.test(d.proxyUrl) || d.type === 'hls') {
+      if (window.Hls && Hls.isSupported()) { state.hls = new Hls({ maxBufferLength: 30 }); state.hls.loadSource(d.proxyUrl); state.hls.attachMedia(video); }
+      else video.src = d.proxyUrl;
+    } else video.src = d.proxyUrl;
+    var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
+    return true;
+  }
+  video.addEventListener('error', function () {
+    if (!video.getAttribute('src')) return;
+    if (!fallbackToProxy()) pmsg('Video error — the stream could not be played', false);
+  });
   video.addEventListener('progress', function () {
     if (video.duration && video.buffered.length) $('seekBuf').style.width = video.buffered.end(video.buffered.length - 1) / video.duration * 100 + '%';
   });

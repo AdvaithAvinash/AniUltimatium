@@ -13,7 +13,7 @@ Controls – TV remote: arrows / Enter / Return, media keys. Laptop: mouse, or a
 
 ## Troubleshooting streams
 Open `https://<your-vercel-url>/api?action=debug&title=Solo%20Leveling&ep=1` — it runs every bundled scraper
-(aniwatch/HiAnime, AnimePahe, AnimeKai, HiAnime) and shows which one worked, how long it took, or why it failed.
+(AnimeHeaven, AllAnime, aniwatch/HiAnime, AnimePahe, AnimeKai, HiAnime) and shows which one worked, how long it took, or why it failed.
 
 ## Run locally (recommended — streaming sites block cloud IPs)
 ```
@@ -22,3 +22,8 @@ npm start        # prints http://localhost:3000 and your TV address http://<LAN-
 ```
 Laptop: open `http://localhost:3000`. TV: open the app → **Settings** → *Stream server* → enter the TV address → Save → *Test streams*.
 Keep the computer on and on the same Wi-Fi as the TV while watching.
+
+## Stream sources
+`AnimeHeaven` is the primary source: plain HTML, direct hard-subbed English MP4 links, no bot protection (verified live
+for Solo Leveling, Frieren, Attack on Titan, One Piece, Demon Slayer, Dandadan, Death Note, FMA:B …).
+The others are fallbacks; many are blocked by Cloudflare and may fail depending on your network.
