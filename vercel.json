@@ -1,1 +1,1 @@
-{ "functions": { "api/index.js": { "maxDuration": 60 } } }
+{ "functions": { "api/index.js": { "maxDuration": 60, "includeFiles": "node_modules/aniwatch/**" } } }
