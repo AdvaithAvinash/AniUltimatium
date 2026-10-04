@@ -340,8 +340,9 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     Object.keys(map).forEach(function (k) { document.querySelector('[data-act="' + k + '"]').innerHTML = ic(map[k]); });
     paintPlayBtn();
   }
-  function play(a, ep, startAt) {
+  function play(a, ep, startAt, keepVia) {
     var tk = ++state.token;
+    if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
     state.anime = a; state.ep = ep; state.view = 'player';
     $('player').className = '';
     $('pTitle').textContent = a.title + ' — Episode ' + ep;
@@ -349,7 +350,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var pr = getProg()[a.id];
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     pmsg('Finding an English-subbed stream…', true);
-    api({ action: 'sources', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep }).then(function (d) {
+    api({ action: 'sources', via: state.via || 'auto', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep }).then(function (d) {
       if (tk !== state.token) return;
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
@@ -362,39 +363,106 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     state.trackUrls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
     state.trackUrls = [];
   }
-  // Start at the best quality the connection can sustain (hls.js default starts low); Q cycles Auto/1080p/720p/360p
+  // Start at the best quality the connection can sustain (hls.js default starts low)
   function newHls() {
     var h = new Hls({ maxBufferLength: 40, abrEwmaDefaultEstimate: 10000000, startLevel: -1, capLevelToPlayerSize: false });
-    h.on(Hls.Events.MANIFEST_PARSED, function () { setQualityLabel(); });
+    h.on(Hls.Events.MANIFEST_PARSED, function () { applyQualityPref(); setQualityLabel(); });
     h.on(Hls.Events.LEVEL_SWITCHED, function () { setQualityLabel(); });
     return h;
   }
-  function setQualityLabel() {
-    var b = document.querySelector('[data-act="quality"]'); if (!b) return;
-    var d = state.src;
-    if (!state.hls && d && d.qualities && d.qualities.length > 1) { b.textContent = d.qualities[state.qIdx || 0].label; return; }
-    if (!state.hls || !state.hls.levels || !state.hls.levels.length) { b.textContent = 'HD'; return; }
-    var cur = state.hls.currentLevel;
-    b.textContent = cur === -1 ? 'Auto' + (state.hls.levels[state.hls.loadLevel] ? ' ' + state.hls.levels[state.hls.loadLevel].height + 'p' : '') : state.hls.levels[cur].height + 'p';
+  // saved choice: 'auto' or a height (e.g. 1080). Locks to the best level <= that height.
+  function applyQualityPref() {
+    var pref = store.get('ea_q', 'auto'), h = state.hls;
+    if (!h || !h.levels || pref === 'auto') return;
+    var best = -1, bh = 0;
+    h.levels.forEach(function (l, i) { if (l.height <= pref && l.height >= bh) { bh = l.height; best = i; } });
+    if (best < 0) best = 0;
+    h.currentLevel = best;
   }
-  function cycleQuality() {
-    var h = state.hls, d = state.src;
-    if (!h && d && d.qualities && d.qualities.length > 1) {                // multi-file MP4 sources (e.g. 1080p/720p/480p/360p)
-      state.qIdx = ((state.qIdx || 0) + 1) % d.qualities.length;
-      var at = video.currentTime; video.src = d.qualities[state.qIdx].url;
-      video.onloadedmetadata = function () { if (at > 1) video.currentTime = at; };
-      var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
-      setQualityLabel(); toast('Quality: ' + d.qualities[state.qIdx].label); return;
+  function qualityOptions() {
+    var h = state.hls, d = state.src, out = [];
+    if (h && h.levels && h.levels.length) {
+      out.push({ label: 'Auto', pref: 'auto', apply: function () { h.currentLevel = -1; } });
+      h.levels.map(function (l, i) { return { i: i, h: l.height, bw: l.bitrate }; })
+        .sort(function (a, b) { return b.h - a.h || b.bw - a.bw; })
+        .filter(function (x, k, arr) { return !k || arr[k - 1].h !== x.h; })
+        .forEach(function (x) { out.push({ label: x.h + 'p', pref: x.h, apply: function () { h.currentLevel = x.i; } }); });
+    } else if (d && d.qualities && d.qualities.length > 1) {
+      d.qualities.forEach(function (q, i) {
+        out.push({ label: q.label, pref: parseInt(q.label, 10) || 'auto', apply: function () {
+          state.qIdx = i; var at = video.currentTime; video.src = q.url;
+          video.onloadedmetadata = function () { if (at > 1) video.currentTime = at; };
+          var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
+        } });
+      });
     }
-    if (!h || !h.levels || h.levels.length < 2) { toast('This source has a single quality'); return; }
-    var heights = h.levels.map(function (l, i) { return { i: i, h: l.height }; }).sort(function (a, b) { return b.h - a.h; });
-    var order = [-1].concat(heights.map(function (x) { return x.i; }));
-    var pos = order.indexOf(h.currentLevel); h.currentLevel = order[(pos + 1) % order.length];
-    setQualityLabel(); toast(h.currentLevel === -1 ? 'Quality: Auto' : 'Quality: ' + h.levels[h.currentLevel].height + 'p');
+    return out;
+  }
+  function curQualityIndex(opts) {
+    var h = state.hls;
+    if (h && h.levels && h.levels.length) {
+      if (h.currentLevel === -1 || (store.get('ea_q', 'auto') === 'auto')) return 0;
+      for (var i = 1; i < opts.length; i++) if (opts[i].label === h.levels[h.currentLevel].height + 'p') return i;
+      return 0;
+    }
+    return state.qIdx || 0;
+  }
+  function setQualityLabel() {
+    var b = document.querySelector('[data-act="menu"]'); if (!b) return;
+    var opts = qualityOptions();
+    if (!opts.length) { b.textContent = 'HD'; return; }
+    var h = state.hls;
+    if (h && h.levels && h.levels.length) {
+      var live = h.levels[h.currentLevel === -1 ? (h.loadLevel >= 0 ? h.loadLevel : h.levels.length - 1) : h.currentLevel];
+      b.textContent = (h.currentLevel === -1 ? 'Auto ' : '') + (live ? live.height + 'p' : '');
+    } else b.textContent = opts[curQualityIndex(opts)].label;
+  }
+  var SOURCES = ['auto', 'anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi', 'animeheaven', 'gogoanime'];
+  var SRC_NAMES = { auto: 'Auto (best)', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
+  function subsState() {
+    var tt = video.textTracks;
+    if (tt && tt.length) { for (var i = 0; i < tt.length; i++) if (tt[i].mode === 'showing') return 'On'; return 'Off'; }
+    return state.hasSoftSubs ? 'Loading…' : 'Built-in';
+  }
+  function menuRows() {
+    var opts = qualityOptions(), qi = curQualityIndex(opts);
+    var vias = SOURCES, vi = Math.max(0, vias.indexOf(state.via || 'auto'));
+    return [
+      { key: 'quality', label: 'Quality', value: opts.length ? opts[qi].label : 'Single stream',
+        change: function (dir) { if (opts.length < 2) { toast('This source has a single quality'); return; }
+          var n = (qi + dir + opts.length) % opts.length; opts[n].apply(); store.set('ea_q', opts[n].pref); setQualityLabel(); toast('Quality: ' + opts[n].label); } },
+      { key: 'subs', label: 'Subtitles', value: subsState(), change: function () { toggleCC(); } },
+      { key: 'source', label: 'Source', value: SRC_NAMES[vias[vi]] || vias[vi] + (state.src && state.src.matched && vias[vi] === 'auto' ? '' : ''),
+        change: function (dir) {
+          state.via = vias[(vi + dir + vias.length) % vias.length];
+          var at = video.currentTime; toast('Source: ' + (SRC_NAMES[state.via] || state.via));
+          closeMenu(); play(state.anime, state.ep, at > 5 ? at : 0, true);
+        } }
+    ];
+  }
+  function renderMenu() {
+    var rows = menuRows(), box = $('mrows'); box.innerHTML = '';
+    state.menuRows = rows;
+    rows.forEach(function (r, i) {
+      var d = el('div', 'mrow' + (i === state.menuIdx ? ' sel' : ''), '<span class="ml">' + esc(r.label) + '</span><span class="mv">◀ ' + esc(r.value) + ' ▶</span>');
+      d.onclick = function () { state.menuIdx = i; r.change(1); if (!$('pmenu').className.match(/hidden/)) renderMenu(); };
+      box.appendChild(d);
+    });
+  }
+  function openMenu() { state.menuIdx = state.menuIdx || 0; state.menuOpen = true; $('pmenu').className = ''; renderMenu(); hud(); clearTimeout(state.hudTimer); }
+  function closeMenu() { state.menuOpen = false; $('pmenu').className = 'hidden'; hud(); }
+  function menuKey(k) {
+    var n = state.menuRows.length;
+    if (k === KEY.UP) state.menuIdx = (state.menuIdx + n - 1) % n;
+    else if (k === KEY.DOWN) state.menuIdx = (state.menuIdx + 1) % n;
+    else if (k === KEY.LEFT) state.menuRows[state.menuIdx].change(-1);
+    else if (k === KEY.RIGHT || k === KEY.ENTER) state.menuRows[state.menuIdx].change(1);
+    else { closeMenu(); return; }
+    if (state.menuOpen) renderMenu();
   }
   function startVideo(d, startAt, tk) {
     clearTracks();
-    state.src = d; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0;
+    state.src = d; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0; state.menuOpen = false; $('pmenu').className = 'hidden';
     // Subtitles are fetched through the API (CORS-open) and attached as same-origin blobs
     (d.subtitles || []).forEach(function (s) {
       fetch(s.url).then(function (r) { return r.blob(); }).then(function (b) {
@@ -467,7 +535,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     $('seekBar').style.width = '0'; $('seekBuf').style.width = '0';
   }
   function closePlayer() {
-    state.token++;
+    state.token++; state.menuOpen = false; $('pmenu').className = 'hidden';
     if (video.duration && video.currentTime > 3) setProg(state.anime, state.ep, video.currentTime, video.duration);
     stopVideo();
     if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }
@@ -498,7 +566,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function playerAct(a) {
     ({ back: closePlayer, toggle: togglePlay, rew: function () { seek(-10); }, ff: function () { seek(10); },
-       prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, quality: cycleQuality })[a]();
+       prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, menu: function () { state.menuOpen ? closeMenu() : openMenu(); } })[a]();
   }
   $('player').addEventListener('click', function (e) {
     var b = up(e.target, 'pbtn');
@@ -612,16 +680,16 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var k = e.keyCode;
     if (state.view === 'player') {
       e.preventDefault();
+      if (state.menuOpen) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) closeMenu(); else menuKey(k); return; }
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
       else if (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) togglePlay();
       else if (k === KEY.LEFT || k === KEY.RW) seek(-10);
       else if (k === KEY.RIGHT || k === KEY.FF) seek(10);
-      else if (k === KEY.UP) seek(60);
-      else if (k === KEY.DOWN) seek(-60);
+      else if (k === KEY.UP || k === 81 || k === 83 || k === 403 || k === 457) openMenu();      // Up / Q / S / red / info
+      else if (k === KEY.DOWN) hud();
       else if (k === 70) toggleFS();
       else if (k === 77) { video.muted = !video.muted; toast(video.muted ? 'Muted' : 'Unmuted'); }
-      else if (k === 67) toggleCC();
-      else if (k === 81) cycleQuality();
+      else if (k === 67 || k === 404) toggleCC();
       else if (k === 78) stepEp(1);
       else if (k === 80) stepEp(-1);
       else hud();
@@ -675,7 +743,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   // ======================= Init =======================
   try {
     if (window.tizen && tizen.tvinputdevice) {
-      ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind'].forEach(function (n) {
+      ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind', 'ColorF0Red', 'ColorF1Green', 'Info'].forEach(function (n) {
         try { tizen.tvinputdevice.registerKey(n); } catch (e) {}
       });
     }

@@ -163,3 +163,12 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
 #setUsing{font-size:1.05rem;color:var(--muted);margin-bottom:.8rem;word-break:break-all}
 #setOut{font:1.05rem/1.55 Consolas,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#d6d6e4}
 .ok{color:#5be584}.bad{color:#ff7a90}
+
+/* ---------- Player settings menu (remote friendly) ---------- */
+#pmenu{position:absolute;right:3rem;bottom:8rem;width:26rem;z-index:5;background:rgba(14,14,22,.96);border:.12rem solid #33334a;border-radius:1rem;padding:1.1rem;box-shadow:0 1rem 3rem rgba(0,0,0,.7)}
+.mhead{font-size:1.25rem;font-weight:800;margin-bottom:.8rem}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem 1rem;margin-bottom:.45rem;border-radius:.7rem;background:var(--card);font-size:1.15rem;cursor:pointer}
+.mrow .ml{color:var(--muted);font-weight:600}
+.mrow .mv{font-weight:800;color:#fff;text-align:right}
+.mrow.sel{background:#1d2b3a;box-shadow:0 0 0 .18rem #fff,0 0 .9rem .25rem var(--glow),0 0 2.2rem .6rem rgba(0,229,255,.5)}
+.mhint{font-size:.9rem;color:var(--muted);margin-top:.6rem}

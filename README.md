@@ -28,7 +28,7 @@ Keep the computer on and on the same Wi-Fi as the TV while watching.
 dependency and run in-process) is the primary source. It aggregates AniZone, AniKoto, AnimeGG, KickAssAnime, AniWaves, Senshi …
 by AniList id and returns **adaptive HLS up to 1080p with English soft-subs** (SRT/ASS are converted to WebVTT by the proxy).
 Fallbacks: AnimeHeaven (720p hard-subbed MP4) and gogoanime.by.
-Press **Q** in the player (or click the quality button) to cycle Auto / 1080p / 720p / 360p.
+In the player press **Up** (remote) / **Q** / click the quality button to open the settings menu: **Quality** (Auto/1080p/720p/…; your choice is remembered), **Subtitles** and **Source** (pick AniZone, AniKoto, AnimeGG, KickAssAnime, Omega, AniWaves, Senshi, AnimeHeaven or Gogoanime manually if the automatic one is poor or missing). Remote: Left/Right seek, Enter play/pause, Down show controls, red/Info = menu, green = subtitles.
 
 These sites block cloud/datacenter IPs, so **run the app locally** (`npm install && npm start`) for best results.
 To use a separately hosted Anivexa instance instead, set `ANIVEXA_URL`.
