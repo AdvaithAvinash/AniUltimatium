@@ -1,1 +1,10 @@
-{ "name": "english-anime-api", "version": "2.3.0", "private": true, "engines": { "node": ">=18" } }
+{
+  "name": "english-anime-api",
+  "version": "2.3.0",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@consumet/extensions": "1.8.8",
+    "aniwatch": "2.27.9"
+  }
+}
