@@ -671,7 +671,9 @@ module.exports = async (req, res) => {
         return send(res, 200, { results: await movies.search(q.q) }, 's-maxage=600');
       case 'movie_sources': {
         const r = await movies.sources(q);
-        return send(res, 200, finish(r, origin), 'no-store');
+        // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)
+        const base = r.direct ? finish(r.direct, origin) : {};
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds }, 'no-store');
       }
       case 'skip':
         return send(res, 200, await skipTimes(q.mal, q.ep || 1), 's-maxage=86400');
