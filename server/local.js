@@ -17,6 +17,10 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/api') {
     // Vercel-style shims so the serverless handler runs unchanged
     req.query = Object.fromEntries(u.searchParams);
+    if (req.method === 'POST') {                       // parse JSON bodies like Vercel does
+      const chunks = []; for await (const c of req) chunks.push(c);
+      try { req.body = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch (e) { req.body = {}; }
+    }
     res.status = c => { res.statusCode = c; return res; };
     res.json = b => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(b)); return res; };
     res.send = b => { res.end(b); return res; };
@@ -28,6 +32,15 @@ http.createServer(async (req, res) => {
   fs.readFile(file, (err, data) => {
     if (err) { res.statusCode = 404; return res.end('Not found'); }
     res.setHeader('Content-Type', MIME[path.extname(file)] || 'application/octet-stream');
+    res.setHeader('Accept-Ranges', 'bytes');
+    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (m) {                                            // Range support (video seeking)
+      const start = m[1] ? parseInt(m[1], 10) : 0, end = m[2] ? Math.min(parseInt(m[2], 10), data.length - 1) : data.length - 1;
+      res.statusCode = 206;
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${data.length}`);
+      res.setHeader('Content-Length', end - start + 1);
+      return res.end(data.subarray(start, end + 1));
+    }
     res.end(data);
   });
 }).listen(PORT, '0.0.0.0', () => {

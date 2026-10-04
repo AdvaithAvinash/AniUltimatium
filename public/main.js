@@ -19,6 +19,9 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     search: 'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
     home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z', list: 'M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z',
     gear: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+    film: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
+    history: 'M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
+    person: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
     star: 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'
   };
   function ic(n) { return '<svg class="ic" viewBox="0 0 24 24"><path d="' + ICONS[n] + '"/></svg>'; }
@@ -49,35 +52,101 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   var state = {
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
-    genre: '', epRange: 0, searchTimer: null, trackUrls: []
+    genre: '', epRange: 0, searchTimer: null, trackUrls: [],
+    mode: 'anime', smode: 'anime', cache: {}, skip: null
   };
 
   // ======================= Persistence =======================
+  function keyOf(a) { return (a.kind === 'movie' ? 'm:' : 'a:') + a.id; }
   function slim(a) {
-    return { id: a.id, title: a.title, titleRomaji: a.titleRomaji, cover: a.cover, banner: a.banner, color: a.color,
-             description: (a.description || '').slice(0, 500), episodes: a.episodes, format: a.format, year: a.year,
+    return { id: a.id, kind: a.kind === 'movie' ? 'movie' : 'anime', mal: a.mal || null, title: a.title, titleRomaji: a.titleRomaji, cover: a.cover, banner: a.banner, color: a.color,
+             description: (a.description || '').slice(0, 500), episodes: a.episodes, format: a.format, year: a.year, runtime: a.runtime || null, cast: a.cast || [],
              status: a.status, genres: a.genres || [], synonyms: a.synonyms || [], score: a.score };
   }
+  function nowTs() { return Date.now(); }
+  function getDel() { return store.get('ea_del', {}); }
+  function addDel(k) { var d = getDel(); d[k] = nowTs(); store.set('ea_del', d); }
   function getProg() { return store.get('ea_progress', {}); }
+  function progOf(a) { return getProg()[keyOf(a)]; }
   function setProg(a, ep, time, dur) {
     var p = getProg();
-    p[a.id] = { anime: slim(a), ep: ep, time: time, dur: dur, ts: Date.now() };
-    store.set('ea_progress', p);
+    p[keyOf(a)] = { anime: slim(a), ep: ep, time: time, dur: dur, ts: nowTs() };
+    store.set('ea_progress', p); scheduleSync();
   }
-  function inList(a) { return store.get('ea_list', []).some(function (x) { return x.id === a.id; }); }
+  function removeProg(key) {
+    var p = getProg(); delete p[key]; store.set('ea_progress', p); addDel('p:' + key); scheduleSync();
+  }
+  function inList(a) { var k = keyOf(a); return store.get('ea_list', []).some(function (x) { return (x.key || keyOf(x)) === k; }); }
   function toggleList(a) {
-    var l = store.get('ea_list', []), had = false;
-    l = l.filter(function (x) { if (x.id === a.id) { had = true; return false; } return true; });
-    if (!had) l.unshift(slim(a));
-    store.set('ea_list', l);
+    var k = keyOf(a), l = store.get('ea_list', []), had = false;
+    l = l.filter(function (x) { if ((x.key || keyOf(x)) === k) { had = true; return false; } return true; });
+    if (had) addDel('l:' + k); else { var it = slim(a); it.key = k; it.ts = nowTs(); l.unshift(it); }
+    store.set('ea_list', l); scheduleSync();
     toast(had ? 'Removed from My List' : 'Added to My List');
     return !had;
   }
+  function getHist() { return store.get('ea_hist', []); }
+  function addHist(a, ep) {
+    var k = keyOf(a), h = getHist().filter(function (x) { return !(x.key === k && x.ep === ep); });
+    h.unshift({ key: k, anime: slim(a), ep: ep, ts: nowTs() });
+    store.set('ea_hist', h.slice(0, 200)); scheduleSync();
+  }
+  function removeHist(key, ep) {
+    store.set('ea_hist', getHist().filter(function (x) { return !(x.key === key && x.ep === ep); }));
+    addDel('h:' + key + ':' + ep); scheduleSync();
+  }
+  function clearHist() { store.set('ea_hist', []); addDel('h:all'); scheduleSync(); }
   function continueItems() {
     var p = getProg(), out = [];
-    Object.keys(p).forEach(function (k) { out.push(p[k]); });
+    Object.keys(p).forEach(function (k) { if ((p[k].anime.kind || 'anime') === state.mode) out.push(p[k]); });
     out.sort(function (a, b) { return b.ts - a.ts; });
     return out.slice(0, 20);
+  }
+  // one-time migration from the older id-keyed progress
+  (function migrate() {
+    var p = getProg(), changed = false;
+    Object.keys(p).forEach(function (k) { if (!/^[am]:/.test(k)) { p['a:' + k] = p[k]; delete p[k]; changed = true; } });
+    if (changed) store.set('ea_progress', p);
+  })();
+
+  // ---- accounts & cloud sync ----
+  function auth() { return store.get('ea_auth', null); }
+  function localData() { return { progress: getProg(), list: store.get('ea_list', []), history: getHist(), deleted: getDel() }; }
+  function mergeData(L, R) {
+    L = L || {}; R = R || {};
+    var del = {};
+    [L.deleted || {}, R.deleted || {}].forEach(function (d) { Object.keys(d).forEach(function (k) { del[k] = Math.max(del[k] || 0, d[k]); }); });
+    var prog = {};
+    [L.progress || {}, R.progress || {}].forEach(function (pp) { Object.keys(pp).forEach(function (k) { if (!prog[k] || pp[k].ts > prog[k].ts) prog[k] = pp[k]; }); });
+    Object.keys(prog).forEach(function (k) { if ((del['p:' + k] || 0) >= prog[k].ts) delete prog[k]; });
+    var lm = {};
+    (L.list || []).concat(R.list || []).forEach(function (x) { var k = x.key || keyOf(x); x.key = k; x.ts = x.ts || 0; if (!lm[k] || x.ts > lm[k].ts) lm[k] = x; });
+    var list = Object.keys(lm).map(function (k) { return lm[k]; }).filter(function (x) { return (del['l:' + x.key] || 0) < x.ts || !del['l:' + x.key]; })
+      .sort(function (a, b) { return b.ts - a.ts; });
+    var hm = {};
+    (L.history || []).concat(R.history || []).forEach(function (x) { var k = x.key + ':' + x.ep; if (!hm[k] || x.ts > hm[k].ts) hm[k] = x; });
+    var hist = Object.keys(hm).map(function (k) { return hm[k]; }).filter(function (x) {
+      return x.ts > (del['h:all'] || 0) && x.ts > (del['h:' + x.key + ':' + x.ep] || 0);
+    }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 200);
+    return { progress: prog, list: list, history: hist, deleted: del };
+  }
+  var syncTimer = null;
+  function scheduleSync() { if (!auth()) return; clearTimeout(syncTimer); syncTimer = setTimeout(function () { syncNow(false); }, 2500); }
+  function syncNow(manual) {
+    if (!auth()) return Promise.resolve();
+    return api({ action: 'sync_get' }).then(function (r) {
+      var m = mergeData(localData(), r.data || {});
+      store.set('ea_progress', m.progress); store.set('ea_list', m.list); store.set('ea_hist', m.history); store.set('ea_del', m.deleted);
+      return api({ action: 'sync_put' }, { body: { data: m } });
+    }).then(function () {
+      if (manual) toast('Synced');
+      if (state.tab === 'home' || state.tab === 'movies') renderContinue();
+      if (state.tab === 'list') renderList();
+      if (state.tab === 'history') renderHistory();
+    }).catch(function (e) {
+      if (/sign in again/i.test(e.message)) { store.set('ea_auth', null); paintTabs(); if (state.tab === 'account') renderAccount(); }
+      if (manual) toast('Sync failed: ' + e.message);
+    });
   }
 
   // ======================= API =======================
@@ -88,9 +157,13 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (/^https?:$/.test(location.protocol) && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)) return location.origin;
     return VERCEL_API_URL.replace(/\/+$/, '');
   }
-  function api(params) {
+  function api(params, opts) {
+    opts = opts || {};
     var qs = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
-    return fetch(apiBase() + '/api?' + qs).then(function (r) {
+    var headers = {}, au = auth(), init = { headers: headers };
+    if (au && /^(me|sync_get|sync_put)$/.test(params.action)) headers.Authorization = 'Bearer ' + au.token;
+    if (opts.body) { init.method = 'POST'; headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
+    return fetch(apiBase() + '/api?' + qs, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
         return j;
@@ -106,17 +179,24 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function card(a, extra) {
     var c = el('div', 'card focusable');
     var p = el('div', 'poster');
-    var img = el('img'); img.alt = ''; img.loading = 'lazy'; img.src = a.cover || '';
+    var img = el('img'); img.alt = ''; img.loading = 'lazy';
+    img.onload = function () { img.className = 'ld'; };
     img.onerror = function () { img.style.display = 'none'; };
+    img.src = a.cover || '';
     p.appendChild(img);
+    var movie = a.kind === 'movie';
     if (extra && extra.cont) {
-      p.appendChild(el('div', 'badge ep', 'EP ' + extra.ep));
+      p.appendChild(el('div', 'badge ep', movie ? 'RESUME' : 'EP ' + extra.ep));
       if (extra.dur) p.appendChild(el('div', 'pbar', '<i style="width:' + Math.min(100, extra.time / extra.dur * 100) + '%"></i>'));
+    } else if (extra && extra.hist) {
+      p.appendChild(el('div', 'badge ep', movie ? 'MOVIE' : 'EP ' + extra.ep));
     } else if (a.score) p.appendChild(el('div', 'badge', '★ ' + esc(a.score)));
+    if (extra && (extra.cont || extra.hist)) p.appendChild(el('button', 'cx', '✕'));
     c.appendChild(p);
     c.appendChild(el('div', 'ct', esc(a.title)));
     c.__anime = a;
     if (extra && extra.cont) { c.__cont = extra; }
+    if (extra && extra.hist) { c.__hist = extra; }
     return c;
   }
   function skeletonRows() {
@@ -140,26 +220,34 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
 
   // ======================= Home =======================
-  function loadHome() {
+  function loadHome(force) {
+    var m = state.mode;
     $('homeMsg').innerHTML = '';
+    if (!force && state.cache[m]) return renderHome(state.cache[m]);
+    state.hero = []; clearInterval(state.heroTimer);
     skeletonRows();
-    api({ action: 'home' }).then(function (d) {
-      $('rows').innerHTML = '';
-      var rows = d.rows || [];
-      renderContinue();
-      rows.forEach(function (r) { addRow(r.title, r.items); });
-      var feat = [];
-      (rows[0] ? rows[0].items : []).forEach(function (a) { if (a.banner && feat.length < 6) feat.push(a); });
-      if (!feat.length && rows[0]) feat = rows[0].items.slice(0, 5);
-      setHeroList(feat);
-      if (state.tab === 'home' && state.view === 'home') setFocus($('heroPlay'));
+    api({ action: m === 'movies' ? 'movies_home' : 'home' }).then(function (d) {
+      state.cache[m] = d;
+      if (m === state.mode) renderHome(d);
     }).catch(function (e) {
+      if (m !== state.mode) return;
       $('rows').innerHTML = '';
       var unset = VERCEL_API_URL.indexOf('YOUR_VERCEL') === 0;
-      $('homeMsg').innerHTML = esc(unset ? 'Set VERCEL_API_URL in main.js' : 'Could not load anime: ' + e.message) +
+      $('homeMsg').innerHTML = esc(unset ? 'Set VERCEL_API_URL in main.js' : 'Could not load ' + (m === 'movies' ? 'movies' : 'anime') + ': ' + e.message) +
         '<button class="retry focusable" id="retryHome">Retry</button>';
-      if (state.tab === 'home') setFocus($('retryHome'));
+      if (state.tab === 'home' || state.tab === 'movies') setFocus($('retryHome'));
     });
+  }
+  function renderHome(d) {
+    $('rows').innerHTML = ''; $('homeMsg').innerHTML = '';
+    var rows = d.rows || [];
+    renderContinue();
+    rows.forEach(function (r) { addRow(r.title, r.items); });
+    var feat = [];
+    (rows[0] ? rows[0].items : []).forEach(function (a) { if (a.banner && feat.length < 6) feat.push(a); });
+    if (!feat.length && rows[0]) feat = rows[0].items.slice(0, 5);
+    setHeroList(feat);
+    if ((state.tab === 'home' || state.tab === 'movies') && state.view === state.tab) setFocus($('heroPlay'));
   }
   function renderContinue() {
     var old = $('rows').querySelector('.row.cont');
@@ -189,15 +277,16 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       state.heroIdx = i;
       bg.style.backgroundImage = 'url("' + (a.banner || a.cover) + '")';
       if (!a.banner) bg.style.backgroundPosition = 'center 20%';
-      $('heroTags').innerHTML = '<span class="tag hot">#' + (i + 1) + ' Trending</span>' +
+      var movie = a.kind === 'movie';
+      $('heroTags').innerHTML = '<span class="tag hot">#' + (i + 1) + (movie ? ' Popular' : ' Trending') + '</span>' +
         (a.genres || []).slice(0, 3).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('');
       $('heroTitle').textContent = a.title;
       $('heroMeta').innerHTML = (a.score ? '<span class="score">★ ' + esc(a.score) + '</span>' : '') +
-        [a.format, a.year, a.episodes ? a.episodes + ' eps' : ''].filter(Boolean).map(esc).map(function (x) { return '<span>' + x + '</span>'; }).join('') +
-        '<span class="tag">ENG SUB</span>';
+        [a.format, a.year, movie ? a.runtime : (a.episodes ? a.episodes + ' eps' : '')].filter(Boolean).map(esc).map(function (x) { return '<span>' + x + '</span>'; }).join('') +
+        (movie ? '' : '<span class="tag">ENG SUB</span>');
       $('heroDesc').textContent = a.description;
-      var p = getProg()[a.id];
-      $('heroPlay').innerHTML = ic('play') + (p ? 'Continue EP ' + p.ep : 'Play EP 1');
+      var p = progOf(a);
+      $('heroPlay').innerHTML = ic('play') + (movie ? (p ? 'Resume' : 'Play Movie') : (p ? 'Continue EP ' + p.ep : 'Play EP 1'));
       $('heroInfo').innerHTML = ic('info') + 'More Info';
       var dots = $('heroDots').children;
       for (var k = 0; k < dots.length; k++) dots[k].className = k === i ? 'on' : '';
@@ -209,40 +298,89 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
 
   // ======================= Tabs =======================
+  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
+  var TAB_ICON = { home: 'home', movies: 'film', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
   function paintTabs() {
-    var tabs = document.querySelectorAll('.tab'), names = { home: 'Home', search: 'Search', list: 'My List', settings: 'Settings' };
+    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
-      tabs[i].innerHTML = ic(t === 'settings' ? 'gear' : t === 'list' ? 'list' : t) + names[t];
+      tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
       tabs[i].className = 'tab focusable' + (t === state.tab ? ' active' : '') + (tabs[i] === state.focusEl ? ' focused' : '');
       tabs[i].__tab = t;
     }
   }
   function showTab(t, focusContent) {
+    var prev = state.tab;
     state.tab = t; state.view = t;
-    ['home', 'search', 'list', 'settings'].forEach(function (n) {
-      $('view' + n.charAt(0).toUpperCase() + n.slice(1)).className = 'view' + (n === t ? '' : ' hidden');
+    if (t === 'home') state.mode = 'anime';
+    if (t === 'movies') state.mode = 'movies';
+    var shown = VIEW_OF[t];
+    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings'].forEach(function (id) {
+      $(id).className = 'view' + (id === shown ? '' : ' hidden');
     });
     $('nav').className = activeView().scrollTop > 40 ? 'solid' : '';
     paintTabs();
-    if (t === 'home') { renderContinue(); if (state.hero[state.heroIdx]) showHero(state.heroIdx, true); }
+    if (t === 'home' || t === 'movies') {
+      if (state.hero.length && state.cache[state.mode] && prev === state.tab) { renderContinue(); showHero(state.heroIdx, true); }
+      else loadHome();
+    }
     if (t === 'search') {
+      state.smode = state.smode || state.mode; paintTypeChips();
       if (!$('searchGrid').children.length && !$('searchMsg').textContent) runSearch();
       if (focusContent !== false) { setFocus($('searchInput')); if (!IS_TV) $('searchInput').focus(); }
     }
     if (t === 'list') renderList();
+    if (t === 'history') renderHistory();
+    if (t === 'account') renderAccount();
     if (t === 'settings') { $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('serverInput')); }
-    if (focusContent && t === 'home') setFocus($('heroPlay'));
+    if (focusContent && (t === 'home' || t === 'movies')) setFocus($('heroPlay'));
     if (focusContent && t === 'list') { var f = $('listGrid').firstChild; if (f) setFocus(f); }
+    if (focusContent && t === 'history') { var hb = $('clearHist'); setFocus($('histGrid').firstChild || hb); }
+    if (focusContent && t === 'account') setFocus($(auth() ? 'accSync' : 'accUser'));
   }
   function renderList() {
     var l = store.get('ea_list', []), g = $('listGrid'); g.innerHTML = '';
-    $('listMsg').textContent = l.length ? '' : 'Your list is empty. Open an anime and choose “My List” to save it here.';
+    $('listMsg').textContent = l.length ? '' : 'Your list is empty. Open a title and choose “My List” to save it here.';
     l.forEach(function (a) { g.appendChild(card(a)); });
   }
+  function renderHistory() {
+    var h = getHist(), g = $('histGrid'); g.innerHTML = '';
+    $('histMsg').textContent = h.length ? '' : 'Nothing watched yet.';
+    $('clearHist').innerHTML = 'Clear all history';
+    h.forEach(function (it) { g.appendChild(card(it.anime, { hist: true, ep: it.ep, key: it.key })); });
+  }
+  function renderAccount() {
+    var au = auth();
+    $('accOut').className = au ? 'hidden' : '';
+    $('accIn').className = au ? '' : 'hidden';
+    $('accLogin').innerHTML = ic('check') + 'Sign in'; $('accRegister').innerHTML = ic('plus') + 'Create account';
+    $('accSync').innerHTML = ic('history') + 'Sync now'; $('accLogout').innerHTML = 'Sign out';
+    $('accWho').textContent = au ? 'Signed in as ' + au.username : '';
+  }
+  function accMsg(t, bad) { $('accMsg').textContent = t || ''; $('accMsg').className = 'accmsg' + (bad ? ' bad' : ''); }
+  function doAuth(kind) {
+    var u = $('accUser').value.trim(), pw = $('accPass').value;
+    if (!u || !pw) { accMsg('Enter a username and password', true); return; }
+    accMsg(kind === 'register' ? 'Creating account…' : 'Signing in…');
+    api({ action: kind }, { body: { username: u, password: pw } }).then(function (r) {
+      store.set('ea_auth', { token: r.token, username: r.username });
+      $('accPass').value = '';
+      accMsg(r.persistent ? '' : 'Note: this server keeps accounts only temporarily. Run the app locally (npm start) or add an Upstash database for permanent accounts.', !r.persistent);
+      toast(kind === 'register' ? 'Account created' : 'Welcome back, ' + r.username);
+      paintTabs(); renderAccount(); syncNow(true); setFocus($('accSync'));
+    }).catch(function (e) { accMsg(e.message, true); });
+  }
+  function logout() { store.set('ea_auth', null); paintTabs(); renderAccount(); accMsg(''); toast('Signed out'); setFocus($('accUser')); }
 
   // ======================= Search =======================
+  function paintTypeChips() {
+    var cs = $('typeChips').children;
+    for (var i = 0; i < cs.length; i++) cs[i].className = 'chip focusable' + (cs[i].__stype === state.smode ? ' on' : '') + (cs[i] === state.focusEl ? ' focused' : '');
+    $('chips').style.display = state.smode === 'movies' ? 'none' : '';
+  }
   function buildChips() {
+    var tc = $('typeChips'); tc.innerHTML = '';
+    [['anime', 'Anime'], ['movies', 'Movies']].forEach(function (t) { var b = el('button', 'chip focusable', t[1]); b.__stype = t[0]; tc.appendChild(b); });
     var c = $('chips'); c.innerHTML = '';
     GENRES.forEach(function (g) {
       var b = el('button', 'chip focusable', esc(g)); b.__genre = g; c.appendChild(b);
@@ -256,14 +394,17 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     }
   }
   function runSearch() {
-    var q = $('searchInput').value.trim(), g = state.genre;
+    var q = $('searchInput').value.trim(), g = state.genre, movies = state.smode === 'movies';
     var grid = $('searchGrid'), msg = $('searchMsg'), tk = ++state.token;
     grid.innerHTML = '';
     msg.textContent = 'Searching…';
-    api(q || g ? { action: 'search', q: q, genre: g } : { action: 'trending' }).then(function (d) {
+    var p = movies
+      ? (q ? api({ action: 'movies_search', q: q }) : api({ action: 'movies_home' }).then(function (d) { return { results: d.rows[0] ? d.rows[0].items : [] }; }))
+      : api(q || g ? { action: 'search', q: q, genre: g } : { action: 'trending' });
+    p.then(function (d) {
       if (tk !== state.token) return;
       var list = d.results || [];
-      msg.textContent = list.length ? (q || g ? '' : 'Popular right now') : 'No results found.';
+      msg.textContent = list.length ? (q || (!movies && g) ? '' : 'Popular right now') : 'No results found.';
       list.forEach(function (a) { grid.appendChild(card(a)); });
     }).catch(function (e) { if (tk === state.token) msg.textContent = 'Search failed: ' + e.message; });
   }
@@ -272,37 +413,44 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function openDetail(a) {
     state.anime = a; state.view = 'detail'; state.epRange = 0;
     state.returnFocus = state.focusEl;
+    var movie = a.kind === 'movie';
     $('detail').className = '';
     $('dBg').style.backgroundImage = 'url("' + (a.banner || a.cover) + '")';
     $('dCover').src = a.cover || '';
     $('dTitle').textContent = a.title;
     $('dMeta').innerHTML = (a.score ? '<span class="score">★ ' + esc(a.score) + '</span>' : '') +
-      [a.format, a.year, a.status ? a.status.replace(/_/g, ' ') : '', a.episodes ? a.episodes + ' episodes' : ''].filter(Boolean)
-        .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '<span class="tag">ENG SUB</span>';
-    $('dGenres').innerHTML = (a.genres || []).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('');
+      (movie ? [a.year, a.runtime] : [a.format, a.year, a.status ? a.status.replace(/_/g, ' ') : '', a.episodes ? a.episodes + ' episodes' : '']).filter(Boolean)
+        .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + (movie ? '' : '<span class="tag">ENG SUB</span>');
+    $('dGenres').innerHTML = (a.genres || []).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('') +
+      (movie && a.cast && a.cast.length ? '<span class="tag cast">' + esc(a.cast.slice(0, 4).join(' · ')) + '</span>' : '');
     $('dDesc').textContent = a.description || 'No description available.';
     $('dBack').innerHTML = ic('back') + 'Back';
+    $('detail').setAttribute('data-kind', movie ? 'movie' : 'anime');
     paintDetailButtons();
     renderEpisodes();
     $('dScroll').scrollTop = 0;
     setFocus($('dPlay'));
   }
   function paintDetailButtons() {
-    var a = state.anime, p = getProg()[a.id];
-    $('dPlay').innerHTML = ic('play') + (p ? 'Continue EP ' + p.ep + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play EP 1');
+    var a = state.anime, p = progOf(a), movie = a.kind === 'movie';
+    $('dPlay').innerHTML = ic('play') + (movie ? (p ? 'Resume' + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play Movie')
+      : (p ? 'Continue EP ' + p.ep + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play EP 1'));
     $('dList').innerHTML = ic(inList(a) ? 'check' : 'plus') + (inList(a) ? 'In My List' : 'My List');
+    $('dRemove').innerHTML = '✕ Remove from Continue Watching';
+    $('dRemove').style.display = p ? '' : 'none';
   }
   function renderEpisodes() {
-    var a = state.anime, n = a.episodes || 12, per = 50;
-    var ranges = $('dRanges'), box = $('dEps');
+    var a = state.anime, ranges = $('dRanges'), box = $('dEps');
     ranges.innerHTML = ''; box.innerHTML = '';
+    if (a.kind === 'movie') return;
+    var n = a.episodes || 12, per = 50;
     if (n > per) {
       for (var r = 0; r * per < n; r++) {
         var b = el('button', 'chip focusable' + (r === state.epRange ? ' on' : ''), (r * per + 1) + '–' + Math.min(n, (r + 1) * per));
         b.__range = r; ranges.appendChild(b);
       }
     }
-    var p = getProg()[a.id];
+    var p = progOf(a);
     for (var i = state.epRange * per + 1; i <= Math.min(n, (state.epRange + 1) * per); i++) {
       var e = el('div', 'ep focusable', 'EP ' + i);
       if (p && i === p.ep) { e.className += ' cur'; if (p.dur) e.appendChild(el('div', 'pbar', '<i style="width:' + Math.min(100, p.time / p.dur * 100) + '%"></i>')); }
@@ -313,13 +461,15 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function closeDetail() {
     state.view = state.tab;
     $('detail').className = 'hidden';
-    if (state.tab === 'home') renderContinue();
+    if (state.tab === 'home' || state.tab === 'movies') renderContinue();
+    if (state.tab === 'history') renderHistory();
+    if (state.tab === 'list') renderList();
     var f = state.returnFocus;
     if (f && document.body.contains(f)) setFocus(f); else setFocus($('heroPlay'));
   }
   function startFromDetail() {
-    var p = getProg()[state.anime.id];
-    play(state.anime, p ? p.ep : 1);
+    var p = progOf(state.anime);
+    play(state.anime, state.anime.kind === 'movie' ? 1 : (p ? p.ep : 1));
   }
 
   // ======================= Player =======================
@@ -341,19 +491,24 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     paintPlayBtn();
   }
   function play(a, ep, startAt, keepVia) {
-    var tk = ++state.token;
+    var tk = ++state.token, movie = a.kind === 'movie';
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
-    state.anime = a; state.ep = ep; state.view = 'player';
-    $('player').className = '';
-    $('pTitle').textContent = a.title + ' — Episode ' + ep;
+    state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null;
+    $('player').className = ''; $('player').setAttribute('data-kind', movie ? 'movie' : 'anime');
+    $('skipBtn').className = 'skipbtn hidden';
+    $('pTitle').textContent = movie ? a.title : a.title + ' — Episode ' + ep;
     stopVideo();
-    var pr = getProg()[a.id];
+    var pr = progOf(a);
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
-    pmsg('Finding an English-subbed stream…', true);
-    api({ action: 'sources', via: state.via || 'auto', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep }).then(function (d) {
+    if (!keepVia) addHist(a, ep);
+    pmsg(movie ? 'Finding a stream…' : 'Finding an English-subbed stream…', true);
+    var req = movie ? api({ action: 'movie_sources', id: a.id, title: a.title, year: a.year || '' })
+      : api({ action: 'sources', via: state.via || 'auto', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep });
+    req.then(function (d) {
       if (tk !== state.token) return;
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
+      if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
       if (tk === state.token) { pmsg('Could not start playback: ' + e.message + '  (press Back to return)', false); }
     });
@@ -521,9 +676,20 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (d) $('seekBar').style.width = t / d * 100 + '%';
     $('pTime').textContent = fmt(t) + ' / ' + fmt(d);
     if (Date.now() - state.lastSave > 5000 && t > 3 && d) { state.lastSave = Date.now(); setProg(state.anime, state.ep, t, d); }
+    updateSkip(t);
   });
+  // Skip intro / outro (AniSkip timestamps)
+  function updateSkip(t) {
+    var sk = state.skip, b = $('skipBtn'), hit = null;
+    if (sk && sk.op && t >= sk.op.start - 1 && t < sk.op.end - 1) hit = { to: sk.op.end, label: 'Skip Intro' };
+    else if (sk && sk.ed && t >= sk.ed.start - 1 && t < sk.ed.end - 1) hit = { to: sk.ed.end, label: 'Skip Outro' };
+    if (hit) { state.skipTo = hit.to; b.innerHTML = hit.label + ' ' + ic('next'); if (b.className !== 'skipbtn show') b.className = 'skipbtn show'; }
+    else if (b.className !== 'skipbtn hidden') b.className = 'skipbtn hidden';
+  }
+  function doSkip() { if (state.skipTo) { video.currentTime = state.skipTo; $('skipBtn').className = 'skipbtn hidden'; hud(); } }
   video.addEventListener('ended', function () {
     var a = state.anime;
+    if (a.kind === 'movie') { removeProg(keyOf(a)); closePlayer(); return; }
     if (a.episodes && state.ep >= a.episodes) { setProg(a, state.ep, 0, 0); closePlayer(); return; }
     setProg(a, state.ep + 1, 0, 0);
     play(a, state.ep + 1, 0);
@@ -535,7 +701,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     $('seekBar').style.width = '0'; $('seekBuf').style.width = '0';
   }
   function closePlayer() {
-    state.token++; state.menuOpen = false; $('pmenu').className = 'hidden';
+    state.token++; state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden';
     if (video.duration && video.currentTime > 3) setProg(state.anime, state.ep, video.currentTime, video.duration);
     stopVideo();
     if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }
@@ -549,6 +715,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function togglePlay() { if (video.paused) { var p = video.play(); if (p && p.catch) p.catch(function () {}); } else video.pause(); hud(); }
   function stepEp(d) {
     var a = state.anime, n = state.ep + d;
+    if (a.kind === 'movie') return;
     if (n < 1 || (a.episodes && n > a.episodes)) { toast(d > 0 ? 'This is the last episode' : 'This is the first episode'); return; }
     play(a, n, 0);
   }
@@ -569,6 +736,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
        prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, menu: function () { state.menuOpen ? closeMenu() : openMenu(); } })[a]();
   }
   $('player').addEventListener('click', function (e) {
+    if (e.target.id === 'skipBtn' || up(e.target, 'skipbtn')) { doSkip(); return; }
     var b = up(e.target, 'pbtn');
     if (b) { playerAct(b.getAttribute('data-act')); return; }
     if (e.target.id === 'seek' || e.target.parentNode.id === 'seek') {
@@ -613,7 +781,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     });
     return out;
   }
-  function activeView() { return $('view' + state.tab.charAt(0).toUpperCase() + state.tab.slice(1)); }
+  function activeView() { return $(VIEW_OF[state.tab]); }
   function center(e) { var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height }; }
   function move(dir) {
     var cur = state.focusEl;
@@ -641,12 +809,19 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function activate(e) {
     if (e.tagName === 'INPUT') { e.focus(); return; }
     if (e.__tab) { showTab(e.__tab, e.__tab !== 'search'); if (e.__tab === 'search') setFocus($('searchInput')); return; }
-    if (e.id === 'heroPlay') { var h = state.hero[state.heroIdx]; if (h) { state.returnFocus = e; var p = getProg()[h.id]; play(h, p ? p.ep : 1); } return; }
+    if (e.__stype) { state.smode = e.__stype; paintTypeChips(); $('searchGrid').innerHTML = ''; runSearch(); return; }
+    if (e.id === 'heroPlay') { var h = state.hero[state.heroIdx]; if (h) { state.returnFocus = e; var p = progOf(h); play(h, h.kind === 'movie' ? 1 : (p ? p.ep : 1)); } return; }
     if (e.id === 'heroInfo') { var h2 = state.hero[state.heroIdx]; if (h2) openDetail(h2); return; }
-    if (e.id === 'setSave') { store.set('ea_server', $('serverInput').value.trim()); $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Saved'); loadHome(); return; }
-    if (e.id === 'setReset') { store.set('ea_server', ''); $('serverInput').value = ''; $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Reset to default'); loadHome(); return; }
+    if (e.id === 'setSave') { store.set('ea_server', $('serverInput').value.trim()); $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Saved'); state.cache = {}; loadHome(true); return; }
+    if (e.id === 'setReset') { store.set('ea_server', ''); $('serverInput').value = ''; $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Reset to default'); state.cache = {}; loadHome(true); return; }
     if (e.id === 'setTest') { testStreams(); return; }
-    if (e.id === 'retryHome') { loadHome(); return; }
+    if (e.id === 'retryHome') { loadHome(true); return; }
+    if (e.id === 'accLogin') { doAuth('login'); return; }
+    if (e.id === 'accRegister') { doAuth('register'); return; }
+    if (e.id === 'accLogout') { logout(); return; }
+    if (e.id === 'accSync') { syncNow(true); return; }
+    if (e.id === 'clearHist') { clearHist(); renderHistory(); toast('History cleared'); setFocus($('clearHist')); return; }
+    if (e.id === 'dRemove') { removeProg(keyOf(state.anime)); paintDetailButtons(); renderEpisodes(); toast('Removed from Continue Watching'); setFocus($('dPlay')); return; }
     if (e.id === 'dBack') { closeDetail(); return; }
     if (e.id === 'dPlay') { startFromDetail(); return; }
     if (e.id === 'dList') { toggleList(state.anime); paintDetailButtons(); return; }
@@ -669,6 +844,21 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     }).catch(function (e) { out.innerHTML = '<span class="bad">Server unreachable: ' + esc(e.message) + '</span>'; });
   }
 
+  // Remove a card from Continue Watching / History (mouse ✕, or Delete / X / red button on the remote)
+  function removeCard(c) {
+    if (!c) return false;
+    var key = keyOf(c.__anime);
+    if (c.__cont) { removeProg(key); toast('Removed from Continue Watching'); }
+    else if (c.__hist) { removeHist(c.__hist.key || key, c.__hist.ep); toast('Removed from history'); }
+    else return false;
+    var next = c.nextSibling || c.previousSibling, track = c.parentNode;
+    track.removeChild(c);
+    if (hasCls(track, 'track') && !track.children.length) { var row = track.parentNode; row.parentNode.removeChild(row); }
+    var hm = $('histMsg'); if (c.__hist && !$('histGrid').children.length) hm.textContent = 'Nothing watched yet.';
+    setFocus(next || $('heroPlay'));
+    return true;
+  }
+
   function goBack() {
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
@@ -682,6 +872,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       e.preventDefault();
       if (state.menuOpen) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) closeMenu(); else menuKey(k); return; }
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
+      else if (k === KEY.ENTER && $('skipBtn').className === 'skipbtn show') doSkip();
       else if (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) togglePlay();
       else if (k === KEY.LEFT || k === KEY.RW) seek(-10);
       else if (k === KEY.RIGHT || k === KEY.FF) seek(10);
@@ -703,6 +894,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       else if (k === KEY.UP) { e.preventDefault(); ae.blur(); move('up'); }
       return; // everything else edits the text
     }
+    if ((k === 46 || k === 88 || k === 403) && state.focusEl && removeCard(state.focusEl)) { e.preventDefault(); return; }
     switch (k) {
       case KEY.UP: e.preventDefault(); move('up'); break;
       case KEY.DOWN: e.preventDefault(); move('down'); break;
@@ -726,6 +918,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (state.view === 'player') return;
     var rb = up(e.target, 'rowbtn');
     if (rb) { var tr = rb.parentNode.parentNode.parentNode.querySelector('.track'); tr.scrollLeft += parseInt(rb.getAttribute('data-dir'), 10) * tr.clientWidth * 0.8; return; }
+    var cx = up(e.target, 'cx');
+    if (cx) { removeCard(up(cx, 'card')); return; }
     var f = up(e.target, 'focusable');
     if (!f) return;
     if (f !== state.focusEl) setFocus(f, true);
@@ -735,7 +929,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     clearTimeout(state.searchTimer);
     state.searchTimer = setTimeout(runSearch, 450);
   });
-  ['viewHome', 'viewSearch', 'viewList', 'viewSettings'].forEach(function (id) {
+  ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings'].forEach(function (id) {
     $(id).addEventListener('scroll', function () { $('nav').className = this.scrollTop > 40 ? 'solid' : ''; });
   });
   document.addEventListener('visibilitychange', function () { if (document.hidden && state.view === 'player') video.pause(); });
@@ -753,4 +947,5 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   paintTabs();
   setFocus($('heroPlay'));
   loadHome();
+  if (auth()) syncNow(false);
 })();

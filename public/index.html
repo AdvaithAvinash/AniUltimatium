@@ -15,8 +15,11 @@
     <div class="brand"><img src="logo.svg" alt="" class="logo"><span class="bt">Ani<b>Ultimatium</b></span></div>
     <nav id="tabs">
       <button class="tab focusable" data-tab="home"></button>
+      <button class="tab focusable" data-tab="movies"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
+      <button class="tab focusable" data-tab="history"></button>
+      <button class="tab focusable" data-tab="account"></button>
       <button class="tab focusable" data-tab="settings"></button>
     </nav>
   </header>
@@ -43,6 +46,7 @@
 
   <main id="viewSearch" class="view hidden">
     <div class="pagehead">
+      <div id="typeChips" class="chips"></div>
       <input id="searchInput" class="focusable" type="text" placeholder="Search anime (English titles)…" autocomplete="off" spellcheck="false">
       <div id="chips"></div>
     </div>
@@ -54,6 +58,36 @@
     <div class="pagehead"><h2>My List</h2></div>
     <div id="listMsg" class="msg"></div>
     <div id="listGrid" class="cards"></div>
+  </main>
+
+  <main id="viewHistory" class="view hidden">
+    <div class="pagehead"><h2>History</h2><button id="clearHist" class="btn focusable"></button></div>
+    <div id="histMsg" class="msg"></div>
+    <div id="histGrid" class="cards"></div>
+  </main>
+
+  <main id="viewAccount" class="view hidden">
+    <div class="pagehead"><h2>Account</h2></div>
+    <div id="accPanel">
+      <div id="accOut">
+        <p class="hint">Sign in to keep Continue Watching, My List and History in sync across your TV and laptop.</p>
+        <input id="accUser" class="focusable" type="text" placeholder="Username" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <input id="accPass" class="focusable" type="password" placeholder="Password (6+ characters)" autocomplete="off">
+        <div class="btnrow">
+          <button id="accLogin" class="btn primary focusable"></button>
+          <button id="accRegister" class="btn focusable"></button>
+        </div>
+      </div>
+      <div id="accIn" class="hidden">
+        <p id="accWho" class="accwho"></p>
+        <p class="hint">Your Continue Watching, My List and History sync automatically while you are signed in.</p>
+        <div class="btnrow">
+          <button id="accSync" class="btn primary focusable"></button>
+          <button id="accLogout" class="btn focusable"></button>
+        </div>
+      </div>
+      <p id="accMsg" class="accmsg"></p>
+    </div>
   </main>
 
   <main id="viewSettings" class="view hidden">
@@ -88,6 +122,7 @@
           <div id="dBtns">
             <button id="dPlay" class="btn primary focusable"></button>
             <button id="dList" class="btn focusable"></button>
+            <button id="dRemove" class="btn focusable"></button>
           </div>
         </div>
       </div>
@@ -99,6 +134,7 @@
 
   <section id="player" class="hidden">
     <video id="video" playsinline></video>
+    <button id="skipBtn" class="skipbtn hidden"></button>
     <div id="pmenu" class="hidden"><div class="mhead">Playback settings</div><div id="mrows"></div><div class="mhint">Up/Down select · Left/Right or Enter change · Back close</div></div>
     <div id="phud">
       <div class="ptop">

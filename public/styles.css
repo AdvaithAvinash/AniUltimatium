@@ -20,7 +20,8 @@ svg.ic{width:1.3em;height:1.3em;fill:currentColor;vertical-align:-.25em;flex:non
 .brand{display:flex;align-items:center;gap:.7rem;font-size:1.6rem;font-weight:800;letter-spacing:.03em}
 .brand .logo{width:2.6rem;height:2.6rem;border-radius:.6rem;box-shadow:0 0 1.2rem rgba(255,61,127,.45)}
 .brand b{color:var(--accent);font-weight:800}
-#tabs{display:flex;gap:.8rem}
+#tabs{display:flex;gap:.6rem;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
 .tab{display:flex;align-items:center;gap:.5rem;padding:.55rem 1.2rem;font-size:1.1rem;font-weight:600;color:var(--muted);border-radius:2rem;background:rgba(255,255,255,.06)}
 .tab.active{color:#fff;background:rgba(255,61,127,.28)}
 .tab.focused{background:#1d2b3a;color:#fff}
@@ -173,3 +174,38 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
 .mrow .mv{font-weight:800;color:#fff;text-align:right}
 .mrow.sel{background:#1d2b3a;box-shadow:0 0 0 .18rem #fff,0 0 .9rem .25rem var(--glow),0 0 2.2rem .6rem rgba(0,229,255,.5)}
 .mhint{font-size:.9rem;color:var(--muted);margin-top:.6rem}
+
+/* ---------- Movies / accounts / history / skip ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:.7rem;margin-bottom:.9rem}
+.pagehead{display:flex;flex-wrap:wrap;align-items:center;gap:1rem 1.5rem}
+.pagehead #typeChips,.pagehead #searchInput,.pagehead #chips{flex-basis:100%}
+.pagehead h2{margin-right:auto}
+.tab .tl{white-space:nowrap}
+.cx{position:absolute;top:.4rem;left:.4rem;width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(0,0,0,.78);color:#fff;font-size:1rem;line-height:1.9rem;text-align:center;opacity:0;transition:opacity .15s;z-index:3}
+.card:hover .cx,.card.focused .cx{opacity:1}
+.cx:hover{background:var(--accent)}
+.tag.cast{background:rgba(255,255,255,.08);font-weight:600}
+#detail[data-kind=movie] #dEps,#detail[data-kind=movie] #dRanges,#detail[data-kind=movie] .sec{display:none}
+#player[data-kind=movie] [data-act=prev],#player[data-kind=movie] [data-act=next]{display:none}
+#accPanel{padding:1rem 3rem;max-width:46rem}
+#accPanel input{display:block;width:100%;height:3.4rem;margin-bottom:1rem;padding:0 1.4rem;font-size:1.4rem;background:var(--card);border:.15rem solid #33334a;border-radius:.8rem;outline:none}
+#accPanel input:focus{border-color:var(--glow)}
+.accwho{font-size:1.6rem;font-weight:800;margin-bottom:.6rem}
+.accmsg{margin-top:1rem;font-size:1.1rem;color:#9bd6a4;min-height:1.4rem}
+.accmsg.bad{color:#ff7a90}
+#accPanel .btnrow{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.4rem}
+.skipbtn{position:absolute;right:3rem;bottom:9.5rem;z-index:6;height:3.2rem;padding:0 1.6rem;display:inline-flex;align-items:center;gap:.5rem;font-size:1.2rem;font-weight:800;border-radius:.7rem;background:rgba(255,255,255,.95);color:#0b0b12;box-shadow:0 .4rem 1.6rem rgba(0,0,0,.6);border:.14rem solid #fff;animation:pop .2s}
+.skipbtn.show{display:inline-flex}
+.skipbtn svg{width:1.2em;height:1.2em}
+@keyframes pop{from{transform:translateY(.6rem);opacity:0}to{transform:none;opacity:1}}
+
+/* ---------- Smoothness ---------- */
+.view{animation:vfade .28s ease}
+@keyframes vfade{from{opacity:0;transform:translateY(.5rem)}to{opacity:1;transform:none}}
+.poster img{opacity:0;transition:opacity .35s ease}
+.poster img.ld{opacity:1}
+.row{content-visibility:auto;contain-intrinsic-size:auto 26rem}
+.track{will-change:scroll-position;overscroll-behavior-x:contain}
+.card{contain:layout style;backface-visibility:hidden}
+#detail{animation:vfade .22s ease}
+@media (prefers-reduced-motion:reduce){.view,#detail{animation:none}}
