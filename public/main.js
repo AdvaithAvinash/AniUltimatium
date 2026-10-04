@@ -541,8 +541,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
-      if (movie && !(d.subtitles && d.subtitles.length)) osFetchList(function () { if (tk === state.token) subAuto(); });
-      if (!movie && !(d.subtitles && d.subtitles.length) && /^(kaa|aniwaves|senshi|animenosub)/.test(d.matched || '')) { osFetchList(function () { if (tk === state.token) subAuto(); }); toast('No built-in subtitles — loading OpenSubtitles…'); }
+      if (!(d.subtitles && d.subtitles.length) && !d.hardsub) osFetchList(function () { if (tk === state.token) subAuto(); });   // OpenSubtitles automatically
       if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
       if (tk === state.token && !movie && state.audioPref === 'dub' && !state.dubFailed) {   // no English dub here: fall back to Japanese audio
@@ -661,8 +660,10 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   // One subtitle model for every player: items = tracks shipped with the stream (any language) + OpenSubtitles (English / Japanese).
   // They are drawn by our own overlay, locked to the real playback clock (video.currentTime, or CineSrc's clock) — no native <track>
   // (which is what made subtitles unreliable), so sync is exact and works the same on TV, laptop and embeds.
-  var LANG_NAMES = { en: 'English', ja: 'Japanese', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', ar: 'Arabic', it: 'Italian', id: 'Indonesian', ru: 'Russian' };
-  function newOs(key) { return { key: key, items: [], idx: -1, off: 0, cues: [], osLoaded: false, osLoading: false }; }
+  var LANG_NAMES = { en: 'English', ja: 'Japanese', ml: 'Malayalam', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', kn: 'Kannada', bn: 'Bengali', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', ar: 'Arabic',
+                     it: 'Italian', id: 'Indonesian', ru: 'Russian', ko: 'Korean', zh: 'Chinese', tr: 'Turkish', vi: 'Vietnamese', ms: 'Malay', fa: 'Persian', pl: 'Polish', nl: 'Dutch', th: 'Thai' };
+  var LANG_ORDER = ['en', 'ja', 'ml', 'hi', 'ta', 'te'];
+  function newOs(key) { return { key: key, items: [], idx: -1, off: 0, cues: [], osLoaded: false, osLoading: false, userPick: false, auto: false }; }
   state.os = newOs('');
   function osKey() { var a = state.anime; return a ? (a.kind === 'movie' ? 'm:' + a.id : 'a:' + a.id + ':' + state.ep) : ''; }
   function subCode(it) { return it.lang || 'en'; }
@@ -672,7 +673,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var o = state.os, keep = o.items.filter(function (x) { return x.kind === 'os'; }), n = {};
     var st = (list || []).map(function (t) {
       n[t.lang] = (n[t.lang] || 0) + 1;
-      return { kind: 'stream', lang: t.lang || 'en', label: (LANG_NAMES[t.lang] || t.label || 'Subtitles') + (t.label && /sdh|cc/i.test(t.label) ? ' (SDH)' : '') + (n[t.lang] > 1 && !/sdh/i.test(t.label || '') ? ' #' + n[t.lang] : ''), url: t.url, cues: null };
+      return { kind: 'stream', lang: t.lang || 'en', label: (LANG_NAMES[t.lang] || t.label || 'Subtitles') + (t.label && /sdh|cc/i.test(t.label) ? ' (SDH)' : '') + (n[t.lang] > 1 && !/sdh/i.test(t.label || '') ? ' #' + n[t.lang] : ''), url: t.url, short: 'Stream' + (t.label && /sdh|cc/i.test(t.label) ? ' (SDH)' : ''), cues: null };
     });
     o.items = st.concat(keep); o.idx = -1; o.cues = [];
   }
@@ -686,8 +687,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       if (state.os.key !== k) return;
       var cnt = {};
       (r.subtitles || []).forEach(function (x) {
-        var code = x.lang === 'jpn' ? 'ja' : 'en'; cnt[code] = (cnt[code] || 0) + 1;
-        state.os.items.push({ kind: 'os', lang: code, label: LANG_NAMES[code] + ' · OpenSubtitles #' + cnt[code], url: x.url, cues: null });
+        var code = x.lang || 'en'; cnt[code] = (cnt[code] || 0) + 1;
+        state.os.items.push({ kind: 'os', lang: code, label: (LANG_NAMES[code] || code) + ' · OpenSubtitles #' + cnt[code], short: 'OpenSubtitles #' + cnt[code], release: x.release || '', url: x.url, cues: null });
       });
       state.os.osLoaded = true; state.os.osLoading = false;
       if (cb) cb();
@@ -706,18 +707,51 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       if (state.os.key === k && state.os.idx === idx) { state.os.cues = it.cues; if (!quiet) toast(subLabel(it) + ' · ' + it.cues.length + ' lines'); }
     }).catch(function () { toast('Could not load that subtitle'); });
   }
-  // default pick: remembered language (English unless changed): a stream track first, then OpenSubtitles
+  function loadCues(it) {
+    if (it.cues) return Promise.resolve(it.cues);
+    return fetch(it.url).then(function (r) { return r.text(); }).then(function (t) { it.cues = parseVtt(t); return it.cues; }).catch(function () { it.cues = []; return it.cues; });
+  }
+  // How far OpenSubtitles cues sit from a reference track (the stream's own subtitles, perfectly synced to the picture).
+  // Nearest-start matching, histogram in 0.25 s bins; returns {off, share} where off = seconds to ADD to the video clock.
+  function alignOffset(os, ref) {
+    var diffs = [], j = 0, i;
+    for (i = 0; i < os.length; i++) {
+      while (j + 1 < ref.length && Math.abs(ref[j + 1].s - os[i].s) <= Math.abs(ref[j].s - os[i].s)) j++;
+      var d = os[i].s - (ref[j] ? ref[j].s : 1e9); if (Math.abs(d) <= 120) diffs.push(d);
+    }
+    if (diffs.length < 8) return null;
+    var bins = {}, best = null;
+    diffs.forEach(function (d) { var k = Math.round(d / 0.25); bins[k] = (bins[k] || 0) + 1; });
+    Object.keys(bins).forEach(function (k) { var c = (bins[k] || 0) + (bins[+k - 1] || 0) + (bins[+k + 1] || 0); if (!best || c > best.c) best = { k: +k, c: c }; });
+    var near = diffs.filter(function (d) { return Math.abs(d - best.k * 0.25) <= 0.6; });
+    var off = near.reduce(function (a, b) { return a + b; }, 0) / near.length;
+    return { off: Math.round(off * 10) / 10, share: best.c / diffs.length };
+  }
+  function itemsOf(lang, kind) { var out = []; state.os.items.forEach(function (it, i) { if (it.lang === lang && (!kind || it.kind === kind)) out.push(i); }); return out; }
+  // Automatic choice, no clicks needed: OpenSubtitles in the remembered language (English by default).
+  // When the stream carries its own English track, every OpenSubtitles candidate is scored against it and the best-aligned one wins
+  // (its offset is applied), so the text is OpenSubtitles' but the timing is locked to this exact release.
   function subAuto() {
-    var pref = store.get('ea_sublang', 'en'), o = state.os;
-    if (pref === 'off' || o.idx >= 0) return;
-    var pick = -1;
-    o.items.forEach(function (it, i) { if (pick < 0 && it.lang === pref && it.kind === 'stream') pick = i; });
-    if (pick < 0) o.items.forEach(function (it, i) { if (pick < 0 && it.lang === pref && it.kind === 'os') pick = i; });
-    if (pick >= 0) subSelect(pick, true);
+    var o = state.os, pref = store.get('ea_sublang', 'en');
+    if (pref === 'off' || o.userPick) return;
+    var key = o.key, st = itemsOf(pref, 'stream'), os = itemsOf(pref, 'os'), hard = state.src && state.src.hardsub;
+    if (hard && !st.length) return;                                    // picture already has burned-in subtitles
+    if (!os.length) { if (st.length && o.idx < 0) { subSelect(st[0], true); o.auto = true; } return; }
+    if (!st.length) { if (o.idx < 0 || o.auto) { o.off = 0; subSelect(os[0], true); o.auto = true; } return; }   // no reference: first candidate
+    if (o.idx < 0) { subSelect(st[0], true); o.auto = true; }           // instant: stream English while we compare
+    loadCues(o.items[st[0]]).then(function (ref) {
+      return Promise.all(os.slice(0, 6).map(function (i) { return loadCues(o.items[i]).then(function (c) { return { i: i, a: alignOffset(c, ref), n: c.length }; }); }));
+    }).then(function (res) {
+      if (state.os.key !== key || state.os.userPick) return;
+      var best = null; res.forEach(function (r) { if (r.a && (!best || r.a.share > best.a.share)) best = r; });
+      if (best && best.a.share >= 0.5) {
+        state.os.off = best.a.off; state.os.auto = true; subSelect(best.i, true);
+        if (Math.abs(best.a.off) >= 0.3) toast('Subtitles auto-aligned (' + (best.a.off > 0 ? '+' : '') + best.a.off.toFixed(1) + 's)');
+      }                                                                   // else keep the stream's own (already synced) English
+      if (state.menuOpen) renderMenu();
+    });
   }
-  function rememberSub(idx) {
-    var it = state.os.items[idx]; store.set('ea_sublang', it ? it.lang : 'off');
-  }
+  function rememberSub(idx) { var it = state.os.items[idx]; store.set('ea_sublang', it ? it.lang : 'off'); }
 
   // ---- CineSrc embed: documented postMessage API (timeupdate / seek / play / pause) ----
   var CIN = 'https://cinesrc.st';
@@ -768,11 +802,22 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
 
   var SOURCES = ['auto', 'anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi', 'animeheaven', 'gogoanime'];
   var SRC_NAMES = { auto: 'Auto (best)', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
-  // subtitle choices for the current context: Off + every item
-  function subOptions() {
-    var o = state.os, opts = [{ label: 'Off', apply: function () { subSelect(-1); store.set('ea_sublang', 'off'); } }];
-    o.items.forEach(function (it, i) { opts.push({ label: subLabel(it), apply: function () { subSelect(i); rememberSub(i); } }); });
-    return { opts: opts, cur: o.idx < 0 ? 0 : o.idx + 1 };
+  // subtitle languages available now (English, Japanese, Malayalam, Hindi, Tamil, Telugu first), plus Off
+  function subLangs() {
+    var seen = {}, langs = [];
+    state.os.items.forEach(function (it) { if (!seen[it.lang]) { seen[it.lang] = 1; langs.push(it.lang); } });
+    langs.sort(function (a, b) { var x = LANG_ORDER.indexOf(a), y = LANG_ORDER.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || (LANG_NAMES[a] || a).localeCompare(LANG_NAMES[b] || b); });
+    return langs;
+  }
+  function pickLang(lang) {                                           // default file for a language: OpenSubtitles #1, else the stream track
+    var os = itemsOf(lang, 'os'), st = itemsOf(lang, 'stream'), i = os.length ? os[0] : st[0];
+    state.os.userPick = true; state.os.off = 0; subSelect(i); rememberSub(i);
+  }
+  function subOptions() {                                             // used by the quick toggle (green key / CC button)
+    var o = state.os, opts = [{ label: 'Off', apply: function () { o.userPick = true; subSelect(-1); store.set('ea_sublang', 'off'); } }];
+    subLangs().forEach(function (l) { opts.push({ label: LANG_NAMES[l] || l, apply: function () { pickLang(l); } }); });
+    var cur = 0; if (o.idx >= 0) { var l2 = o.items[o.idx].lang, k = subLangs().indexOf(l2); cur = k + 1; }
+    return { opts: opts, cur: cur };
   }
   // ----- audio: Japanese (original) / English (dub) -----
   function hlsAudio(kind) {                                          // find an HLS audio track for 'sub' (Japanese) or 'dub' (English)
@@ -812,20 +857,27 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
         closeMenu(); play(state.anime, movie ? 1 : state.ep, at > 5 ? at : 0, true);
       } };
     var syncRow = { key: 'sync', label: 'Subtitle sync', value: (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's',
-      change: function (dir) { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + dir * 0.5) * 10) / 10)); } };
+      change: function (dir) { state.os.userPick = true; state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + dir * 0.5) * 10) / 10)); } };
     function subRow() {
       var so = subOptions(), loading = state.os.osLoading && !state.os.osLoaded;
-      return { key: 'subs', label: 'Subtitles', value: so.opts[so.cur].label + (loading ? ' · loading more…' : ''),
+      return { key: 'subs', label: 'Subtitles', value: so.opts[so.cur].label + (loading ? ' · loading…' : ''),
         change: function (dir) {
           if (!state.os.osLoaded && !state.os.osLoading) { osFetchList(); toast('Fetching OpenSubtitles…'); }
           var n = (so.cur + dir + so.opts.length) % so.opts.length; so.opts[n].apply();
         } };
     }
+    function fileRow() {                                              // which file of the chosen language (OpenSubtitles #1..#n / stream track)
+      var o = state.os; if (o.idx < 0) return null;
+      var lang = o.items[o.idx].lang, group = itemsOf(lang); if (group.length < 2) return null;
+      var pos = group.indexOf(o.idx), it = o.items[o.idx];
+      return { key: 'file', label: 'Subtitle file', value: (it.short || it.label) + ' (' + (pos + 1) + '/' + group.length + ')',
+        change: function (dir) { o.userPick = true; o.off = 0; subSelect(group[(pos + dir + group.length) % group.length]); } };
+    }
     if (movie && state.embed) {
       if (!isCin()) return [srcRow,
         { key: 'subs', label: 'Subtitles', value: "Use player's CC", change: function () { toast('VidCore has its own subtitle button inside the player'); } },
         { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast('VidCore picks quality automatically'); } }];
-      return [srcRow, subRow(), syncRow,
+      return [srcRow, subRow(), fileRow(), syncRow,
         { key: 'q', label: 'Quality', value: optName(MOVIE_QUALITIES, String(state.mq)),
           change: function (dir) {
             var qs = MOVIE_QUALITIES.map(function (o) { return o[0]; }), n = qs[(qs.indexOf(String(state.mq)) + dir + qs.length) % qs.length];
@@ -839,6 +891,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     ];
     if (!movie) rows.push({ key: 'audio', label: 'Audio', value: audioCur() === 'dub' ? 'English (dub)' : 'Japanese (sub)', change: function () { setAudio(audioCur() === 'dub' ? 'sub' : 'dub'); } });
     rows.push(subRow());
+    var fr = fileRow(); if (fr) rows.push(fr);
     if (state.os.idx >= 0) rows.push(syncRow);
     rows.push({ key: 'speed', label: 'Speed', value: (state.speed || 1) + '×', change: function (dir) {
       var i = Math.max(0, SPEEDS.indexOf(state.speed || 1)); state.speed = SPEEDS[(i + dir + SPEEDS.length) % SPEEDS.length]; video.playbackRate = state.speed; } });
@@ -846,7 +899,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     return rows;
   }
   function renderMenu() {
-    var rows = menuRows(), box = $('mrows'); box.innerHTML = '';
+    var rows = menuRows().filter(Boolean), box = $('mrows'); box.innerHTML = '';
+    if (state.menuIdx >= rows.length) state.menuIdx = rows.length - 1;
     state.menuRows = rows;
     rows.forEach(function (r, i) {
       var d = el('div', 'mrow' + (i === state.menuIdx ? ' sel' : ''), '<span class="ml">' + esc(r.label) + '</span><span class="mv">◀ ' + esc(r.value) + ' ▶</span>');
