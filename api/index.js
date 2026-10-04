@@ -21,7 +21,7 @@ const ANILIST = 'https://graphql.anilist.co';
 // below run inside this function, so no third-party host has to be alive.
 const ANIWATCH = (process.env.ANIWATCH_URLS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
 const CONSUMET = (process.env.CONSUMET_URLS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
-const UA = 'Mozilla/5.0 (SMART-TV; Tizen 6.5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0 TV Safari/537.36';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
   episodes nextAiringEpisode{episode} format seasonYear averageScore status genres`;
@@ -43,7 +43,7 @@ async function fetchJson(url, opts = {}, timeout = 9000) {
   const t = setTimeout(() => ctl.abort(), timeout);
   try {
     const r = await fetch(url, { ...opts, signal: ctl.signal, headers: { 'User-Agent': UA, ...(opts.headers || {}) } });
-    if (!r.ok) throw new Error(`${r.status} ${url}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
   } finally { clearTimeout(t); }
 }
@@ -140,6 +140,21 @@ function pickSubtitles(tracks, base) {
     .map(t => ({ lang: 'English', url: t.url || t.file, default: !!t.default }));
 }
 
+
+// Mirror domains change constantly; every scraper is tried against a list (override via env, comma separated).
+const list = (env, def) => (process.env[env] || def).split(',').map(x => x.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '')).filter(Boolean);
+const HIANIME_DOMAINS = list('HIANIME_DOMAINS', 'hianime.to,hianimez.to,hianime.sx,hianime.is,hianime.nz,aniwatchtv.to');
+const PAHE_DOMAINS = list('PAHE_DOMAINS', 'animepahe.ru,animepahe.org,animepahe.pw,animepahe.com,animepahe.si');
+const KAI_DOMAINS = list('KAI_DOMAINS', 'anikai.to,animekai.to,animekai.bz,animekai.ac');
+async function firstDomain(domains, fn) {
+  const errs = [];
+  for (const d of domains) {
+    try { return await fn(d); } catch (e) { errs.push(d + ': ' + clean(e.message)); }
+  }
+  throw new Error(errs.join(' ; '));
+}
+// keep error text short and URL-free (it is shown on the TV screen)
+const clean = (m, n = 90) => String(m || '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
 const withTimeout = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + ' timed out')), ms))]);
 const nameOf = r => {
   const t = r.title || r.name;
@@ -162,31 +177,48 @@ function result(d) {
   return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.subtitles || d.tracks) };
 }
 
-// 1) HiAnime scraped in-process via the `aniwatch` package (English sub, softsubs)
+// 1) HiAnime scraped in-process via the `aniwatch` package (English sub, softsubs).
+//    The package fixes its domain at import time, so each mirror gets its own module instance.
+const awMods = {};
+async function awFor(domain) {
+  if (!awMods[domain]) {
+    process.env.ANIWATCH_DOMAIN = domain;
+    const file = require('path').join(__dirname, '..', 'node_modules', 'aniwatch', 'dist', 'index.js');
+    awMods[domain] = (await import(require('url').pathToFileURL(file).href + '?d=' + domain)).HiAnime;
+  }
+  return awMods[domain];
+}
 async function viaAniwatchLib(titles, ep) {
-  const { HiAnime } = await import('aniwatch');
-  const hi = new HiAnime.Scraper();
-  let hit = null;
-  for (const t of titles) {
-    const s = await hi.search(t);
-    hit = bestMatch(s.animes || [], titles, a => a.name);
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const eps = await hi.getEpisodes(hit.id);
-  const episode = (eps.episodes || []).find(x => x.number === ep);
-  if (!episode || !episode.episodeId) throw new Error('episode not found');
-  let last;
-  for (const server of ['hd-1', 'hd-2', 'megacloud']) {
-    try { return result(await hi.getEpisodeSources(episode.episodeId, server, 'sub')); } catch (e) { last = e; }
-  }
-  throw last || new Error('no server worked');
+  return firstDomain(HIANIME_DOMAINS, async domain => {
+    const HiAnime = await awFor(domain);
+    const hi = new HiAnime.Scraper();
+    let hit = null;
+    for (const t of titles) {
+      const s = await hi.search(t);
+      hit = bestMatch(s.animes || [], titles, a => a.name);
+      if (hit) break;
+    }
+    if (!hit) throw new Error('no match');
+    const eps = await hi.getEpisodes(hit.id);
+    const episode = (eps.episodes || []).find(x => x.number === ep);
+    if (!episode || !episode.episodeId) throw new Error('episode not found');
+    let last;
+    for (const server of ['hd-1', 'hd-2', 'megacloud']) {
+      try { return result(await hi.getEpisodeSources(episode.episodeId, server, 'sub')); } catch (e) { last = e; }
+    }
+    throw last || new Error('no server worked');
+  });
 }
 
 // 2-4) @consumet/extensions scrapers (AnimePahe, AnimeKai, HiAnime) — all English-subbed
-async function viaConsumetLib(name, titles, ep) {
+function viaConsumetLib(name, titles, ep) {
+  const domains = { AnimePahe: PAHE_DOMAINS, AnimeKai: KAI_DOMAINS, Hianime: HIANIME_DOMAINS }[name];
+  return firstDomain(domains, d => consumetOnce(name, d, titles, ep));
+}
+async function consumetOnce(name, domain, titles, ep) {
   const { ANIME, SubOrSub } = require('@consumet/extensions');
   const p = new ANIME[name]();
+  p.baseUrl = 'https://' + domain;
   let hit = null;
   for (const t of titles) {
     const r = await p.search(t);
@@ -312,7 +344,7 @@ function parseQuery(q) {
 
 async function sources(req, q, origin) {
   const { titles, ep } = parseQuery(q);
-  const jobs = providerJobs(titles, ep).map(([name, job]) => job().then(r => ({ ...r, provider: name }), e => { e.message = name + ': ' + e.message; throw e; }));
+  const jobs = providerJobs(titles, ep).map(([name, job]) => job().then(r => ({ ...r, provider: name }), e => { throw new Error(name + ': ' + clean(e.message, 260)); }));
   try {
     // Race every provider; first one that yields a stream wins
     const r = await Promise.any(jobs);
@@ -324,7 +356,7 @@ async function sources(req, q, origin) {
     const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&url=${encodeURIComponent(t.url)}` }));
     return { url, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider };
   } catch (e) {
-    const err = new Error('No provider returned a stream: ' + (e.errors || [e]).map(x => x.message).join(' | '));
+    const err = new Error('No stream found. ' + (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 400));
     err.status = 502;
     throw err;
   }
