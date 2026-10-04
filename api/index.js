@@ -293,6 +293,7 @@ function avPick(d) {
     subtitles: avSubtitles(best.subtitles || best.tracks || d.subtitles),
     mp4: best.type === 'mp4' || /\.mp4(\?|$)/i.test(best.url),
     quality: best.quality || (best.type === 'hls' ? 'adaptive' : ''),
+    qualities: best.type === 'mp4' ? usable.filter(x => x.type === 'mp4' && x.quality).sort((a, b) => q(b) - q(a)).map(x => ({ label: x.quality, url: x.url })) : undefined,
   };
 }
 async function viaAnivexa(anilistId, ep) {
@@ -529,7 +530,8 @@ async function sources(req, q, origin) {
     const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt&url=${encodeURIComponent(t.url)}` }));
     // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
     const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
-    return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched };
+    const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
+    return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities };
   } catch (e) {
     const err = new Error('Not available yet — this title or episode has not been found on any source. Try another episode or title.');
     err.detail = (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 600);

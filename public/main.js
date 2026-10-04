@@ -371,13 +371,22 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function setQualityLabel() {
     var b = document.querySelector('[data-act="quality"]'); if (!b) return;
+    var d = state.src;
+    if (!state.hls && d && d.qualities && d.qualities.length > 1) { b.textContent = d.qualities[state.qIdx || 0].label; return; }
     if (!state.hls || !state.hls.levels || !state.hls.levels.length) { b.textContent = 'HD'; return; }
     var cur = state.hls.currentLevel;
     b.textContent = cur === -1 ? 'Auto' + (state.hls.levels[state.hls.loadLevel] ? ' ' + state.hls.levels[state.hls.loadLevel].height + 'p' : '') : state.hls.levels[cur].height + 'p';
   }
   function cycleQuality() {
-    var h = state.hls;
-    if (!h || !h.levels || h.levels.length < 2) { toast('Quality: single stream'); return; }
+    var h = state.hls, d = state.src;
+    if (!h && d && d.qualities && d.qualities.length > 1) {                // multi-file MP4 sources (e.g. 1080p/720p/480p/360p)
+      state.qIdx = ((state.qIdx || 0) + 1) % d.qualities.length;
+      var at = video.currentTime; video.src = d.qualities[state.qIdx].url;
+      video.onloadedmetadata = function () { if (at > 1) video.currentTime = at; };
+      var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
+      setQualityLabel(); toast('Quality: ' + d.qualities[state.qIdx].label); return;
+    }
+    if (!h || !h.levels || h.levels.length < 2) { toast('This source has a single quality'); return; }
     var heights = h.levels.map(function (l, i) { return { i: i, h: l.height }; }).sort(function (a, b) { return b.h - a.h; });
     var order = [-1].concat(heights.map(function (x) { return x.i; }));
     var pos = order.indexOf(h.currentLevel); h.currentLevel = order[(pos + 1) % order.length];
@@ -385,7 +394,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function startVideo(d, startAt, tk) {
     clearTracks();
-    state.src = d; state.triedProxy = false; state.startAt = startAt;
+    state.src = d; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0;
     // Subtitles are fetched through the API (CORS-open) and attached as same-origin blobs
     (d.subtitles || []).forEach(function (s) {
       fetch(s.url).then(function (r) { return r.blob(); }).then(function (b) {
@@ -410,6 +419,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     video.onloadedmetadata = function () {
       if (startAt > 5 && startAt < video.duration - 30) video.currentTime = startAt;
     };
+    setQualityLabel();
     var pr = video.play(); if (pr && pr.catch) pr.catch(function () { pmsg('Press Enter / Space to play', false); });
   }
   video.addEventListener('playing', function () { pmsg('', false); paintPlayBtn(); });
