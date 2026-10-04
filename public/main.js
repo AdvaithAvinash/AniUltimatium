@@ -493,7 +493,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function play(a, ep, startAt, keepVia) {
     var tk = ++state.token, movie = a.kind === 'movie';
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
-    state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null;
+    state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null; hideEmbed();
     $('player').className = ''; $('player').setAttribute('data-kind', movie ? 'movie' : 'anime');
     $('skipBtn').className = 'skipbtn hidden';
     $('pTitle').textContent = movie ? a.title : a.title + ' — Episode ' + ep;
@@ -502,16 +502,34 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     if (!keepVia) addHist(a, ep);
     pmsg(movie ? 'Finding a stream…' : 'Finding an English-subbed stream…', true);
-    var req = movie ? api({ action: 'movie_sources', id: a.id, title: a.title, year: a.year || '' })
+    var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '' })
       : api({ action: 'sources', via: state.via || 'auto', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep });
     req.then(function (d) {
       if (tk !== state.token) return;
+      if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
       if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
       if (tk === state.token) { pmsg('Could not start playback: ' + e.message + '  (press Back to return)', false); }
     });
+  }
+  // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
+  function startEmbed(url) {
+    stopVideo();
+    state.embed = true;
+    var f = $('embedFrame');
+    f.className = 'show';
+    f.src = url;
+    pmsg('Loading player… (press Enter to focus it, Back to exit)', true);
+    f.onload = function () { if (state.embed) pmsg('', false); };
+    $('player').setAttribute('data-embed', '1');
+    setTimeout(function () { if (state.embed) pmsg('', false); }, 6000);
+  }
+  function hideEmbed() {
+    state.embed = false; $('player').removeAttribute('data-embed');
+    var f = $('embedFrame');
+    if (f.className !== '') { f.className = ''; f.removeAttribute('src'); }
   }
   function clearTracks() {
     while (video.firstChild) video.removeChild(video.firstChild);
@@ -581,16 +599,21 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function menuRows() {
     var opts = qualityOptions(), qi = curQualityIndex(opts);
-    var vias = SOURCES, vi = Math.max(0, vias.indexOf(state.via || 'auto'));
+    var movie = state.anime && state.anime.kind === 'movie';
+    var vias = movie ? ['auto', 'embed', 'archive'] : SOURCES, cur = movie ? (state.mvia || 'auto') : (state.via || 'auto'), vi = Math.max(0, vias.indexOf(cur));
+    var names = movie ? { auto: 'Auto', embed: 'Embedded player', archive: 'Public domain' } : SRC_NAMES;
+    if (movie && state.embed) return [{ key: 'source', label: 'Source', value: names[vias[vi]], change: function (dir) {
+      state.mvia = vias[(vi + dir + vias.length) % vias.length]; closeMenu(); play(state.anime, 1, 0, true); } }];
     return [
       { key: 'quality', label: 'Quality', value: opts.length ? opts[qi].label : 'Single stream',
         change: function (dir) { if (opts.length < 2) { toast('This source has a single quality'); return; }
           var n = (qi + dir + opts.length) % opts.length; opts[n].apply(); store.set('ea_q', opts[n].pref); setQualityLabel(); toast('Quality: ' + opts[n].label); } },
       { key: 'subs', label: 'Subtitles', value: subsState(), change: function () { toggleCC(); } },
-      { key: 'source', label: 'Source', value: SRC_NAMES[vias[vi]] || vias[vi] + (state.src && state.src.matched && vias[vi] === 'auto' ? '' : ''),
+      { key: 'source', label: 'Source', value: names[vias[vi]] || vias[vi],
         change: function (dir) {
-          state.via = vias[(vi + dir + vias.length) % vias.length];
-          var at = video.currentTime; toast('Source: ' + (SRC_NAMES[state.via] || state.via));
+          var nv = vias[(vi + dir + vias.length) % vias.length];
+          if (movie) state.mvia = nv; else state.via = nv;
+          var at = video.currentTime; toast('Source: ' + (names[nv] || nv));
           closeMenu(); play(state.anime, state.ep, at > 5 ? at : 0, true);
         } }
     ];
@@ -701,7 +724,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     $('seekBar').style.width = '0'; $('seekBuf').style.width = '0';
   }
   function closePlayer() {
-    state.token++; state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden';
+    state.token++; state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden'; hideEmbed();
     if (video.duration && video.currentTime > 3) setProg(state.anime, state.ep, video.currentTime, video.duration);
     stopVideo();
     if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }
@@ -870,6 +893,12 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var k = e.keyCode;
     if (state.view === 'player') {
       e.preventDefault();
+      if (state.embed && !state.menuOpen) {
+        if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
+        else if (k === KEY.ENTER) { try { $('embedFrame').focus(); } catch (e) {} toast('Player selected — press Back to exit'); }
+        else if (k === KEY.UP || k === 81 || k === 83 || k === 403 || k === 457) openMenu();
+        return;
+      }
       if (state.menuOpen) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) closeMenu(); else menuKey(k); return; }
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
       else if (k === KEY.ENTER && $('skipBtn').className === 'skipbtn show') doSkip();
@@ -942,6 +971,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       });
     }
   } catch (e) {}
+  document.addEventListener('tizenhwkey', function (e) { if (e.keyName === 'back') { e.preventDefault && e.preventDefault(); goBack(); } });
   initPlayerIcons();
   buildChips();
   paintTabs();
