@@ -103,6 +103,8 @@
         <button id="setReset" class="btn focusable"></button>
       </div>
       <div id="setUsing"></div>
+      <h3 style="margin-top:1.6rem">Tips</h3>
+      <div id="setBtns"><button id="setTips" class="btn focusable"></button></div>
       <pre id="setOut"></pre>
     </div>
   </main>
@@ -176,6 +178,24 @@
       </div>
     </div>
   </section>
+  <div id="notice" class="hidden">
+    <div id="noticeBox">
+      <h2>Welcome to Aniultimatium</h2>
+      <p class="nsub">Quick controls — everything below also works with the mouse / Magic Remote.</p>
+      <div class="ngrid">
+        <div><b>Remote</b><span>◄ ► ▲ ▼ move · <b>OK</b> select / play · <b>Return</b> back</span></div>
+        <div><b>In the player</b><span><b>▲ Up</b> opens Settings: Quality, Audio (Japanese / English dub), Subtitles (English, others) + sync, Speed, Source</span></div>
+        <div><b>Seek &amp; skip</b><span>◄ ► jump 10s · <b>OK</b> pause · ▼ show controls · <b>Skip Intro</b> button appears automatically</span></div>
+        <div><b>Colour keys</b><span><b>Red</b> settings (or remove a Continue Watching card) · <b>Green</b> subtitles on/off</span></div>
+        <div><b>Laptop</b><span>Space pause · ←/→ 10s · <b>Q</b> or <b>S</b> settings · <b>C</b> subtitles · <b>F</b> fullscreen · <b>/</b> search</span></div>
+        <div><b>Movies</b><span>Pick <b>Source</b> and <b>Quality</b> on the movie page before pressing Play</span></div>
+      </div>
+      <div class="nbtns">
+        <button id="noticeOk" class="btn primary focusable">Got it</button>
+        <button id="noticeNever" class="btn focusable">Don't show again</button>
+      </div>
+    </div>
+  </div>
   <div id="toast"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>

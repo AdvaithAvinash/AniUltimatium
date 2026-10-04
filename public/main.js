@@ -53,7 +53,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
     genre: '', epRange: 0, searchTimer: null, trackUrls: [],
-    mode: 'anime', smode: 'anime', speed: 1, cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|cinesrc|archive)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
+    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|cinesrc|archive)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
   };
 
   // ======================= Persistence =======================
@@ -332,7 +332,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
     if (t === 'account') renderAccount();
-    if (t === 'settings') { $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('serverInput')); }
+    if (t === 'settings') { paintTipsBtn(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('serverInput')); }
     if (focusContent && (t === 'home' || t === 'movies')) setFocus($('heroPlay'));
     if (focusContent && t === 'list') { var f = $('listGrid').firstChild; if (f) setFocus(f); }
     if (focusContent && t === 'history') { var hb = $('clearHist'); setFocus($('histGrid').firstChild || hb); }
@@ -522,9 +522,10 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function play(a, ep, startAt, keepVia) {
     var tk = ++state.token, movie = a.kind === 'movie';
+    if (!keepVia) state.dubFailed = false;
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
     state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null; hideEmbed();
-    if (state.os.key !== osKey()) state.os = newOs('');
+    if (state.os.key !== osKey()) state.os = newOs(osKey());
     $('player').className = ''; $('player').setAttribute('data-kind', movie ? 'movie' : 'anime');
     $('skipBtn').className = 'skipbtn hidden';
     $('pTitle').textContent = movie ? a.title : a.title + ' — Episode ' + ep;
@@ -534,16 +535,20 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (!keepVia) addHist(a, ep);
     pmsg(movie ? 'Finding a stream…' : 'Finding an English-subbed stream…', true);
     var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '' })
-      : api({ action: 'sources', via: state.via || 'auto', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep });
+      : api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep });
     req.then(function (d) {
       if (tk !== state.token) return;
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
-      if (movie && !(d.subtitles && d.subtitles.length)) osFetchList(function () { if (tk === state.token && store.get('ea_os', 'on') !== 'off' && state.os.idx < 0 && state.os.list.length) osSelect(0, true); });
-      if (!movie && !(d.subtitles && d.subtitles.length) && /^(kaa|aniwaves|senshi|animenosub)/.test(d.matched || '')) { osFetchList(); toast('No English subtitles detected — press Up → Subtitles for OpenSubtitles'); }
+      if (movie && !(d.subtitles && d.subtitles.length)) osFetchList(function () { if (tk === state.token) subAuto(); });
+      if (!movie && !(d.subtitles && d.subtitles.length) && /^(kaa|aniwaves|senshi|animenosub)/.test(d.matched || '')) { osFetchList(function () { if (tk === state.token) subAuto(); }); toast('No built-in subtitles — loading OpenSubtitles…'); }
       if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
+      if (tk === state.token && !movie && state.audioPref === 'dub' && !state.dubFailed) {   // no English dub here: fall back to Japanese audio
+        state.dubFailed = true; state.audioPref = 'sub'; toast('No English dub for this episode — using Japanese audio');
+        return play(a, ep, startAt, true);
+      }
       if (tk === state.token) { pmsg('Could not start playback: ' + e.message + '  (press Back to return)', false); }
     });
   }
@@ -561,13 +566,13 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     $('embedCtl').className = state.embedKind === 'cinesrc' ? '' : 'hidden';
     setTimeout(function () { if (state.embed) pmsg('', false); }, 6000);
     if (state.embedKind === 'cinesrc') {            // OpenSubtitles overlay, locked to the player clock
-      cancelAnimationFrame(state.subRaf); state.subRaf = requestAnimationFrame(renderEmbedSubs);
-      osFetchList(function () { if (store.get('ea_os', 'on') !== 'off' && state.os.idx < 0 && state.os.list.length) osSelect(0, true); });
+      startSubLoop();
+      osFetchList(function () { subAuto(); });
     }
   }
   function hideEmbed() {
     state.embed = false; state.embedKind = null; $('player').removeAttribute('data-embed');
-    cancelAnimationFrame(state.subRaf); $('embedSubs').textContent = ''; $('embedCtl').className = 'hidden';
+    $('embedSubs').textContent = ''; $('embedCtl').className = 'hidden';
     var f = $('embedFrame');
     if (f.className !== '') { f.className = ''; f.removeAttribute('src'); }
   }
@@ -581,6 +586,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var h = new Hls({ maxBufferLength: 45, maxMaxBufferLength: 90, backBufferLength: 60, abrEwmaDefaultEstimate: 10000000, startLevel: -1, capLevelToPlayerSize: false,
                       manifestLoadingMaxRetry: 4, levelLoadingMaxRetry: 4, fragLoadingMaxRetry: 6, fragLoadingRetryDelay: 600 });
     h.on(Hls.Events.MANIFEST_PARSED, function () { applyQualityPref(); setQualityLabel(); });
+    h.on(Hls.Events.AUDIO_TRACKS_UPDATED, function () { var i = hlsAudio(state.audioPref === 'dub' ? 'dub' : 'sub'); if (i >= 0 && h.audioTrack !== i) h.audioTrack = i; if (state.menuOpen) renderMenu(); });
     h.on(Hls.Events.LEVEL_SWITCHED, function () { setQualityLabel(); });
     return h;
   }
@@ -652,43 +658,65 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   function vttTime(x) { x = Math.max(0, x); var h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), sec = x % 60; return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(3); }
   function cuesToVtt(cues, off) { return 'WEBVTT\n\n' + cues.map(function (c, i) { return (i + 1) + '\n' + vttTime(c.s + off) + ' --> ' + vttTime(c.e + off) + '\n' + c.text; }).join('\n\n') + '\n'; }
-  function newOs(key) { return { key: key, list: null, loading: false, idx: -1, off: 0, cues: [], trackUrl: null }; }
+  // One subtitle model for every player: items = tracks shipped with the stream (any language) + OpenSubtitles (English / Japanese).
+  // They are drawn by our own overlay, locked to the real playback clock (video.currentTime, or CineSrc's clock) — no native <track>
+  // (which is what made subtitles unreliable), so sync is exact and works the same on TV, laptop and embeds.
+  var LANG_NAMES = { en: 'English', ja: 'Japanese', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', ar: 'Arabic', it: 'Italian', id: 'Indonesian', ru: 'Russian' };
+  function newOs(key) { return { key: key, items: [], idx: -1, off: 0, cues: [], osLoaded: false, osLoading: false }; }
   state.os = newOs('');
   function osKey() { var a = state.anime; return a ? (a.kind === 'movie' ? 'm:' + a.id : 'a:' + a.id + ':' + state.ep) : ''; }
+  function subCode(it) { return it.lang || 'en'; }
+  function subLabel(it) { return it.label; }
+  // stream-provided tracks (replaces only the stream items, keeps OpenSubtitles ones)
+  function subSetStream(list) {
+    var o = state.os, keep = o.items.filter(function (x) { return x.kind === 'os'; }), n = {};
+    var st = (list || []).map(function (t) {
+      n[t.lang] = (n[t.lang] || 0) + 1;
+      return { kind: 'stream', lang: t.lang || 'en', label: (LANG_NAMES[t.lang] || t.label || 'Subtitles') + (t.label && /sdh|cc/i.test(t.label) ? ' (SDH)' : '') + (n[t.lang] > 1 && !/sdh/i.test(t.label || '') ? ' #' + n[t.lang] : ''), url: t.url, cues: null };
+    });
+    o.items = st.concat(keep); o.idx = -1; o.cues = [];
+  }
   function osFetchList(cb) {
     var a = state.anime, k = osKey();
-    if (state.os.key === k && (state.os.list || state.os.loading)) { if (state.os.list && cb) cb(); return; }
-    state.os = newOs(k); state.os.loading = true;
+    if (state.os.key === k && (state.os.osLoaded || state.os.osLoading)) { if (state.os.osLoaded && cb) cb(); return; }
+    if (state.os.key !== k) state.os = newOs(k);
+    state.os.osLoading = true;
     var req = a.kind === 'movie' ? api({ action: 'subs', imdb: a.id }) : api({ action: 'subs', anilist: a.id, ep: state.ep });
     req.then(function (r) {
       if (state.os.key !== k) return;
-      state.os.list = r.subtitles || []; state.os.loading = false;
+      var cnt = {};
+      (r.subtitles || []).forEach(function (x) {
+        var code = x.lang === 'jpn' ? 'ja' : 'en'; cnt[code] = (cnt[code] || 0) + 1;
+        state.os.items.push({ kind: 'os', lang: code, label: LANG_NAMES[code] + ' · OpenSubtitles #' + cnt[code], url: x.url, cues: null });
+      });
+      state.os.osLoaded = true; state.os.osLoading = false;
       if (cb) cb();
       if (state.menuOpen) renderMenu();
-    }).catch(function () { if (state.os.key === k) { state.os.list = []; state.os.loading = false; if (state.menuOpen) renderMenu(); } });
+    }).catch(function () { if (state.os.key === k) { state.os.osLoaded = true; state.os.osLoading = false; if (state.menuOpen) renderMenu(); } });
   }
-  // choose a candidate (idx -1 = none). Own player: becomes a <track>; CineSrc embed: drawn by the overlay.
-  function osSelect(idx, quiet) {
-    state.os.idx = idx;
-    if (idx < 0) { state.os.cues = []; applyOsTrack(); return Promise.resolve(); }
-    var item = state.os.list && state.os.list[idx], k = state.os.key;
-    if (!item) return Promise.resolve();
-    return fetch(item.url).then(function (r) { return r.text(); }).then(function (t) {
-      if (state.os.key !== k || state.os.idx !== idx) return;
-      state.os.cues = parseVtt(t);
-      applyOsTrack();
-      if (!quiet) toast(item.label + ' · ' + state.os.cues.length + ' lines');
+  // choose an item (idx -1 = off)
+  function subSelect(idx, quiet) {
+    var o = state.os, it = o.items[idx];
+    o.idx = it ? idx : -1;
+    if (!it) { o.cues = []; return Promise.resolve(); }
+    if (it.cues) { o.cues = it.cues; if (!quiet) toast(subLabel(it)); return Promise.resolve(); }
+    var k = o.key; o.cues = [];
+    return fetch(it.url).then(function (r) { return r.text(); }).then(function (t) {
+      it.cues = parseVtt(t);
+      if (state.os.key === k && state.os.idx === idx) { state.os.cues = it.cues; if (!quiet) toast(subLabel(it) + ' · ' + it.cues.length + ' lines'); }
     }).catch(function () { toast('Could not load that subtitle'); });
   }
-  function applyOsTrack() {                                         // own <video> player only
-    if (state.os.trackEl) { try { video.removeChild(state.os.trackEl); } catch (e) {} state.os.trackEl = null; }
-    if (state.os.trackUrl) { try { URL.revokeObjectURL(state.os.trackUrl); } catch (e) {} state.os.trackUrl = null; }
-    if (state.embed || state.os.idx < 0 || !state.os.cues.length) return;
-    var u = URL.createObjectURL(new Blob([cuesToVtt(state.os.cues, state.os.off)], { type: 'text/vtt' }));
-    state.os.trackUrl = u;
-    var t = document.createElement('track'); t.kind = 'subtitles'; t.label = 'OpenSubtitles'; t.srclang = 'en'; t.src = u; t['default'] = true;
-    state.os.trackEl = t; video.appendChild(t);
-    setTimeout(function () { for (var i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = video.textTracks[i].label === 'OpenSubtitles' ? 'showing' : 'hidden'; }, 80);
+  // default pick: remembered language (English unless changed): a stream track first, then OpenSubtitles
+  function subAuto() {
+    var pref = store.get('ea_sublang', 'en'), o = state.os;
+    if (pref === 'off' || o.idx >= 0) return;
+    var pick = -1;
+    o.items.forEach(function (it, i) { if (pick < 0 && it.lang === pref && it.kind === 'stream') pick = i; });
+    if (pick < 0) o.items.forEach(function (it, i) { if (pick < 0 && it.lang === pref && it.kind === 'os') pick = i; });
+    if (pick >= 0) subSelect(pick, true);
+  }
+  function rememberSub(idx) {
+    var it = state.os.items[idx]; store.set('ea_sublang', it ? it.lang : 'off');
   }
 
   // ---- CineSrc embed: documented postMessage API (timeupdate / seek / play / pause) ----
@@ -723,11 +751,11 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var c = state.cin; if (!state.anime || Date.now() - state.lastSave < 5000 || c.t < 5 || !c.d) return;
     state.lastSave = Date.now(); setProg(state.anime, 1, c.t, c.d);
   }
-  function renderEmbedSubs() {
-    state.subRaf = requestAnimationFrame(renderEmbedSubs);
+  function renderSubs() {
+    state.subRaf = requestAnimationFrame(renderSubs);
     var box = $('embedSubs'), o = state.os;
-    if (!isCin() || o.idx < 0 || !o.cues.length) { if (box.textContent) box.textContent = ''; return; }
-    var t = cinNow() + o.off, cues = o.cues, lo = 0, hi = cues.length - 1, hit = null;
+    if (state.view !== 'player' || o.idx < 0 || !o.cues.length || (state.embed && !isCin())) { if (box.textContent) box.textContent = ''; return; }
+    var t = (isCin() ? cinNow() : video.currentTime) + o.off, cues = o.cues, lo = 0, hi = cues.length - 1, hit = null;
     while (lo <= hi) {                                               // last cue starting at or before t
       var mid = (lo + hi) >> 1;
       if (cues[mid].s <= t) { hit = mid; lo = mid + 1; } else hi = mid - 1;
@@ -736,29 +764,39 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     for (var i = hit; i !== null && i >= 0 && i > hit - 3; i--) if (cues[i].e >= t) { txt = cues[i].text; break; }
     if (box.textContent !== txt) box.textContent = txt;
   }
+  function startSubLoop() { cancelAnimationFrame(state.subRaf); state.subRaf = requestAnimationFrame(renderSubs); }
 
   var SOURCES = ['auto', 'anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi', 'animeheaven', 'gogoanime'];
   var SRC_NAMES = { auto: 'Auto (best)', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
-  function subsState() {
-    var tt = video.textTracks;
-    if (tt && tt.length) { for (var i = 0; i < tt.length; i++) if (tt[i].mode === 'showing') return 'On'; return 'Off'; }
-    return state.hasSoftSubs ? 'Loading…' : 'Built-in';
-  }
-  // subtitle choices for the current context: {opts:[{label, apply}], cur}
+  // subtitle choices for the current context: Off + every item
   function subOptions() {
-    var o = state.os, opts = [], cur = 0, i;
-    var list = (o.list || []).map(function (x, n) { return { label: x.label, n: n }; });
-    if (isCin()) {                                                  // CineSrc overlay: Off + OpenSubtitles candidates
-      opts.push({ label: 'Off', apply: function () { store.set('ea_os', 'off'); osSelect(-1); } });
-      list.forEach(function (x) { opts.push({ label: 'OpenSubtitles ' + x.label, apply: function () { store.set('ea_os', 'on'); osSelect(x.n); } }); });
-      cur = o.idx < 0 ? 0 : o.idx + 1;
-    } else {                                                        // own player: Default / Off / OpenSubtitles
-      opts.push({ label: state.hasSoftSubs ? 'Default (stream)' : 'Default (built-in)', apply: function () { osSelect(-1); for (i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = i === 0 ? 'showing' : 'hidden'; } });
-      opts.push({ label: 'Off', apply: function () { osSelect(-1); store.set('ea_os', 'off'); for (i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = 'hidden'; } });
-      list.forEach(function (x) { opts.push({ label: 'OpenSubtitles ' + x.label, apply: function () { store.set('ea_os', 'on'); osSelect(x.n); } }); });
-      if (o.idx >= 0) cur = o.idx + 2; else { cur = 0; var any = false; for (i = 0; i < video.textTracks.length; i++) if (video.textTracks[i].mode === 'showing') any = true; if (!any && video.textTracks.length) cur = 1; }
+    var o = state.os, opts = [{ label: 'Off', apply: function () { subSelect(-1); store.set('ea_sublang', 'off'); } }];
+    o.items.forEach(function (it, i) { opts.push({ label: subLabel(it), apply: function () { subSelect(i); rememberSub(i); } }); });
+    return { opts: opts, cur: o.idx < 0 ? 0 : o.idx + 1 };
+  }
+  // ----- audio: Japanese (original) / English (dub) -----
+  function hlsAudio(kind) {                                          // find an HLS audio track for 'sub' (Japanese) or 'dub' (English)
+    var h = state.hls, tr = (h && h.audioTracks) || [], i;
+    if (tr.length < 2) return -1;
+    var re = kind === 'dub' ? /^en|engl/i : /^ja|^jp|japan/i;
+    for (i = 0; i < tr.length; i++) if (re.test(tr[i].lang || '') || re.test(tr[i].name || '')) return i;
+    return -1;
+  }
+  function audioCur() {
+    var h = state.hls;
+    if (h && h.audioTracks && h.audioTracks.length > 1 && h.audioTrack >= 0) {
+      var t = h.audioTracks[h.audioTrack] || {};
+      return /^en|engl/i.test((t.lang || '') + ' ' + (t.name || '')) ? 'dub' : 'sub';
     }
-    return { opts: opts, cur: cur };
+    return state.srcAudio === 'dub' ? 'dub' : 'sub';
+  }
+  function setAudio(kind) {
+    store.set('ea_audio', kind); state.audioPref = kind;
+    var i = hlsAudio(kind);
+    if (i >= 0) { state.hls.audioTrack = i; toast('Audio: ' + (kind === 'dub' ? 'English (dub)' : 'Japanese')); return; }
+    if (audioCur() === kind) return;
+    toast(kind === 'dub' ? 'Looking for an English dub…' : 'Switching to Japanese audio…');
+    var at = video.currentTime; closeMenu(); play(state.anime, state.ep, at > 5 ? at : 0, true);
   }
   var SPEEDS = [0.75, 1, 1.25, 1.5, 2];
   function menuRows() {
@@ -774,12 +812,12 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
         closeMenu(); play(state.anime, movie ? 1 : state.ep, at > 5 ? at : 0, true);
       } };
     var syncRow = { key: 'sync', label: 'Subtitle sync', value: (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's',
-      change: function (dir) { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + dir * 0.5) * 10) / 10)); if (!state.embed) applyOsTrack(); } };
+      change: function (dir) { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + dir * 0.5) * 10) / 10)); } };
     function subRow() {
-      var so = subOptions(), loading = state.os.loading && !state.os.list;
-      return { key: 'subs', label: 'Subtitles', value: loading ? 'Loading…' : so.opts[so.cur].label,
+      var so = subOptions(), loading = state.os.osLoading && !state.os.osLoaded;
+      return { key: 'subs', label: 'Subtitles', value: so.opts[so.cur].label + (loading ? ' · loading more…' : ''),
         change: function (dir) {
-          if (!state.os.list && !state.os.loading) { osFetchList(); toast('Fetching OpenSubtitles…'); return; }
+          if (!state.os.osLoaded && !state.os.osLoading) { osFetchList(); toast('Fetching OpenSubtitles…'); }
           var n = (so.cur + dir + so.opts.length) % so.opts.length; so.opts[n].apply();
         } };
     }
@@ -797,9 +835,10 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var rows = [
       { key: 'quality', label: 'Quality', value: opts.length ? opts[qi].label : 'Single stream',
         change: function (dir) { if (opts.length < 2) { toast('This source has a single quality'); return; }
-          var n = (qi + dir + opts.length) % opts.length; opts[n].apply(); store.set(movie ? 'ea_mq' : 'ea_q', String(opts[n].pref)); setQualityLabel(); toast('Quality: ' + opts[n].label); } },
-      subRow()
+          var n = (qi + dir + opts.length) % opts.length; opts[n].apply(); store.set(movie ? 'ea_mq' : 'ea_q', String(opts[n].pref)); setQualityLabel(); toast('Quality: ' + opts[n].label); } }
     ];
+    if (!movie) rows.push({ key: 'audio', label: 'Audio', value: audioCur() === 'dub' ? 'English (dub)' : 'Japanese (sub)', change: function () { setAudio(audioCur() === 'dub' ? 'sub' : 'dub'); } });
+    rows.push(subRow());
     if (state.os.idx >= 0) rows.push(syncRow);
     rows.push({ key: 'speed', label: 'Speed', value: (state.speed || 1) + '×', change: function (dir) {
       var i = Math.max(0, SPEEDS.indexOf(state.speed || 1)); state.speed = SPEEDS[(i + dir + SPEEDS.length) % SPEEDS.length]; video.playbackRate = state.speed; } });
@@ -815,7 +854,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       box.appendChild(d);
     });
   }
-  function openMenu() { state.menuIdx = Math.min(state.menuIdx || 0, 5); if (!state.os.list && !state.os.loading && state.anime) osFetchList(); state.menuOpen = true; $('pmenu').className = ''; renderMenu(); hud(); clearTimeout(state.hudTimer); }
+  function openMenu() { state.menuIdx = Math.min(state.menuIdx || 0, 6); if (!state.os.osLoaded && !state.os.osLoading && state.anime) osFetchList(); state.menuOpen = true; $('pmenu').className = ''; renderMenu(); hud(); clearTimeout(state.hudTimer); }
   function closeMenu() { state.menuOpen = false; $('pmenu').className = 'hidden'; hud(); }
   function menuKey(k) {
     var n = state.menuRows.length;
@@ -829,18 +868,13 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function startVideo(d, startAt, tk) {
     clearTracks();
     state.src = d; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0; state.menuOpen = false; $('pmenu').className = 'hidden';
-    // Subtitles are fetched through the API (CORS-open) and attached as same-origin blobs
-    (d.subtitles || []).forEach(function (s) {
-      fetch(s.url).then(function (r) { return r.blob(); }).then(function (b) {
-        if (tk !== state.token) return;
-        var u = URL.createObjectURL(b); state.trackUrls.push(u);
-        var t = document.createElement('track');
-        t.kind = 'subtitles'; t.label = s.lang || 'English'; t.srclang = 'en'; t.src = u; t['default'] = true;
-        video.appendChild(t);
-        setTimeout(function () { if (video.textTracks.length) video.textTracks[0].mode = 'showing'; }, 100);
-      }).catch(function () {});
-    });
+    // Subtitle tracks from the stream are fetched through the API (CORS-open) and drawn by our overlay (exact sync)
+    state.srcAudio = d.audio || 'sub';
+    subSetStream(d.subtitles || []);
+    subAuto();
+    startSubLoop();
     state.hasSoftSubs = !!(d.subtitles && d.subtitles.length);
+    if (state.hasSoftSubs) osFetchList(function () { subAuto(); });
     var isHls = d.type === 'hls' || /m3u8/i.test(d.url);
     if (isHls && window.Hls && Hls.isSupported()) {
       state.hls = newHls();
@@ -942,11 +976,11 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     play(a, n, 0);
   }
   function toggleCC() {
-    var tt = video.textTracks;
-    if (!tt || !tt.length) { toast(state.hasSoftSubs ? 'Loading subtitles…' : 'English subtitles are built into this video'); return; }
-    var on = tt[0].mode !== 'showing';
-    for (var i = 0; i < tt.length; i++) tt[i].mode = on ? 'showing' : 'hidden';
-    toast(on ? 'Subtitles on' : 'Subtitles off');
+    var so = subOptions();
+    if (so.opts.length < 2) { toast(state.os.osLoading ? 'Looking for subtitles…' : 'English subtitles are built into this video'); if (!state.os.osLoaded) osFetchList(); return; }
+    var n = so.cur === 0 ? Math.max(1, store.get('ea_lastsub', 1)) : 0;
+    so.opts[n].apply(); if (n > 0) store.set('ea_lastsub', n);
+    if (n === 0) toast('Subtitles off');
   }
   function toggleFS() {
     var p = $('player');
@@ -1003,7 +1037,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (er.top < topSafe || er.bottom > vr.bottom - rem) root.scrollTop += r.top - (topSafe + rem);
   }
   function candidates() {
-    var roots = state.view === 'detail' ? [$('detail')] : [$('nav'), activeView()], out = [];
+    var roots = state.view === 'notice' ? [$('notice')] : state.view === 'detail' ? [$('detail')] : [$('nav'), activeView()], out = [];
     roots.forEach(function (r) {
       var all = r.querySelectorAll('.focusable');
       for (var i = 0; i < all.length; i++) out.push(all[i]);
@@ -1044,6 +1078,9 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (e.id === 'setSave') { store.set('ea_server', $('serverInput').value.trim()); $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Saved'); state.cache = {}; loadHome(true); return; }
     if (e.id === 'setReset') { store.set('ea_server', ''); $('serverInput').value = ''; $('setUsing').textContent = 'Currently using: ' + apiBase(); toast('Reset to default'); state.cache = {}; loadHome(true); return; }
     if (e.id === 'setTest') { testStreams(); return; }
+    if (e.id === 'noticeOk') { hideNotice(false); return; }
+    if (e.id === 'noticeNever') { hideNotice(true); return; }
+    if (e.id === 'setTips') { store.set('ea_notice_off', !store.get('ea_notice_off', false)); paintTipsBtn(); toast(store.get('ea_notice_off', false) ? 'Startup tips off' : 'Startup tips on'); return; }
     if (e.id === 'retryHome') { loadHome(true); return; }
     if (e.id === 'accLogin') { doAuth('login'); return; }
     if (e.id === 'accRegister') { doAuth('register'); return; }
@@ -1090,7 +1127,20 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     return true;
   }
 
+  // ----- first-run notice (controls) with "Don't show again" -----
+  function showNotice() {
+    state.noticePrev = state.view; state.view = 'notice';
+    $('notice').className = ''; setFocus($('noticeOk'));
+  }
+  function hideNotice(never) {
+    if (never) { store.set('ea_notice_off', true); toast('Tips hidden — turn them back on in Settings'); }
+    $('notice').className = 'hidden';
+    state.view = state.noticePrev && state.noticePrev !== 'notice' ? state.noticePrev : state.tab;
+    var f = state.tab === 'home' || state.tab === 'movies' ? $('heroPlay') : null; if (f) setFocus(f);
+  }
+  function paintTipsBtn() { var off = store.get('ea_notice_off', false); $('setTips').innerHTML = (off ? '✕ Startup tips: Off' : '✔ Startup tips: On'); }
   function goBack() {
+    if (state.view === 'notice') { hideNotice(false); return; }
     if (state.view === 'detail' && anyDropOpen()) { closeDrops(true); return; }
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
@@ -1192,4 +1242,5 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   setFocus($('heroPlay'));
   loadHome();
   if (auth()) syncNow(false);
+  if (!store.get('ea_notice_off', false)) showNotice();
 })();
