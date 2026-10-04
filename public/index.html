@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080, initial-scale=1">
+<title>English Anime</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <h1 class="logo">English<span>Anime</span></h1>
+    <div id="searchWrap">
+      <input id="searchInput" class="focusable" type="text" placeholder="Search anime..." autocomplete="off">
+      <button id="searchBtn" class="focusable">Search</button>
+    </div>
+  </header>
+
+  <main id="home">
+    <h2 id="gridTitle">Trending Now</h2>
+    <div id="status"></div>
+    <section id="grid"></section>
+  </main>
+
+  <section id="detail" class="hidden">
+    <div id="detailInfo">
+      <img id="detailCover" alt="">
+      <div>
+        <h2 id="detailTitle"></h2>
+        <p id="detailMeta"></p>
+        <p id="detailDesc"></p>
+      </div>
+    </div>
+    <h3>Episodes</h3>
+    <div id="episodes"></div>
+    <button id="detailBack" class="focusable">&larr; Back</button>
+  </section>
+
+  <section id="player" class="hidden">
+    <video id="video" playsinline></video>
+    <div id="playerHud">
+      <div id="playerTitle"></div>
+      <div id="playerMsg"></div>
+      <div id="progress"><div id="progressBar"></div></div>
+    </div>
+  </section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

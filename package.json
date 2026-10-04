@@ -1,0 +1,1 @@
+{ "name": "english-anime-api", "version": "2.3.0", "private": true, "engines": { "node": ">=18" } }
