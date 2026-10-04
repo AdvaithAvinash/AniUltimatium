@@ -222,10 +222,19 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
 
 /* Movie source dropdown (detail page) */
 #detail:not([data-kind=movie]) #dSrcWrap{display:none}
-#dSrcWrap{position:relative;margin:0 0 1rem;display:inline-block;z-index:8}
-#dSrcBtn{min-width:20rem;justify-content:space-between}
-#dSrcList{position:absolute;left:0;top:calc(100% + .4rem);min-width:100%;padding:.5rem;border-radius:.8rem;background:rgba(14,14,22,.98);border:.12rem solid #33334a;box-shadow:0 1rem 3rem rgba(0,0,0,.7);z-index:9}
+#dSrcWrap{display:flex;gap:1rem;flex-wrap:wrap;margin:0 0 1rem;position:relative;z-index:8}
+.dwrap{position:relative}
+#dSrcBtn,#dQBtn{min-width:19rem;justify-content:space-between}
+#dSrcList,#dQList{position:absolute;left:0;top:calc(100% + .4rem);min-width:100%;padding:.5rem;border-radius:.8rem;background:rgba(14,14,22,.98);border:.12rem solid #33334a;box-shadow:0 1rem 3rem rgba(0,0,0,.7);z-index:9}
 .dsopt{display:flex;align-items:center;justify-content:space-between;gap:1.2rem;padding:.75rem 1rem;margin-bottom:.3rem;border-radius:.6rem;background:var(--card);font-size:1.15rem;font-weight:700;white-space:nowrap;cursor:pointer}
 .dsopt:last-child{margin-bottom:0}
 .dsopt.on{color:var(--accent)}
 .dsopt .hint2{font-size:.85rem;font-weight:600;color:var(--muted)}
+
+/* CineSrc embed: subtitle overlay + remote/mouse controls */
+#embedSubs{display:none;position:absolute;left:8%;right:8%;bottom:14%;z-index:4;text-align:center;font-size:2.1rem;font-weight:700;line-height:1.3;color:#fff;white-space:pre-line;pointer-events:none;text-shadow:0 0 .3rem #000,0 .1rem .5rem #000,.1rem .1rem .2rem #000}
+#player[data-embed] #embedSubs{display:block}
+#embedCtl{position:absolute;top:1rem;right:1.5rem;z-index:7;display:flex;gap:.5rem;padding:.4rem;border-radius:.8rem;background:rgba(0,0,0,.6)}
+#embedCtl.hidden{display:none}
+.ectl{height:2.6rem;min-width:3.4rem;padding:0 .9rem;font-size:1.05rem;font-weight:800;color:#fff;border-radius:.5rem;background:rgba(255,255,255,.14)}
+.ectl:hover{background:var(--accent)}

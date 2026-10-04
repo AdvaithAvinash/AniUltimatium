@@ -18,6 +18,7 @@ process.on('uncaughtException', e => console.error('uncaughtException:', e && e.
 
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
+const subsLib = require('../lib/subs');
 
 const ANILIST = 'https://graphql.anilist.co';
 // Optional extra remote instances (comma separated base URLs). Empty by default: the scrapers
@@ -565,6 +566,20 @@ async function skipTimes(mal, ep) {
   } catch (e) { return { op: null, ed: null }; }
 }
 
+// English OpenSubtitles candidates (proxied + converted to WebVTT). Movie: ?imdb=tt..  Episode: ?imdb=tt..&season=1&episode=3  Anime: ?anilist=ID&ep=N
+async function subsFor(q, origin) {
+  let id = q.imdb;
+  if (!id && q.anilist) {
+    const m = await avGet('/map/' + encodeURIComponent(q.anilist));
+    const mm = m.mappings || m;
+    if (!mm.imdbId) return [];
+    id = `${mm.imdbId}:${mm.defaultTvdbSeason || 1}:${(parseInt(q.ep, 10) || 1) + (parseInt(mm.episodeOffset, 10) || 0)}`;
+  } else if (id && q.season) id = `${id}:${q.season}:${q.episode || 1}`;
+  if (!id) return [];
+  const list = await subsLib.list(id);
+  return list.map(x => ({ ...x, url: `${origin}/api?action=proxy&fmt=vtt&url=${encodeURIComponent(x.url)}` }));
+}
+
 async function readBody(req) {
   if (req.body !== undefined && req.body !== null && req.body !== '') return typeof req.body === 'string' ? (JSON.parse(req.body || '{}')) : req.body;
   return {};
@@ -675,6 +690,8 @@ module.exports = async (req, res) => {
         const base = r.direct ? finish(r.direct, origin) : {};
         return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds }, 'no-store');
       }
+      case 'subs':
+        return send(res, 200, { subtitles: await subsFor(q, origin).catch(() => []) }, 's-maxage=3600');
       case 'skip':
         return send(res, 200, await skipTimes(q.mal, q.ep || 1), 's-maxage=86400');
       // ---- accounts & sync ----

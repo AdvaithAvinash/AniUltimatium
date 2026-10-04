@@ -37,8 +37,8 @@ This app combines all anime apis into one.
 
 ## Movies, accounts, history
 - **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Playback: public-domain films from the Internet Archive play in our
-  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player (**VidCore**, **VidSrc** or **CineSrc**, all keyed by TMDB id) in an iframe.
-  On a movie's page, the **Source** dropdown picks Auto / VidCore / VidSrc / CineSrc / Public domain before you press Play (remembered).
+  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player (**VidCore** or **CineSrc**, all keyed by TMDB id) in an iframe.
+  On a movie's page, the **Source** dropdown picks Auto / VidCore / CineSrc / Public domain before you press Play (remembered).
   Embedded players run their own controls, so resume/skip aren't available there. In the menu (Up / Q) choose Source: Auto / Embedded / Public domain.
 - **Accounts**: Account tab -> create account / sign in. Continue Watching, My List and History sync between devices.
   Storage: `data/` folder when you run `npm start`; Upstash Redis on Vercel (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
@@ -46,3 +46,11 @@ This app combines all anime apis into one.
 - **Skip intro / outro** (AniSkip) button appears during openings/endings (Enter on the remote, or click).
 - **Remove from Continue Watching**: ✕ on the card (mouse), Delete / X / red button on a focused card, or the button on the detail page.
   **History** tab lists everything watched; remove single items the same way or "Clear all history".
+
+## Subtitles, ±10s and quality (movies)
+- **OpenSubtitles** (English, up to 6 candidates per title, keyless via Stremio's OpenSubtitles data endpoint) work in our own player and over **CineSrc**:
+  CineSrc is driven through its documented postMessage API, so subtitles are drawn locked to its playback clock. Menu (Up / Q): Subtitles (pick a candidate) and
+  *Subtitle sync* (±0.5s) if a file is early/late. **VidCore** has no player API, so use its own CC button (it supports 30 languages).
+- CineSrc: ±10s with Left/Right on the remote (or the ⟲ 10 / 10 ⟳ buttons), Enter = play/pause, green = cycle subtitles; progress is saved so Continue Watching resumes (`t=`).
+- **Quality** dropdown on the movie page: Auto, 4K, 1440p, 1080p, 720p, 480p (sent to CineSrc as `quality=`, applied to our own HLS player too; VidCore auto-selects up to 4K).
+- Anime: if a stream has no English subtitles, press Up → Subtitles to pick OpenSubtitles (matched through the AniList→IMDb mapping).

@@ -120,8 +120,8 @@
           <div id="dGenres"></div>
           <p id="dDesc"></p>
           <div id="dSrcWrap">
-            <button id="dSrcBtn" class="btn focusable"></button>
-            <div id="dSrcList" class="hidden"></div>
+            <div class="dwrap"><button id="dSrcBtn" class="btn focusable"></button><div id="dSrcList" class="hidden"></div></div>
+            <div class="dwrap"><button id="dQBtn" class="btn focusable"></button><div id="dQList" class="hidden"></div></div>
           </div>
           <div id="dBtns">
             <button id="dPlay" class="btn primary focusable"></button>
@@ -140,6 +140,15 @@
     <video id="video" playsinline></video>
     <iframe id="embedFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="origin" allowfullscreen></iframe>
     <button id="skipBtn" class="skipbtn hidden"></button>
+    <div id="embedSubs"></div>
+    <div id="embedCtl" class="hidden">
+      <button class="ectl" data-ec="back10" title="Back 10s">⟲ 10</button>
+      <button class="ectl" data-ec="toggle" title="Play / pause">⏯</button>
+      <button class="ectl" data-ec="fwd10" title="Forward 10s">10 ⟳</button>
+      <button class="ectl" data-ec="cc" title="Subtitles (OpenSubtitles)">CC</button>
+      <button class="ectl" data-ec="syncm" title="Subtitles earlier">−0.5s</button>
+      <button class="ectl" data-ec="syncp" title="Subtitles later">+0.5s</button>
+    </div>
     <div id="pmenu" class="hidden"><div class="mhead">Playback settings</div><div id="mrows"></div><div class="mhint">Up/Down select · Left/Right or Enter change · Back close</div></div>
     <div id="phud">
       <div class="ptop">

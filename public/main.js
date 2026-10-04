@@ -53,7 +53,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
     genre: '', epRange: 0, searchTimer: null, trackUrls: [],
-    mode: 'anime', smode: 'anime', cache: {}, skip: null, mvia: store.get('ea_msrc', 'auto')
+    mode: 'anime', smode: 'anime', speed: 1, cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|cinesrc|archive)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
   };
 
   // ======================= Persistence =======================
@@ -426,30 +426,41 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     $('dDesc').textContent = a.description || 'No description available.';
     $('dBack').innerHTML = ic('back') + 'Back';
     $('detail').setAttribute('data-kind', movie ? 'movie' : 'anime');
-    closeSrcList(false); if (movie) renderSrcBtn();
+    closeDrops(false); if (movie) renderDrops();
     paintDetailButtons();
     renderEpisodes();
     $('dScroll').scrollTop = 0;
     setFocus($('dPlay'));
   }
-  // ----- movie source dropdown -----
-  var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else VidCore'], ['vidcore', 'VidCore', 'embedded player'], ['vidsrc', 'VidSrc', 'embedded player'],
-                       ['cinesrc', 'CineSrc', 'embedded player'], ['archive', 'Public domain', 'our own player']];
-  function movieSrcName(v) { for (var i = 0; i < MOVIE_SOURCES.length; i++) if (MOVIE_SOURCES[i][0] === v) return MOVIE_SOURCES[i][1]; return 'Auto (best)'; }
-  function renderSrcBtn() { $('dSrcBtn').innerHTML = '<span>Source: ' + esc(movieSrcName(state.mvia)) + '</span><span>▾</span>'; }
-  function srcListOpen() { return $('dSrcList').className !== 'hidden'; }
-  function closeSrcList(refocus) { $('dSrcList').className = 'hidden'; if (refocus) setFocus($('dSrcBtn')); }
-  function openSrcList() {
-    var box = $('dSrcList'); box.innerHTML = ''; var sel = null;
-    MOVIE_SOURCES.forEach(function (o) {
-      var d = el('div', 'dsopt focusable' + (o[0] === state.mvia ? ' on' : ''), '<span>' + esc(o[1]) + (o[0] === state.mvia ? ' ✓' : '') + '</span><span class="hint2">' + esc(o[2]) + '</span>');
-      d.__srcval = o[0]; if (o[0] === state.mvia) sel = d; box.appendChild(d);
+  // ----- movie dropdowns: Source and desired Quality (picked on the movie page, before Play) -----
+  var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else VidCore'], ['vidcore', 'VidCore', 'own subtitles · auto quality up to 4K'],
+                       ['cinesrc', 'CineSrc', 'OpenSubtitles · ±10s · quality'], ['archive', 'Public domain', 'our own player']];
+  var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
+  var DROPS = {
+    src: { btn: 'dSrcBtn', list: 'dSrcList', label: 'Source', opts: MOVIE_SOURCES, get: function () { return state.mvia; }, set: function (v) { state.mvia = v; store.set('ea_msrc', v); } },
+    q: { btn: 'dQBtn', list: 'dQList', label: 'Quality', opts: MOVIE_QUALITIES, get: function () { return String(state.mq); }, set: function (v) { state.mq = v; store.set('ea_mq', v); } }
+  };
+  function optName(opts, v) { for (var i = 0; i < opts.length; i++) if (opts[i][0] === v) return opts[i][1]; return opts[0][1]; }
+  function movieSrcName(v) { return optName(MOVIE_SOURCES, v); }
+  function renderDrops() { Object.keys(DROPS).forEach(function (k) { var d = DROPS[k]; $(d.btn).innerHTML = '<span>' + d.label + ': ' + esc(optName(d.opts, d.get())) + '</span><span>▾</span>'; }); }
+  function openDropKey() { var f = null; Object.keys(DROPS).forEach(function (k) { if ($(DROPS[k].list).className !== 'hidden') f = k; }); return f; }
+  function anyDropOpen() { return openDropKey() !== null; }
+  function closeDrops(refocus) {
+    var k = openDropKey();
+    Object.keys(DROPS).forEach(function (x) { $(DROPS[x].list).className = 'hidden'; });
+    if (refocus && k) setFocus($(DROPS[k].btn));
+  }
+  function openDrop(k) {
+    closeDrops(false);
+    var d = DROPS[k], box = $(d.list), sel = null; box.innerHTML = '';
+    d.opts.forEach(function (o) {
+      var on = o[0] === d.get();
+      var it = el('div', 'dsopt focusable' + (on ? ' on' : ''), '<span>' + esc(o[1]) + (on ? ' ✓' : '') + '</span><span class="hint2">' + esc(o[2]) + '</span>');
+      it.__drop = k; it.__dropval = o[0]; if (on) sel = it; box.appendChild(it);
     });
     box.className = ''; setFocus(sel || box.firstChild);
   }
-  function pickSource(v) {
-    state.mvia = v; store.set('ea_msrc', v); renderSrcBtn(); closeSrcList(false); setFocus($('dPlay')); toast('Source: ' + movieSrcName(v));
-  }
+  function pickDrop(k, v) { DROPS[k].set(v); renderDrops(); closeDrops(false); setFocus($('dPlay')); toast(DROPS[k].label + ': ' + optName(DROPS[k].opts, v)); }
   function paintDetailButtons() {
     var a = state.anime, p = progOf(a), movie = a.kind === 'movie';
     $('dPlay').innerHTML = ic('play') + (movie ? (p ? 'Resume' + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play Movie')
@@ -513,6 +524,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var tk = ++state.token, movie = a.kind === 'movie';
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
     state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null; hideEmbed();
+    if (state.os.key !== osKey()) state.os = newOs('');
     $('player').className = ''; $('player').setAttribute('data-kind', movie ? 'movie' : 'anime');
     $('skipBtn').className = 'skipbtn hidden';
     $('pTitle').textContent = movie ? a.title : a.title + ' — Episode ' + ep;
@@ -521,13 +533,15 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     if (!keepVia) addHist(a, ep);
     pmsg(movie ? 'Finding a stream…' : 'Finding an English-subbed stream…', true);
-    var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '' })
+    var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '' })
       : api({ action: 'sources', via: state.via || 'auto', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep });
     req.then(function (d) {
       if (tk !== state.token) return;
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
+      if (movie && !(d.subtitles && d.subtitles.length)) osFetchList(function () { if (tk === state.token && store.get('ea_os', 'on') !== 'off' && state.os.idx < 0 && state.os.list.length) osSelect(0, true); });
+      if (!movie && !(d.subtitles && d.subtitles.length) && /^(kaa|aniwaves|senshi|animenosub)/.test(d.matched || '')) { osFetchList(); toast('No English subtitles detected — press Up → Subtitles for OpenSubtitles'); }
       if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
       if (tk === state.token) { pmsg('Could not start playback: ' + e.message + '  (press Back to return)', false); }
@@ -536,17 +550,24 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
   function startEmbed(url) {
     stopVideo();
-    state.embed = true;
+    state.embed = true; state.embedKind = /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';
+    state.cin = { t: 0, d: 0, paused: true, stamp: performance.now() };
     var f = $('embedFrame');
     f.className = 'show';
     f.src = url;
     pmsg('Loading player… (press Enter to focus it, Back to exit)', true);
     f.onload = function () { if (state.embed) pmsg('', false); };
     $('player').setAttribute('data-embed', '1');
+    $('embedCtl').className = state.embedKind === 'cinesrc' ? '' : 'hidden';
     setTimeout(function () { if (state.embed) pmsg('', false); }, 6000);
+    if (state.embedKind === 'cinesrc') {            // OpenSubtitles overlay, locked to the player clock
+      cancelAnimationFrame(state.subRaf); state.subRaf = requestAnimationFrame(renderEmbedSubs);
+      osFetchList(function () { if (store.get('ea_os', 'on') !== 'off' && state.os.idx < 0 && state.os.list.length) osSelect(0, true); });
+    }
   }
   function hideEmbed() {
-    state.embed = false; $('player').removeAttribute('data-embed');
+    state.embed = false; state.embedKind = null; $('player').removeAttribute('data-embed');
+    cancelAnimationFrame(state.subRaf); $('embedSubs').textContent = ''; $('embedCtl').className = 'hidden';
     var f = $('embedFrame');
     if (f.className !== '') { f.className = ''; f.removeAttribute('src'); }
   }
@@ -557,14 +578,17 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
   // Start at the best quality the connection can sustain (hls.js default starts low)
   function newHls() {
-    var h = new Hls({ maxBufferLength: 40, abrEwmaDefaultEstimate: 10000000, startLevel: -1, capLevelToPlayerSize: false });
+    var h = new Hls({ maxBufferLength: 45, maxMaxBufferLength: 90, backBufferLength: 60, abrEwmaDefaultEstimate: 10000000, startLevel: -1, capLevelToPlayerSize: false,
+                      manifestLoadingMaxRetry: 4, levelLoadingMaxRetry: 4, fragLoadingMaxRetry: 6, fragLoadingRetryDelay: 600 });
     h.on(Hls.Events.MANIFEST_PARSED, function () { applyQualityPref(); setQualityLabel(); });
     h.on(Hls.Events.LEVEL_SWITCHED, function () { setQualityLabel(); });
     return h;
   }
   // saved choice: 'auto' or a height (e.g. 1080). Locks to the best level <= that height.
   function applyQualityPref() {
-    var pref = store.get('ea_q', 'auto'), h = state.hls;
+    var movie = state.anime && state.anime.kind === 'movie';
+    var pref = movie ? store.get('ea_mq', 'auto') : store.get('ea_q', 'auto'), h = state.hls;
+    if (pref !== 'auto') pref = parseInt(pref, 10) || 'auto';
     if (!h || !h.levels || pref === 'auto') return;
     var best = -1, bh = 0;
     h.levels.forEach(function (l, i) { if (l.height <= pref && l.height >= bh) { bh = l.height; best = i; } });
@@ -583,7 +607,9 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       d.qualities.forEach(function (q, i) {
         out.push({ label: q.label, pref: parseInt(q.label, 10) || 'auto', apply: function () {
           state.qIdx = i; var at = video.currentTime; video.src = q.url;
-          video.onloadedmetadata = function () { if (at > 1) video.currentTime = at; };
+          var sv = store.get('ea_vol', null); if (sv) { try { video.volume = sv.v; video.muted = !!sv.m; } catch (e) {} }
+    try { video.playbackRate = state.speed || 1; } catch (e) {}
+    video.onloadedmetadata = function () { if (at > 1) video.currentTime = at; };
           var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
         } });
       });
@@ -593,7 +619,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function curQualityIndex(opts) {
     var h = state.hls;
     if (h && h.levels && h.levels.length) {
-      if (h.currentLevel === -1 || (store.get('ea_q', 'auto') === 'auto')) return 0;
+      if (h.currentLevel === -1 || ((state.anime && state.anime.kind === 'movie' ? store.get('ea_mq', 'auto') : store.get('ea_q', 'auto')) === 'auto')) return 0;
       for (var i = 1; i < opts.length; i++) if (opts[i].label === h.levels[h.currentLevel].height + 'p') return i;
       return 0;
     }
@@ -609,6 +635,108 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       b.textContent = (h.currentLevel === -1 ? 'Auto ' : '') + (live ? live.height + 'p' : '');
     } else b.textContent = opts[curQualityIndex(opts)].label;
   }
+  // ======================= Subtitles (OpenSubtitles) & CineSrc control =======================
+  function parseVtt(text) {
+    var cues = [], blocks = String(text).replace(/\r/g, '').split(/\n\n+/);
+    function tm(x) { var m = x.match(/(?:(\d+):)?(\d+):(\d+)[.,](\d+)/); return m ? (+(m[1] || 0)) * 3600 + (+m[2]) * 60 + (+m[3]) + (+('0.' + m[4])) : 0; }
+    blocks.forEach(function (b) {
+      var lines = b.split('\n'), i = 0;
+      while (i < lines.length && lines[i].indexOf('-->') < 0) i++;
+      if (i >= lines.length) return;
+      var t = lines[i].split('-->');
+      var txt = lines.slice(i + 1).join('\n').replace(/<[^>]+>/g, '').replace(/\{[^}]*\}/g, '').trim();
+      if (txt) cues.push({ s: tm(t[0]), e: tm(t[1]), text: txt });
+    });
+    cues.sort(function (a, b) { return a.s - b.s; });
+    return cues;
+  }
+  function vttTime(x) { x = Math.max(0, x); var h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), sec = x % 60; return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(3); }
+  function cuesToVtt(cues, off) { return 'WEBVTT\n\n' + cues.map(function (c, i) { return (i + 1) + '\n' + vttTime(c.s + off) + ' --> ' + vttTime(c.e + off) + '\n' + c.text; }).join('\n\n') + '\n'; }
+  function newOs(key) { return { key: key, list: null, loading: false, idx: -1, off: 0, cues: [], trackUrl: null }; }
+  state.os = newOs('');
+  function osKey() { var a = state.anime; return a ? (a.kind === 'movie' ? 'm:' + a.id : 'a:' + a.id + ':' + state.ep) : ''; }
+  function osFetchList(cb) {
+    var a = state.anime, k = osKey();
+    if (state.os.key === k && (state.os.list || state.os.loading)) { if (state.os.list && cb) cb(); return; }
+    state.os = newOs(k); state.os.loading = true;
+    var req = a.kind === 'movie' ? api({ action: 'subs', imdb: a.id }) : api({ action: 'subs', anilist: a.id, ep: state.ep });
+    req.then(function (r) {
+      if (state.os.key !== k) return;
+      state.os.list = r.subtitles || []; state.os.loading = false;
+      if (cb) cb();
+      if (state.menuOpen) renderMenu();
+    }).catch(function () { if (state.os.key === k) { state.os.list = []; state.os.loading = false; if (state.menuOpen) renderMenu(); } });
+  }
+  // choose a candidate (idx -1 = none). Own player: becomes a <track>; CineSrc embed: drawn by the overlay.
+  function osSelect(idx, quiet) {
+    state.os.idx = idx;
+    if (idx < 0) { state.os.cues = []; applyOsTrack(); return Promise.resolve(); }
+    var item = state.os.list && state.os.list[idx], k = state.os.key;
+    if (!item) return Promise.resolve();
+    return fetch(item.url).then(function (r) { return r.text(); }).then(function (t) {
+      if (state.os.key !== k || state.os.idx !== idx) return;
+      state.os.cues = parseVtt(t);
+      applyOsTrack();
+      if (!quiet) toast(item.label + ' · ' + state.os.cues.length + ' lines');
+    }).catch(function () { toast('Could not load that subtitle'); });
+  }
+  function applyOsTrack() {                                         // own <video> player only
+    if (state.os.trackEl) { try { video.removeChild(state.os.trackEl); } catch (e) {} state.os.trackEl = null; }
+    if (state.os.trackUrl) { try { URL.revokeObjectURL(state.os.trackUrl); } catch (e) {} state.os.trackUrl = null; }
+    if (state.embed || state.os.idx < 0 || !state.os.cues.length) return;
+    var u = URL.createObjectURL(new Blob([cuesToVtt(state.os.cues, state.os.off)], { type: 'text/vtt' }));
+    state.os.trackUrl = u;
+    var t = document.createElement('track'); t.kind = 'subtitles'; t.label = 'OpenSubtitles'; t.srclang = 'en'; t.src = u; t['default'] = true;
+    state.os.trackEl = t; video.appendChild(t);
+    setTimeout(function () { for (var i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = video.textTracks[i].label === 'OpenSubtitles' ? 'showing' : 'hidden'; }, 80);
+  }
+
+  // ---- CineSrc embed: documented postMessage API (timeupdate / seek / play / pause) ----
+  var CIN = 'https://cinesrc.st';
+  state.cin = { t: 0, d: 0, paused: true, stamp: 0, last: 0 };
+  function isCin() { return state.embed && state.embedKind === 'cinesrc'; }
+  function cinSend(cmd, args) { try { $('embedFrame').contentWindow.postMessage({ type: 'cinesrc:command', command: cmd, args: args || [] }, CIN); } catch (e) {} }
+  function cinNow() { return state.cin.t + (state.cin.paused ? 0 : (performance.now() - state.cin.stamp) / 1000); }
+  function cinSeek(delta) { var t = Math.max(0, cinNow() + delta); state.cin.t = t; state.cin.stamp = performance.now(); cinSend('seek', [t]); toast((delta > 0 ? '+' : '') + delta + 's'); }
+  function cinToggle() {
+    if (state.cin.paused) { cinSend('play'); state.cin.paused = false; state.cin.stamp = performance.now(); }
+    else { state.cin.t = cinNow(); cinSend('pause'); state.cin.paused = true; }
+  }
+  window.addEventListener('message', function (e) {
+    if (e.origin !== CIN || !isCin() || !e.data || typeof e.data !== 'object') return;
+    var m = e.data, c = state.cin;
+    switch (m.type) {
+      case 'cinesrc:timeupdate': {                                   // only counts as "playing" while the time is actually moving
+        var nt = +m.currentTime || 0;
+        if (Math.abs(nt - c.t) > 0.05 && nt > c.t) c.paused = false;
+        c.t = nt; c.d = +m.duration || c.d; c.stamp = performance.now(); saveEmbedProgress(); break;
+      }
+      case 'cinesrc:seeked': case 'cinesrc:seeking': c.t = +m.currentTime || 0; c.stamp = performance.now(); break;
+      case 'cinesrc:play': c.paused = false; c.stamp = performance.now(); break;
+      case 'cinesrc:pause': c.t = cinNow(); c.paused = true; break;
+      case 'cinesrc:loadedmetadata': c.d = +m.duration || c.d; break;
+      case 'cinesrc:ended': removeProg(keyOf(state.anime)); closePlayer(); break;
+      case 'cinesrc:ready': pmsg('', false); break;
+    }
+  });
+  function saveEmbedProgress() {
+    var c = state.cin; if (!state.anime || Date.now() - state.lastSave < 5000 || c.t < 5 || !c.d) return;
+    state.lastSave = Date.now(); setProg(state.anime, 1, c.t, c.d);
+  }
+  function renderEmbedSubs() {
+    state.subRaf = requestAnimationFrame(renderEmbedSubs);
+    var box = $('embedSubs'), o = state.os;
+    if (!isCin() || o.idx < 0 || !o.cues.length) { if (box.textContent) box.textContent = ''; return; }
+    var t = cinNow() + o.off, cues = o.cues, lo = 0, hi = cues.length - 1, hit = null;
+    while (lo <= hi) {                                               // last cue starting at or before t
+      var mid = (lo + hi) >> 1;
+      if (cues[mid].s <= t) { hit = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    var txt = '';
+    for (var i = hit; i !== null && i >= 0 && i > hit - 3; i--) if (cues[i].e >= t) { txt = cues[i].text; break; }
+    if (box.textContent !== txt) box.textContent = txt;
+  }
+
   var SOURCES = ['auto', 'anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi', 'animeheaven', 'gogoanime'];
   var SRC_NAMES = { auto: 'Auto (best)', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
   function subsState() {
@@ -616,26 +744,67 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (tt && tt.length) { for (var i = 0; i < tt.length; i++) if (tt[i].mode === 'showing') return 'On'; return 'Off'; }
     return state.hasSoftSubs ? 'Loading…' : 'Built-in';
   }
+  // subtitle choices for the current context: {opts:[{label, apply}], cur}
+  function subOptions() {
+    var o = state.os, opts = [], cur = 0, i;
+    var list = (o.list || []).map(function (x, n) { return { label: x.label, n: n }; });
+    if (isCin()) {                                                  // CineSrc overlay: Off + OpenSubtitles candidates
+      opts.push({ label: 'Off', apply: function () { store.set('ea_os', 'off'); osSelect(-1); } });
+      list.forEach(function (x) { opts.push({ label: 'OpenSubtitles ' + x.label, apply: function () { store.set('ea_os', 'on'); osSelect(x.n); } }); });
+      cur = o.idx < 0 ? 0 : o.idx + 1;
+    } else {                                                        // own player: Default / Off / OpenSubtitles
+      opts.push({ label: state.hasSoftSubs ? 'Default (stream)' : 'Default (built-in)', apply: function () { osSelect(-1); for (i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = i === 0 ? 'showing' : 'hidden'; } });
+      opts.push({ label: 'Off', apply: function () { osSelect(-1); store.set('ea_os', 'off'); for (i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = 'hidden'; } });
+      list.forEach(function (x) { opts.push({ label: 'OpenSubtitles ' + x.label, apply: function () { store.set('ea_os', 'on'); osSelect(x.n); } }); });
+      if (o.idx >= 0) cur = o.idx + 2; else { cur = 0; var any = false; for (i = 0; i < video.textTracks.length; i++) if (video.textTracks[i].mode === 'showing') any = true; if (!any && video.textTracks.length) cur = 1; }
+    }
+    return { opts: opts, cur: cur };
+  }
+  var SPEEDS = [0.75, 1, 1.25, 1.5, 2];
   function menuRows() {
     var opts = qualityOptions(), qi = curQualityIndex(opts);
     var movie = state.anime && state.anime.kind === 'movie';
     var vias = movie ? MOVIE_SOURCES.map(function (o) { return o[0]; }) : SOURCES, cur = movie ? (state.mvia || 'auto') : (state.via || 'auto'), vi = Math.max(0, vias.indexOf(cur));
     var names = movie ? (function () { var n = {}; MOVIE_SOURCES.forEach(function (o) { n[o[0]] = o[1]; }); return n; })() : SRC_NAMES;
-    if (movie && state.embed) return [{ key: 'source', label: 'Source', value: names[vias[vi]], change: function (dir) {
-      state.mvia = vias[(vi + dir + vias.length) % vias.length]; store.set('ea_msrc', state.mvia); closeMenu(); play(state.anime, 1, 0, true); } }];
-    return [
+    var srcRow = { key: 'source', label: 'Source', value: names[vias[vi]] || vias[vi],
+      change: function (dir) {
+        var nv = vias[(vi + dir + vias.length) % vias.length];
+        if (movie) { state.mvia = nv; store.set('ea_msrc', nv); } else state.via = nv;
+        var at = state.embed ? (isCin() ? cinNow() : 0) : video.currentTime; toast('Source: ' + (names[nv] || nv));
+        closeMenu(); play(state.anime, movie ? 1 : state.ep, at > 5 ? at : 0, true);
+      } };
+    var syncRow = { key: 'sync', label: 'Subtitle sync', value: (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's',
+      change: function (dir) { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + dir * 0.5) * 10) / 10)); if (!state.embed) applyOsTrack(); } };
+    function subRow() {
+      var so = subOptions(), loading = state.os.loading && !state.os.list;
+      return { key: 'subs', label: 'Subtitles', value: loading ? 'Loading…' : so.opts[so.cur].label,
+        change: function (dir) {
+          if (!state.os.list && !state.os.loading) { osFetchList(); toast('Fetching OpenSubtitles…'); return; }
+          var n = (so.cur + dir + so.opts.length) % so.opts.length; so.opts[n].apply();
+        } };
+    }
+    if (movie && state.embed) {
+      if (!isCin()) return [srcRow,
+        { key: 'subs', label: 'Subtitles', value: "Use player's CC", change: function () { toast('VidCore has its own subtitle button inside the player'); } },
+        { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast('VidCore picks quality automatically'); } }];
+      return [srcRow, subRow(), syncRow,
+        { key: 'q', label: 'Quality', value: optName(MOVIE_QUALITIES, String(state.mq)),
+          change: function (dir) {
+            var qs = MOVIE_QUALITIES.map(function (o) { return o[0]; }), n = qs[(qs.indexOf(String(state.mq)) + dir + qs.length) % qs.length];
+            state.mq = n; store.set('ea_mq', n); var at = cinNow(); closeMenu(); toast('Quality: ' + optName(MOVIE_QUALITIES, n)); play(state.anime, 1, at > 5 ? at : 0, true);
+          } }];
+    }
+    var rows = [
       { key: 'quality', label: 'Quality', value: opts.length ? opts[qi].label : 'Single stream',
         change: function (dir) { if (opts.length < 2) { toast('This source has a single quality'); return; }
-          var n = (qi + dir + opts.length) % opts.length; opts[n].apply(); store.set('ea_q', opts[n].pref); setQualityLabel(); toast('Quality: ' + opts[n].label); } },
-      { key: 'subs', label: 'Subtitles', value: subsState(), change: function () { toggleCC(); } },
-      { key: 'source', label: 'Source', value: names[vias[vi]] || vias[vi],
-        change: function (dir) {
-          var nv = vias[(vi + dir + vias.length) % vias.length];
-          if (movie) { state.mvia = nv; store.set('ea_msrc', nv); } else state.via = nv;
-          var at = video.currentTime; toast('Source: ' + (names[nv] || nv));
-          closeMenu(); play(state.anime, state.ep, at > 5 ? at : 0, true);
-        } }
+          var n = (qi + dir + opts.length) % opts.length; opts[n].apply(); store.set(movie ? 'ea_mq' : 'ea_q', String(opts[n].pref)); setQualityLabel(); toast('Quality: ' + opts[n].label); } },
+      subRow()
     ];
+    if (state.os.idx >= 0) rows.push(syncRow);
+    rows.push({ key: 'speed', label: 'Speed', value: (state.speed || 1) + '×', change: function (dir) {
+      var i = Math.max(0, SPEEDS.indexOf(state.speed || 1)); state.speed = SPEEDS[(i + dir + SPEEDS.length) % SPEEDS.length]; video.playbackRate = state.speed; } });
+    rows.push(srcRow);
+    return rows;
   }
   function renderMenu() {
     var rows = menuRows(), box = $('mrows'); box.innerHTML = '';
@@ -646,7 +815,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       box.appendChild(d);
     });
   }
-  function openMenu() { state.menuIdx = state.menuIdx || 0; state.menuOpen = true; $('pmenu').className = ''; renderMenu(); hud(); clearTimeout(state.hudTimer); }
+  function openMenu() { state.menuIdx = Math.min(state.menuIdx || 0, 5); if (!state.os.list && !state.os.loading && state.anime) osFetchList(); state.menuOpen = true; $('pmenu').className = ''; renderMenu(); hud(); clearTimeout(state.hudTimer); }
   function closeMenu() { state.menuOpen = false; $('pmenu').className = 'hidden'; hud(); }
   function menuKey(k) {
     var n = state.menuRows.length;
@@ -677,7 +846,13 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       state.hls = newHls();
       state.hls.loadSource(d.url);
       state.hls.attachMedia(video);
-      state.hls.on(Hls.Events.ERROR, function (_, e) { if (e.fatal && !fallbackToProxy()) pmsg('Playback error: ' + e.details, false); });
+      state.netRetry = 0; state.mediaRetry = 0;
+      state.hls.on(Hls.Events.ERROR, function (_, e) {                       // self-heal before giving up
+        if (!e.fatal) return;
+        if (e.type === Hls.ErrorTypes.NETWORK_ERROR && state.netRetry++ < 3) { state.hls.startLoad(); return; }
+        if (e.type === Hls.ErrorTypes.MEDIA_ERROR && state.mediaRetry++ < 3) { state.hls.recoverMediaError(); return; }
+        if (!fallbackToProxy()) pmsg('Playback error: ' + e.details, false);
+      });
     } else {
       video.src = d.url; // native HLS (Tizen/Safari) or mp4
     }
@@ -687,9 +862,14 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     setQualityLabel();
     var pr = video.play(); if (pr && pr.catch) pr.catch(function () { pmsg('Press Enter / Space to play', false); });
   }
-  video.addEventListener('playing', function () { pmsg('', false); paintPlayBtn(); });
+  video.addEventListener('playing', function () { clearTimeout(state.waitTimer); pmsg('', false); paintPlayBtn(); });
   video.addEventListener('pause', function () { paintPlayBtn(); hud(); });
-  video.addEventListener('waiting', function () { pmsg('', true); });
+  video.addEventListener('waiting', function () {
+    pmsg('', true);
+    clearTimeout(state.waitTimer);                                           // stalled for 15s -> try the server relay once
+    state.waitTimer = setTimeout(function () { if (state.view === 'player' && video.readyState < 3 && !video.paused) { if (fallbackToProxy()) toast('Slow connection — switching route'); } }, 15000);
+  });
+  video.addEventListener('volumechange', function () { store.set('ea_vol', { v: video.volume, m: video.muted }); });
   // If the direct link fails in this viewer's browser/TV, retry once through our own server
   function fallbackToProxy() {
     var d = state.src;
@@ -753,7 +933,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     var cur = $('dEps').querySelector('.cur');
     setFocus(cur || $('dPlay'));
   }
-  function seek(sec) { if (video.duration) { video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + sec)); } hud(); }
+  function seek(sec) { if (video.duration) { video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + sec)); } toast((sec > 0 ? '+' : '') + sec + 's'); hud(); }
   function togglePlay() { if (video.paused) { var p = video.play(); if (p && p.catch) p.catch(function () {}); } else video.pause(); hud(); }
   function stepEp(d) {
     var a = state.anime, n = state.ep + d;
@@ -777,6 +957,13 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     ({ back: closePlayer, toggle: togglePlay, rew: function () { seek(-10); }, ff: function () { seek(10); },
        prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, menu: function () { state.menuOpen ? closeMenu() : openMenu(); } })[a]();
   }
+  $('embedCtl').addEventListener('click', function (e) {
+    var b = up(e.target, 'ectl'); if (!b) return;
+    var a = b.getAttribute('data-ec');
+    if (a === 'back10') cinSeek(-10); else if (a === 'fwd10') cinSeek(10); else if (a === 'toggle') cinToggle();
+    else if (a === 'cc') { var so = subOptions(); so.opts[(so.cur + 1) % so.opts.length].apply(); }
+    else if (a === 'syncm' || a === 'syncp') { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + (a === 'syncp' ? 0.5 : -0.5)) * 10) / 10)); toast('Subtitle sync ' + (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's'); }
+  });
   $('player').addEventListener('click', function (e) {
     if (e.target.id === 'skipBtn' || up(e.target, 'skipbtn')) { doSkip(); return; }
     var b = up(e.target, 'pbtn');
@@ -863,8 +1050,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (e.id === 'accLogout') { logout(); return; }
     if (e.id === 'accSync') { syncNow(true); return; }
     if (e.id === 'clearHist') { clearHist(); renderHistory(); toast('History cleared'); setFocus($('clearHist')); return; }
-    if (e.id === 'dSrcBtn') { srcListOpen() ? closeSrcList(true) : openSrcList(); return; }
-    if (e.__srcval !== undefined) { pickSource(e.__srcval); return; }
+    if (e.id === 'dSrcBtn' || e.id === 'dQBtn') { var dk = e.id === 'dSrcBtn' ? 'src' : 'q'; openDropKey() === dk ? closeDrops(true) : openDrop(dk); return; }
+    if (e.__dropval !== undefined) { pickDrop(e.__drop, e.__dropval); return; }
     if (e.id === 'dRemove') { removeProg(keyOf(state.anime)); paintDetailButtons(); renderEpisodes(); toast('Removed from Continue Watching'); setFocus($('dPlay')); return; }
     if (e.id === 'dBack') { closeDetail(); return; }
     if (e.id === 'dPlay') { startFromDetail(); return; }
@@ -904,7 +1091,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   }
 
   function goBack() {
-    if (state.view === 'detail' && srcListOpen()) { closeSrcList(true); return; }
+    if (state.view === 'detail' && anyDropOpen()) { closeDrops(true); return; }
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
     else if (state.tab !== 'home') showTab('home', true);
@@ -917,6 +1104,10 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       e.preventDefault();
       if (state.embed && !state.menuOpen) {
         if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
+        else if (isCin() && (k === KEY.LEFT || k === KEY.RW)) cinSeek(-10);
+        else if (isCin() && (k === KEY.RIGHT || k === KEY.FF)) cinSeek(10);
+        else if (isCin() && (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE)) cinToggle();
+        else if (isCin() && k === 404) { var so = subOptions(); so.opts[(so.cur + 1) % so.opts.length].apply(); }
         else if (k === KEY.ENTER) { try { $('embedFrame').focus(); } catch (e) {} toast('Player selected — press Back to exit'); }
         else if (k === KEY.UP || k === 81 || k === 83 || k === 403 || k === 457) openMenu();
         return;
@@ -969,7 +1160,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (state.view === 'player') return;
     var rb = up(e.target, 'rowbtn');
     if (rb) { var tr = rb.parentNode.parentNode.parentNode.querySelector('.track'); tr.scrollLeft += parseInt(rb.getAttribute('data-dir'), 10) * tr.clientWidth * 0.8; return; }
-    if (state.view === 'detail' && srcListOpen() && !up(e.target, 'dsopt') && e.target.id !== 'dSrcBtn' && !up(e.target, 'focusable')) closeSrcList(false);
+    if (state.view === 'detail' && anyDropOpen() && !up(e.target, 'dsopt') && e.target.id !== 'dSrcBtn' && e.target.id !== 'dQBtn' && !up(e.target, 'focusable')) closeDrops(false);
     var cx = up(e.target, 'cx');
     if (cx) { removeCard(up(cx, 'card')); return; }
     var f = up(e.target, 'focusable');
