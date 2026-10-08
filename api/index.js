@@ -13,8 +13,10 @@
 // Optional env vars: ANIWATCH_URLS, CONSUMET_URLS (extra remote instances), ANIWATCH_DOMAIN.
 
 // Scraper libraries sometimes reject after the race is already won; never let that crash the function.
-process.on('unhandledRejection', e => console.error('unhandledRejection:', e && e.message));
-process.on('uncaughtException', e => console.error('uncaughtException:', e && e.message));
+try {
+  process.on('unhandledRejection', e => console.error('unhandledRejection:', e && e.message));
+  process.on('uncaughtException', e => console.error('uncaughtException:', e && e.message));
+} catch (e) { /* not available (e.g. Cloudflare Workers) */ }
 
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
@@ -263,6 +265,7 @@ async function consumetOnce(name, domain, titles, ep) {
 let avWorker = null;
 async function avGet(pathname) {
   if (process.env.ANIVEXA_URL) return fetchJson(process.env.ANIVEXA_URL.replace(/\/+$/, '') + pathname, {}, 25000);
+  if (!avWorker && globalThis.__AV_WORKER) avWorker = globalThis.__AV_WORKER;     // Cloudflare Workers: bundled statically by worker/index.js
   if (!avWorker) {
     const file = require('path').join(__dirname, '..', 'node_modules', 'all-api', 'index.js');
     avWorker = (await import(require('url').pathToFileURL(file).href)).default;
@@ -666,6 +669,7 @@ async function proxy(req, res, q, origin) {
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.statusCode = r.status;
   if (!r.body) return res.end();
+  if (typeof res.sendWebStream === 'function') return res.sendWebStream(r.body);   // Cloudflare Workers: pass the stream straight through
   const { Readable } = require('stream');
   const stream = Readable.fromWeb(r.body);
   res.on('close', () => stream.destroy());

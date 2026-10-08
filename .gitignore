@@ -1,3 +1,4 @@
 app.wgt
 node_modules/
 data/
+.wrangler/

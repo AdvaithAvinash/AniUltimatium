@@ -12,5 +12,8 @@
   },
   "scripts": {
     "start": "node server/local.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.148.0"
   }
 }

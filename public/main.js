@@ -1,9 +1,11 @@
-const VERCEL_API_URL = "https://aniultimatium.vercel.app";
+const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
 
 (function () {
   'use strict';
 
   // ======================= Constants & helpers =======================
+  var BACKS = [10009, 27, 8, 166, 461, 10182];                       // Tizen Return, Esc, Backspace, browser/webOS back, Exit
+  function isBackKey(k) { return BACKS.indexOf(k) > -1; }
   var KEY = { UP: 38, DOWN: 40, LEFT: 37, RIGHT: 39, ENTER: 13, BACK: 10009, ESC: 27, BKSP: 8, SPACE: 32,
               PLAY: 415, PAUSE: 19, PLAYPAUSE: 10252, STOP: 413, FF: 417, RW: 412 };
   var GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural'];
@@ -693,7 +695,11 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       state.os.osLoaded = true; state.os.osLoading = false;
       if (cb) cb();
       if (state.menuOpen) renderMenu();
-    }).catch(function () { if (state.os.key === k) { state.os.osLoaded = true; state.os.osLoading = false; if (state.menuOpen) renderMenu(); } });
+    }).catch(function () {
+      if (state.os.key !== k) return;
+      if (!state.os.retried) { state.os.retried = true; state.os.osLoading = false; setTimeout(function () { if (state.os.key === k && !state.os.osLoaded) osFetchList(cb); }, 1500); return; }
+      state.os.osLoaded = true; state.os.osLoading = false; if (state.menuOpen) renderMenu();
+    });
   }
   // choose an item (idx -1 = off)
   function subSelect(idx, quiet) {
@@ -732,26 +738,31 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   // When the stream carries its own English track, every OpenSubtitles candidate is scored against it and the best-aligned one wins
   // (its offset is applied), so the text is OpenSubtitles' but the timing is locked to this exact release.
   function subAuto() {
-    var o = state.os, pref = store.get('ea_sublang', 'en');
-    if (pref === 'off' || o.userPick) return;
+    var o = state.os, pref = store.get('ea_sublang', 'en'), kind = store.get('ea_subkind', 'os');
+    if (pref === 'off') pref = 'en';                                    // legacy value: "Off" is per-title now
+    if (o.userPick) return;
     var key = o.key, st = itemsOf(pref, 'stream'), os = itemsOf(pref, 'os'), hard = state.src && state.src.hardsub;
     if (hard && !st.length) return;                                    // picture already has burned-in subtitles
-    if (!os.length) { if (st.length && o.idx < 0) { subSelect(st[0], true); o.auto = true; } return; }
-    if (!st.length) { if (o.idx < 0 || o.auto) { o.off = 0; subSelect(os[0], true); o.auto = true; } return; }   // no reference: first candidate
-    if (o.idx < 0) { subSelect(st[0], true); o.auto = true; }           // instant: stream English while we compare
+    if (kind === 'stream' && st.length) { if (o.idx < 0) { subSelect(st[0], true); o.auto = true; } return; }   // you explicitly prefer the stream's own track
+    if (!os.length) {                                                  // OpenSubtitles not (yet) available: show the stream track meanwhile
+      if (st.length && o.idx < 0) { subSelect(st[0], true); o.auto = true; }
+      return;
+    }
+    if (!st.length) { if (o.idx < 0 || o.auto) { o.off = 0; subSelect(os[0], true); o.auto = true; } return; }   // no reference: first OpenSubtitles file
+    if (o.idx < 0) { subSelect(st[0], true); o.auto = true; }           // instant: stream English while OpenSubtitles are compared
     loadCues(o.items[st[0]]).then(function (ref) {
       return Promise.all(os.slice(0, 6).map(function (i) { return loadCues(o.items[i]).then(function (c) { return { i: i, a: alignOffset(c, ref), n: c.length }; }); }));
     }).then(function (res) {
       if (state.os.key !== key || state.os.userPick) return;
-      var best = null; res.forEach(function (r) { if (r.a && (!best || r.a.share > best.a.share)) best = r; });
-      if (best && best.a.share >= 0.5) {
-        state.os.off = best.a.off; state.os.auto = true; subSelect(best.i, true);
-        if (Math.abs(best.a.off) >= 0.3) toast('Subtitles auto-aligned (' + (best.a.off > 0 ? '+' : '') + best.a.off.toFixed(1) + 's)');
-      }                                                                   // else keep the stream's own (already synced) English
+      var best = null; res.forEach(function (r) { if (!best || (r.a ? r.a.share : -1) > (best.a ? best.a.share : -1)) best = r; });
+      if (!best) best = { i: os[0], a: null };
+      state.os.off = best.a && best.a.share >= 0.3 ? best.a.off : 0; state.os.auto = true;
+      subSelect(best.i, true);                                          // ALWAYS OpenSubtitles (best-aligned file), never left on the stream track
+      if (Math.abs(state.os.off) >= 0.3) toast('OpenSubtitles auto-aligned (' + (state.os.off > 0 ? '+' : '') + state.os.off.toFixed(1) + 's)');
       if (state.menuOpen) renderMenu();
     });
   }
-  function rememberSub(idx) { var it = state.os.items[idx]; store.set('ea_sublang', it ? it.lang : 'off'); }
+  function rememberSub(idx) { var it = state.os.items[idx]; if (it) { store.set('ea_sublang', it.lang); store.set('ea_subkind', it.kind); } }
 
   // ---- CineSrc embed: documented postMessage API (timeupdate / seek / play / pause) ----
   var CIN = 'https://cinesrc.st';
@@ -814,7 +825,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     state.os.userPick = true; state.os.off = 0; subSelect(i); rememberSub(i);
   }
   function subOptions() {                                             // used by the quick toggle (green key / CC button)
-    var o = state.os, opts = [{ label: 'Off', apply: function () { o.userPick = true; subSelect(-1); store.set('ea_sublang', 'off'); } }];
+    var o = state.os, opts = [{ label: 'Off', apply: function () { o.userPick = true; subSelect(-1); } }];
     subLangs().forEach(function (l) { opts.push({ label: LANG_NAMES[l] || l, apply: function () { pickLang(l); } }); });
     var cur = 0; if (o.idx >= 0) { var l2 = o.items[o.idx].lang, k = subLangs().indexOf(l2); cur = k + 1; }
     return { opts: opts, cur: cur };
@@ -871,7 +882,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       var lang = o.items[o.idx].lang, group = itemsOf(lang); if (group.length < 2) return null;
       var pos = group.indexOf(o.idx), it = o.items[o.idx];
       return { key: 'file', label: 'Subtitle file', value: (it.short || it.label) + ' (' + (pos + 1) + '/' + group.length + ')',
-        change: function (dir) { o.userPick = true; o.off = 0; subSelect(group[(pos + dir + group.length) % group.length]); } };
+        change: function (dir) { o.userPick = true; o.off = 0; var ni = group[(pos + dir + group.length) % group.length]; subSelect(ni); rememberSub(ni); } };
     }
     if (movie && state.embed) {
       if (!isCin()) return [srcRow,
@@ -916,7 +927,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     else if (k === KEY.DOWN) state.menuIdx = (state.menuIdx + 1) % n;
     else if (k === KEY.LEFT) state.menuRows[state.menuIdx].change(-1);
     else if (k === KEY.RIGHT || k === KEY.ENTER) state.menuRows[state.menuIdx].change(1);
-    else { closeMenu(); return; }
+    else if (k === KEY.PLAY || k === KEY.PAUSE || k === KEY.PLAYPAUSE) { if (!state.embed) togglePlay(); return; }   // media keys never close the menu
+    else return;                                                                  // only Back closes it
     if (state.menuOpen) renderMenu();
   }
   function startVideo(d, startAt, tk) {
@@ -1061,6 +1073,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       if (video.duration) video.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * video.duration;
       hud(); return;
     }
+    if (state.menuOpen && !up(e.target, 'mrow') && e.target.id !== 'pmenu' && !up(e.target, 'pmenu') && !up(e.target, 'pbtn')) { closeMenu(); return; }
     if (e.target === video) togglePlay();
   });
   $('player').addEventListener('mousemove', function () { if (state.view === 'player') hud(); });
@@ -1195,6 +1208,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
   function paintTipsBtn() { var off = store.get('ea_notice_off', false); $('setTips').innerHTML = (off ? '✕ Startup tips: Off' : '✔ Startup tips: On'); }
   function goBack() {
     if (state.view === 'notice') { hideNotice(false); return; }
+    if (state.view === 'player' && state.menuOpen) { closeMenu(); return; }          // Back closes the settings menu first
     if (state.view === 'detail' && anyDropOpen()) { closeDrops(true); return; }
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
@@ -1207,7 +1221,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
     if (state.view === 'player') {
       e.preventDefault();
       if (state.embed && !state.menuOpen) {
-        if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
+        if (isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); closePlayer(); }
         else if (isCin() && (k === KEY.LEFT || k === KEY.RW)) cinSeek(-10);
         else if (isCin() && (k === KEY.RIGHT || k === KEY.FF)) cinSeek(10);
         else if (isCin() && (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE)) cinToggle();
@@ -1216,8 +1230,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
         else if (k === KEY.UP || k === 81 || k === 83 || k === 403 || k === 457) openMenu();
         return;
       }
-      if (state.menuOpen) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) closeMenu(); else menuKey(k); return; }
-      if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) closePlayer();
+      if (state.menuOpen) { if (isBackKey(k)) { state.lastBack = Date.now(); closeMenu(); } else menuKey(k); return; }
+      if (isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); closePlayer(); }
       else if (k === KEY.ENTER && $('skipBtn').className === 'skipbtn show') doSkip();
       else if (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) togglePlay();
       else if (k === KEY.LEFT || k === KEY.RW) seek(-10);
@@ -1247,7 +1261,7 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       case KEY.LEFT: e.preventDefault(); move('left'); break;
       case KEY.RIGHT: e.preventDefault(); move('right'); break;
       case KEY.ENTER: e.preventDefault(); if (state.focusEl) activate(state.focusEl); break;
-      case KEY.BACK: case KEY.ESC: case KEY.BKSP: e.preventDefault(); goBack(); break;
+      case KEY.BACK: case KEY.ESC: case KEY.BKSP: case 166: case 461: case 10182: e.preventDefault(); state.lastBack = Date.now(); goBack(); break;
       default:
         // laptop convenience: "/" jumps to search
         if (k === 191 && state.view !== 'detail') { e.preventDefault(); showTab('search'); }
@@ -1289,7 +1303,8 @@ const VERCEL_API_URL = "https://aniultimatium.vercel.app";
       });
     }
   } catch (e) {}
-  document.addEventListener('tizenhwkey', function (e) { if (e.keyName === 'back') { e.preventDefault && e.preventDefault(); goBack(); } });
+  // Tizen's hardware back event (fires when the key is pressed while an embedded iframe has focus); ignore it if keydown already handled the same press
+  document.addEventListener('tizenhwkey', function (e) { if (e.keyName === 'back' && Date.now() - (state.lastBack || 0) > 500) { e.preventDefault && e.preventDefault(); goBack(); } });
   initPlayerIcons();
   buildChips();
   paintTabs();
