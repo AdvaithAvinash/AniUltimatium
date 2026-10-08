@@ -5,6 +5,21 @@ import handler from '../api/index.js';
 
 globalThis.__AV_WORKER = avWorker;                      // Anivexa aggregator (fetch handler) bundled in-process
 
+// AniList refuses Cloudflare Workers (HTTP 403). The app sends the AniList record along with each request (?am=...)
+// and every in-process lookup of that media id (Anivexa's getMedia) is answered from it instead of the network.
+const realFetch = globalThis.fetch.bind(globalThis);
+const AL_MEDIA = {};
+globalThis.fetch = function (input, init) {
+  try {
+    const u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (/graphql\.anilist\.co/.test(u) && init && typeof init.body === 'string') {
+      const b = JSON.parse(init.body), m = b.variables && AL_MEDIA[b.variables.id];
+      if (m && /Media\(id/.test(b.query)) return Promise.resolve(new Response(JSON.stringify({ data: { Media: m } }), { headers: { 'content-type': 'application/json' } }));
+    }
+  } catch (e) { /* fall through to the real network */ }
+  return realFetch(input, init);
+};
+
 function syncEnv(env) {
   globalThis.__ENV = env;
   try {                                                  // make string vars / secrets visible as process.env.X
@@ -43,6 +58,7 @@ async function runApi(request) {
   headers['x-forwarded-proto'] = 'https';
   let body;
   if (request.method === 'POST') { try { body = await request.json(); } catch (e) { body = {}; } }
+  if (url.searchParams.get('am')) { try { const m = JSON.parse(url.searchParams.get('am')); if (m && m.id) AL_MEDIA[m.id] = m; } catch (e) { /* ignore */ } }
   const req = { method: request.method, url: url.pathname + url.search, query: Object.fromEntries(url.searchParams), headers, body };
   const res = makeRes();
   try { await handler(req, res); } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }

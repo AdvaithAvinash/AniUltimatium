@@ -161,6 +161,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function api(params, opts) {
     opts = opts || {};
+    var amId = (params.action === 'sources' && params.id) || (params.action === 'subs' && params.anilist) || '';
+    if (amId && !opts.hasAm) {
+      return aniFull(amId).then(function (am) {
+        var p2 = {}; Object.keys(params).forEach(function (k) { p2[k] = params[k]; });
+        if (am) p2.am = am;
+        return api(p2, { body: opts.body, hasAm: true });
+      });
+    }
     var qs = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
     var headers = {}, au = auth(), init = { headers: headers };
     if (au && /^(me|sync_get|sync_put)$/.test(params.action)) headers.Authorization = 'Bearer ' + au.token;
@@ -175,6 +183,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (/^(home|trending|search)$/.test(params.action)) return aniDirect(params).catch(function () { throw e; });
       throw e;
     });
+  }
+  // Full AniList record, handed to the backend so it never has to reach AniList itself (Cloudflare Workers get blocked there)
+  var amCache = {};
+  function aniFull(id) {
+    if (!id || isNaN(id)) return Promise.resolve('');
+    if (amCache[id] !== undefined) return Promise.resolve(amCache[id]);
+    return aniQuery('query($id:Int){Media(id:$id,type:ANIME){id idMal title{english romaji native} status format episodes seasonYear startDate{year month day} genres synonyms nextAiringEpisode{episode airingAt timeUntilAiring}}}', { id: Number(id) })
+      .then(function (d) { return (amCache[id] = JSON.stringify(d.Media)); }, function () { return ''; });
   }
   var AL_F = 'id title{romaji english} coverImage{extraLarge large color} bannerImage description(asHtml:false) idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms';
   function aniMap(m) {
