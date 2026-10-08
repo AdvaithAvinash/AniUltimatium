@@ -58,7 +58,7 @@ async function fetchJson(url, opts = {}, timeout = 9000) {
 async function anilist(query, variables) {
   const d = await fetchJson(ANILIST, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Aniultimatium/2.3' },
     body: JSON.stringify({ query, variables }),
   });
   if (d.errors) throw new Error(d.errors[0].message);

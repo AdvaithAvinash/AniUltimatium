@@ -170,6 +170,42 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
         return j;
       });
+    }).catch(function (e) {
+      // Some hosts (e.g. Cloudflare Workers) get blocked by AniList: ask AniList straight from the device instead
+      if (/^(home|trending|search)$/.test(params.action)) return aniDirect(params).catch(function () { throw e; });
+      throw e;
+    });
+  }
+  var AL_F = 'id title{romaji english} coverImage{extraLarge large color} bannerImage description(asHtml:false) idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms';
+  function aniMap(m) {
+    return { id: m.id, mal: m.idMal || null, kind: 'anime', title: m.title.english || m.title.romaji, titleRomaji: m.title.romaji,
+      cover: m.coverImage.extraLarge || m.coverImage.large, banner: m.bannerImage || null, color: m.coverImage.color || null,
+      description: (m.description || '').replace(/<[^>]+>/g, '').trim(),
+      episodes: m.episodes || (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null), format: m.format, year: m.seasonYear,
+      status: m.status, genres: m.genres || [], synonyms: (m.synonyms || []).filter(function (x) { return /^[\x20-\x7e]+$/.test(x); }).slice(0, 4),
+      score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null };
+  }
+  function aniQuery(query, vars) {
+    return fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: query, variables: vars || {} }) }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.data) throw new Error('AniList unavailable'); return j.data; });
+  }
+  function aniDirect(p) {
+    var shelf = function (a, args) { return a + ':Page(perPage:20){media(type:ANIME,isAdult:false,' + args + '){...F}}'; };
+    if (p.action === 'home') {
+      var mo = new Date().getUTCMonth(), season = ['WINTER', 'SPRING', 'SUMMER', 'FALL'][Math.floor(mo / 3)];
+      var q = 'query($season:MediaSeason,$year:Int){' + [shelf('trending', 'sort:TRENDING_DESC'), shelf('season', 'season:$season,seasonYear:$year,sort:POPULARITY_DESC'),
+        shelf('top', 'sort:SCORE_DESC'), shelf('action', 'genre:"Action",sort:POPULARITY_DESC'), shelf('romance', 'genre:"Romance",sort:POPULARITY_DESC'),
+        shelf('comedy', 'genre:"Comedy",sort:POPULARITY_DESC'), shelf('fantasy', 'genre:"Fantasy",sort:POPULARITY_DESC')].join(' ') + '} fragment F on Media{' + AL_F + '}';
+      return aniQuery(q, { season: season, year: new Date().getUTCFullYear() }).then(function (d) {
+        var names = [['trending', 'Trending Now'], ['season', 'Popular This Season'], ['top', 'Top Rated'], ['action', 'Action'], ['romance', 'Romance'], ['comedy', 'Comedy'], ['fantasy', 'Fantasy']];
+        return { rows: names.map(function (n) { return { title: n[1], items: ((d[n[0]] && d[n[0]].media) || []).map(aniMap) }; }).filter(function (r) { return r.items.length; }) };
+      });
+    }
+    var term = p.action === 'search' ? p.q : '', genre = p.action === 'search' ? p.genre : '';
+    return aniQuery('query($s:String,$g:String,$sort:[MediaSort]){Page(perPage:30){media(type:ANIME,search:$s,genre:$g,sort:$sort,isAdult:false){' + AL_F + '}}}',
+      { s: term || undefined, g: genre || undefined, sort: [term ? 'SEARCH_MATCH' : (p.action === 'trending' ? 'TRENDING_DESC' : 'POPULARITY_DESC')] }).then(function (d) {
+      return { results: d.Page.media.map(aniMap) };
     });
   }
   function toast(t) {
