@@ -314,12 +314,26 @@ function avPick(d) {
     qualities: best.type === 'mp4' ? usable.filter(x => x.type === 'mp4' && x.quality).sort((a, b) => q(b) - q(a)).map(x => ({ label: x.quality, url: x.url })) : undefined,
   };
 }
+// Make sure a stream really plays from THIS host (some CDNs answer 404/HTML to cloud IPs) before we hand it out
+async function probeStream(r) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 9000);
+  try {
+    const x = await fetch(r.url, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...(r.headers || {}), ...(r.mp4 ? { Range: 'bytes=0-1023' } : {}) } });
+    if (!x.ok) throw new Error('stream HTTP ' + x.status);
+    const ct = (x.headers.get('content-type') || '').toLowerCase();
+    if (r.mp4) { if (/text\/html|json/.test(ct)) throw new Error('stream is not video'); }
+    else { const head = (await x.text()).slice(0, 64); if (head.indexOf('#EXTM3U') < 0) throw new Error('stream is not a playlist'); }
+    try { x.body && x.body.cancel(); } catch (e) { /* ignore */ }
+  } finally { clearTimeout(t); }
+  return r;
+}
 async function viaAnivexa(anilistId, ep, only, audio) {
   if (!anilistId) throw new Error('no anilist id');
   const aud = audio === 'dub' ? 'dub' : 'sub';
   const order = (only && AV_ORDER.includes(only) ? [only] : AV_ORDER).filter(p => aud === 'sub' || p !== 'anizone');   // AniZone has no separate dub (its HLS carries an English audio track)
   const T = 14000;
-  const runs = order.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/${aud}/${p}-${ep}`).then(d => ({ ...avPick(d), via: p })), T, p));
+  const runs = order.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/${aud}/${p}-${ep}`).then(d => probeStream({ ...avPick(d), via: p })), T + 6000, p));
   runs.forEach(r => r.catch(() => {}));
   const errs = [];
   for (let i = 0; i < runs.length; i++) {            // priority order; all already running in parallel
@@ -651,6 +665,7 @@ async function proxy(req, res, q, origin) {
   const type = r.headers.get('content-type') || '';
   if (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target)) {
     const text = await r.text();
+    if (!r.ok || text.indexOf('#EXTM3U') < 0) return send(res, r.ok ? 502 : r.status, { error: 'upstream playlist unavailable (' + r.status + ')' }, 'no-store');
     const abs = u => new URL(u, target).href;
     const wrap = u => `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(abs(u))}`;
     const out = text.split('\n').map(line => {
