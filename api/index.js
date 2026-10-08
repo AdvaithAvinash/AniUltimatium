@@ -333,6 +333,18 @@ async function viaAnivexa(anilistId, ep, only, audio) {
   const aud = audio === 'dub' ? 'dub' : 'sub';
   const order = (only && AV_ORDER.includes(only) ? [only] : AV_ORDER).filter(p => aud === 'sub' || p !== 'anizone');   // AniZone has no separate dub (its HLS carries an English audio track)
   const T = 14000;
+  if (globalThis.__AV_WORKER && !(only && AV_ORDER.includes(only))) {
+    // Cloudflare Workers allow only a handful of outgoing requests per call: try the reliable providers one at a time
+    const seq = ['animegg', 'aniwaves', 'kaa', 'anikoto', 'senshi', 'animenosub', 'anizone'].filter(p => order.includes(p));
+    const errs = [];
+    for (const p of seq) {
+      try {
+        const r = await withTimeout(avGet(`/watch/${p}/${anilistId}/${aud}/${p}-${ep}`).then(d => probeStream({ ...avPick(d), via: p })), T, p);
+        return { ...r, matched: p + (r.quality ? ' ' + r.quality : '') };
+      } catch (e) { errs.push(p + ': ' + clean(e.message, 50)); }
+    }
+    throw new Error(errs.join('; '));
+  }
   const runs = order.map(p => withTimeout(avGet(`/watch/${p}/${anilistId}/${aud}/${p}-${ep}`).then(d => probeStream({ ...avPick(d), via: p })), T + 6000, p));
   runs.forEach(r => r.catch(() => {}));
   const errs = [];
@@ -554,7 +566,7 @@ async function sources(req, q, origin) {
   // Anivexa (HLS up to 1080p, soft English subs) goes first; the rest only start if it fails or is slow (>6s)
   const primary = all.find(([n]) => n === 'anivexa') && q.id ? all.find(([n]) => n === 'anivexa') : all.find(([n]) => n === 'animeheaven');
   const primaryRun = primary ? primary[1]() : null;
-  const gate = primaryRun ? Promise.race([primaryRun.then(() => new Promise(() => {}), () => {}), new Promise(r => setTimeout(r, 6000))]) : Promise.resolve();
+  const gate = primaryRun ? Promise.race([primaryRun.then(() => new Promise(() => {}), () => {}), new Promise(r => globalThis.__AV_WORKER ? 0 : setTimeout(r, 6000))]) : Promise.resolve();
   const jobs = all.map(([name, job]) => (job === (primary && primary[1]) ? primaryRun : gate.then(job)).then(r => ({ ...r, provider: name }), e => { throw new Error(name + ': ' + clean(e.message, 260)); }));
   try {
     // Race every provider; first one that yields a stream wins
