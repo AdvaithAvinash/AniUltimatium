@@ -271,10 +271,11 @@ async function avGet(pathname) {
     avWorker = (await import(require('url').pathToFileURL(file).href)).default;
   }
   const res = await avWorker.fetch(new Request('http://anivexa.local' + pathname), {});
-  if (!res.ok) throw new Error('anivexa HTTP ' + res.status);
+  if (!res.ok) { let m = ''; try { const j = await res.json(); m = j.error || j.message || ''; } catch (e) { /* ignore */ } throw new Error('anivexa HTTP ' + res.status + (m ? ' ' + String(m).slice(0, 120) : '')); }
   return res.json();
 }
 const AV_ORDER = ['anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi'];
+const AV_ALL = [...AV_ORDER, 'anipm', 'animedunya', 'animeonsen', 'mkissa'];
 // Keep several subtitle tracks (English variants first, then Japanese and a few other languages) so the player can offer a language choice.
 const LANG_CODES = { english: 'en', japanese: 'ja', spanish: 'es', portuguese: 'pt', french: 'fr', german: 'de', arabic: 'ar', italian: 'it', indonesian: 'id', russian: 'ru' };
 function avSubtitles(list) {
@@ -743,6 +744,18 @@ module.exports = async (req, res) => {
       case 'me': return send(res, 200, await accounts.me(bearer(req)), 'no-store');
       case 'sync_get': return send(res, 200, await accounts.syncGet(bearer(req)), 'no-store');
       case 'sync_put': return send(res, 200, await accounts.syncPut(bearer(req), (await readBody(req)).data), 'no-store');
+      case 'avtest': {           // diagnostics: run one Anivexa provider from this host and check that its stream loads
+        const t0 = Date.now(), p = String(q.p || ''), aud = q.audio === 'dub' ? 'dub' : 'sub';
+        if (!AV_ALL.includes(p)) return send(res, 400, { error: 'unknown provider', providers: AV_ALL }, 'no-store');
+        try {
+          const d = await withTimeout(avGet(`/watch/${p}/${q.id}/${aud}/${p}-${parseInt(q.ep, 10) || 1}`), 20000, p);
+          const r = avPick(d);
+          const t1 = Date.now();
+          let probe = 'ok';
+          try { await probeStream(r); } catch (e) { probe = clean(e.message, 80); }
+          return send(res, 200, { p, ok: probe === 'ok', ms: t1 - t0, probeMs: Date.now() - t1, probe, url: r.url, mp4: r.mp4, quality: r.quality, subs: (r.subtitles || []).length, ref: (r.headers && r.headers.Referer) || '' }, 'no-store');
+        } catch (e) { return send(res, 200, { p, ok: false, ms: Date.now() - t0, error: clean(e.message, 160) }, 'no-store'); }
+      }
       case 'proxy':
         return await proxy(req, res, q, origin);
       case 'home':
