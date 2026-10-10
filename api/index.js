@@ -398,7 +398,7 @@ async function viaAnimeHeaven(titles, ep) {
 }
 
 
-// 0a) AnimePararadise — public JSON API (works from Cloudflare): HLS up to 1080p + English soft subtitles.
+// 0a) AnimeParadise — public JSON API (works from Cloudflare): HLS up to 1080p + English soft subtitles.
 //     search -> /anime/{id}/episode -> /ep/{uid}?origin={id} -> streamLink (played via stream.animeparadise.moe/m3u8)
 const AP_API = 'https://api.animeparadise.moe', AP_SITE = 'https://www.animeparadise.moe/';
 const apGet = u => fetchJson(AP_API + u, { headers: { Referer: AP_SITE, Origin: 'https://www.animeparadise.moe', Accept: 'application/json' } }, 9000);

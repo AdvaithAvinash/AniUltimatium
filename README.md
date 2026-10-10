@@ -36,7 +36,12 @@ Keep the computer on and on the same Wi-Fi as the TV while watching.
 dependency and run in-process) is the primary source. It aggregates AniZone, AniKoto, AnimeGG, KickAssAnime, AniWaves, Senshi …
 by AniList id and returns **adaptive HLS up to 1080p with English soft-subs** (SRT/ASS are converted to WebVTT by the proxy).
 Fallbacks: AnimeHeaven (720p hard-subbed MP4) and gogoanime.by.
-In the player press **Up** (remote) / **Q** / click the quality button to open the settings menu: **Quality** (Auto/1080p/720p/…; your choice is remembered), **Subtitles** and **Source** (pick AniZone, AniKoto, AnimeGG, KickAssAnime, Omega, AniWaves, Senshi, AnimeHeaven or Gogoanime manually if the automatic one is poor or missing). Remote: Left/Right seek, Enter play/pause, Down show controls, red/Info = menu, green = subtitles.
+**AnimeParadise** (public JSON API: HLS up to 1080p + English/multi-language soft subs + intro/outro times) is tried first.
+On **Cloudflare Workers** (free plan ≈ 50 outgoing requests per call) sources are tried one at a time in the order measured from a Worker —
+AnimeParadise → AniKoto → AnimeGG → AniWaves → AnimeNoSub → AnimeHeaven → gogoanime → KickAssAnime → AniZone — and the app continues
+with `?skip=` in a new call when one runs out of requests. If a stream fails to play (or never starts) the app moves to the next source by itself.
+Check any Anivexa provider from your host with `/api?action=avtest&p=<provider>&id=<anilistId>&ep=1`.
+In the player press **Up** (remote) / **Q** / click the quality button to open the settings menu: **Quality** (Auto/1080p/720p/…; your choice is remembered), **Subtitles** and **Source** (pick AnimeParadise, AniZone, AniKoto, AnimeGG, KickAssAnime, Omega, AniWaves, Senshi, AnimeHeaven or Gogoanime manually if the automatic one is poor or missing). Remote: Left/Right seek, Enter play/pause, Down show controls, red/Info = menu, green = subtitles.
 
 These sites block cloud/datacenter IPs, so **run the app locally** (`npm install && npm start`) for best results.
 To use a separately hosted Anivexa instance instead, set `ANIVEXA_URL`.
