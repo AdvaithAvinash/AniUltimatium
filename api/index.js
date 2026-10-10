@@ -467,6 +467,48 @@ async function viaAnv(anilistId, ep, audio) {
   return { url: abs(src.url), headers: {}, cookie: ck, subtitles, mp4: false, quality: 'adaptive', matched: 'anv ' + (src.label || ''), hardsub: v.id === 'hsub' };
 }
 
+// 0d) animex.one — player backend keyed by AniList id (plyr.animex.one/e/{id}/{ep}/__data.json -> pp.animex.one sources).
+//     Providers that work through a relay: yuki (megaplay files), zuna, loli. Streams need the Referer the API returns.
+const AX_PLYR = 'https://plyr.animex.one', AX_API = 'https://pp.animex.one';
+function devalue(arr, i, depth = 0) {                       // SvelteKit flat JSON: numbers index into the same array
+  if (typeof i !== 'number' || i < 0 || depth > 40) return undefined;
+  const v = arr[i];
+  if (Array.isArray(v)) return v.map(j => devalue(arr, j, depth + 1));
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = devalue(arr, v[k], depth + 1); return o; }
+  return v;
+}
+async function viaAnimex(anilistId, ep, audio) {
+  if (!anilistId) throw new Error('no anilist id');
+  const hdr = { 'User-Agent': UA, Referer: AX_PLYR + '/', Origin: AX_PLYR, Accept: 'application/json' };
+  const meta = await fetchJson(`${AX_PLYR}/e/${encodeURIComponent(anilistId)}/${ep}/__data.json`, { headers: hdr }, 9000);
+  const node = (meta.nodes || []).find(n => n && n.data && Array.isArray(n.data) && JSON.stringify(n.data).includes('subProviders'));
+  const root = node ? devalue(node.data, 0) : null;
+  if (!root || !root.id || !root.servers) throw new Error('not found');
+  const type = audio === 'dub' ? 'dub' : 'sub';
+  const have = ((type === 'dub' ? root.servers.dubProviders : root.servers.subProviders) || []).map(x => x && x.id);
+  const order = ['yuki', 'zuna', 'loli'].filter(x => have.includes(x));
+  if (!order.length) throw new Error('no ' + type);
+  const errs = [];
+  for (const pv of order.slice(0, 2)) {
+    try {
+      const d = await fetchJson(`${AX_API}/rest/api/sources?id=${encodeURIComponent(root.id)}&epNum=${ep}&type=${type}&providerId=${pv}`, { headers: hdr }, 9000);
+      const src = (d.sources || []).find(x => x && x.url);
+      if (!src) throw new Error('no sources');
+      const h = d.headers || {}, ref = h.Referer || h.referer || '';
+      const subtitles = (d.tracks || []).filter(t => t && t.url && /captions|subtitles/i.test(t.kind || 'captions') && /\.(vtt|srt|ass)(\?|$)/i.test(t.url)).map(t => {
+        const l = String(t.lang || t.label || '').toLowerCase(); let lang = l.length === 2 ? l : '';
+        for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) { lang = LANG_CODES[k]; break; }
+        return { lang: lang || 'en', label: t.label || t.lang || 'English', url: t.url, default: !!t.default };
+      });
+      const ch = d.chapters || [], iv = n => { const c = ch.find(x => x && new RegExp(n, 'i').test(x.title || '')); return c && c.end > c.start ? { start: +c.start, end: +c.end } : null; };
+      const mp4 = /mp4/i.test(src.type || '') || /\.mp4(\?|$)/i.test(src.url);
+      return { url: src.url, headers: ref ? { Referer: ref } : {}, subtitles, mp4, quality: mp4 ? (src.quality || '') : 'adaptive', matched: 'animex ' + pv,
+               skip: (iv('intro') || iv('outro')) ? { op: iv('intro'), ed: iv('outro') } : null, forceProxy: true };
+    } catch (e) { errs.push(pv + ': ' + clean(e.message, 40)); }
+  }
+  throw new Error(errs.join('; '));
+}
+
 // 0b) gogoanime.by — WordPress site; its "blogger" player exposes a Google Video MP4 (English sub).
 //     Those links are locked to the requesting IP, so they are always relayed through this server.
 const GG = 'https://gogoanime.by';
@@ -609,6 +651,7 @@ function providerJobs(titles, ep, anilistId, via, audio) {
   return [
     ['animeparadise', () => withTimeout(viaAnimeParadise(anilistId, titles, ep), T, 'animeparadise')],
     ['anv', () => withTimeout(viaAnv(anilistId, ep, audio), T, 'anv')],
+    ['animex', () => withTimeout(viaAnimex(anilistId, ep, audio), T, 'animex')],
     ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via, audio), T, 'anivexa')],
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
@@ -634,11 +677,12 @@ function parseQuery(q) {
 // AnimeParadise (HLS 1080p + soft subs) > Anikoto (HLS + soft subs) > AnimeGG (hardsub mp4) > AniWaves > AnimeNoSub > AnimeHeaven > gogoanime.
 // Each call tries sources one by one and stops early when its request budget runs low; the app then calls again with
 // ?skip=<sources already tried>, so every source gets a fresh budget. The app also skips a source whose stream fails to play.
-const CF_CHAIN = ['animeparadise', 'anv', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
-const DUB_OK = new Set(['anv', 'anikoto', 'animegg', 'aniwaves', 'kaa', 'animenosub']);
+const CF_CHAIN = ['animeparadise', 'anv', 'animex', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
+const DUB_OK = new Set(['anv', 'animex', 'anikoto', 'animegg', 'aniwaves', 'kaa', 'animenosub']);
 function chainJob(k, titles, ep, q) {
   if (k === 'animeparadise') return viaAnimeParadise(q.id, titles, ep);
   if (k === 'anv') return viaAnv(q.id, ep, q.audio);
+  if (k === 'animex') return viaAnimex(q.id, ep, q.audio);
   if (k === 'animeheaven') return viaAnimeHeaven(titles, ep);
   if (k === 'gogoanime') return viaGogoanime(titles, ep);
   return viaAnivexa(q.id, ep, k, q.audio);
@@ -676,7 +720,7 @@ async function sources(req, q, origin) {
   const avVia = via && AV_ALL.includes(via) ? via : null;
   const skip = String(q.skip || '').split(',').filter(Boolean);
   const only = q.only ? String(q.only).split(',') : via ? [avVia ? 'anivexa' : via] : null;
-  const all = providerJobs(titles, ep, q.id, avVia, q.audio).filter(([n]) => (!only || only.includes(n)) && !skip.includes(n) && (q.audio !== 'dub' || n === 'anivexa' || n === 'anv'));
+  const all = providerJobs(titles, ep, q.id, avVia, q.audio).filter(([n]) => (!only || only.includes(n)) && !skip.includes(n) && (q.audio !== 'dub' || n === 'anivexa' || n === 'anv' || n === 'animex'));
   // AnimeParadise / Anivexa (HLS up to 1080p, soft English subs) go first; the rest only start if they fail or are slow (>6s)
   const prim = all.filter(([n]) => q.id && (n === 'animeparadise' || n === 'anv' || n === 'anivexa'));
   const primary = prim.length ? prim : all.filter(([n]) => n === 'animeheaven');
@@ -712,7 +756,7 @@ function finish(r, origin) {
   const ck = r.cookie ? '&ck=' + encodeURIComponent(r.cookie) : '';                     // site session cookie the relay must send (anv.to)
   const url = !direct && (ref || r.forceProxy || isHls || ck) ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}${ck}&url=${encodeURIComponent(r.url)}` : r.url;
   // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
-  const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt${ck}&url=${encodeURIComponent(t.url)}` }));
+  const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt${ck}${ref ? '&ref=' + encodeURIComponent(ref) : ''}&url=${encodeURIComponent(t.url)}` }));
   // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
   const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}${ck}&url=${encodeURIComponent(r.url)}`;
   const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
@@ -789,7 +833,7 @@ async function proxy(req, res, q, origin) {
   if (!/^https?:\/\//i.test(target || '')) return send(res, 400, { error: 'bad url' }, 'no-store');
   const ref = q.ref || '';
   const headers = { 'User-Agent': UA };
-  if (ref) { headers.Referer = ref; headers.Origin = ref.replace(/\/+$/, ''); }
+  if (ref) { headers.Referer = ref; try { headers.Origin = new URL(ref).origin; } catch (e) { /* ignore */ } }
   if (req.headers.range) headers.Range = req.headers.range;
   const ck = q.ck ? String(q.ck) : '';
   if (ck && /^https:\/\/anv\.to\//.test(target)) headers.Cookie = ck;            // only ever sent back to the site that issued it
