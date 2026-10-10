@@ -321,7 +321,7 @@ async function probeStream(r) {
   const t = setTimeout(() => ctl.abort(), 9000);
   try {
     let x;
-    try { x = await fetch(r.url, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...(r.headers || {}), ...(r.mp4 ? { Range: 'bytes=0-1023' } : {}) } }); }
+    try { x = await fetch(r.url, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...(r.headers || {}), ...(r.headers && r.headers.Referer ? { Origin: (() => { try { return new URL(r.headers.Referer).origin; } catch (e) { return undefined; } })() } : {}), ...(r.cookie ? { Cookie: r.cookie } : {}), ...(r.mp4 ? { Range: 'bytes=0-1023' } : {}) } }); }
     catch (e) { if (/subrequest/i.test(e.message)) return r; throw e; }   // Workers request budget used up: let the player try it
     if (!x.ok) throw new Error('stream HTTP ' + x.status);
     const ct = (x.headers.get('content-type') || '').toLowerCase();
@@ -677,10 +677,10 @@ async function viaConsumetRemote(base, titles, ep) {
 function providerJobs(titles, ep, anilistId, via, audio) {
   const T = 40000;
   return [
-    ['animeparadise', () => withTimeout(viaAnimeParadise(anilistId, titles, ep), T, 'animeparadise')],
-    ['anv', () => withTimeout(viaAnv(anilistId, ep, audio), T, 'anv')],
-    ['animex', () => withTimeout(viaAnimex(anilistId, ep, audio), T, 'animex')],
-    ['animeyubi', () => withTimeout(viaAnimeYubi(titles, ep, audio), T, 'animeyubi')],
+    ['animeparadise', () => withTimeout(viaAnimeParadise(anilistId, titles, ep).then(probeStream), T, 'animeparadise')],
+    ['anv', () => withTimeout(viaAnv(anilistId, ep, audio).then(probeStream), T, 'anv')],
+    ['animex', () => withTimeout(viaAnimex(anilistId, ep, audio).then(probeStream), T, 'animex')],
+    ['animeyubi', () => withTimeout(viaAnimeYubi(titles, ep, audio).then(probeStream), T, 'animeyubi')],
     ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via, audio), T, 'anivexa')],
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
@@ -709,10 +709,10 @@ function parseQuery(q) {
 const CF_CHAIN = ['animeparadise', 'anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
 const DUB_OK = new Set(['anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'kaa', 'animenosub']);
 function chainJob(k, titles, ep, q) {
-  if (k === 'animeparadise') return viaAnimeParadise(q.id, titles, ep);
-  if (k === 'anv') return viaAnv(q.id, ep, q.audio);
-  if (k === 'animex') return viaAnimex(q.id, ep, q.audio);
-  if (k === 'animeyubi') return viaAnimeYubi(titles, ep, q.audio);
+  if (k === 'animeparadise') return viaAnimeParadise(q.id, titles, ep).then(probeStream);
+  if (k === 'anv') return viaAnv(q.id, ep, q.audio).then(probeStream);
+  if (k === 'animex') return viaAnimex(q.id, ep, q.audio).then(probeStream);
+  if (k === 'animeyubi') return viaAnimeYubi(titles, ep, q.audio).then(probeStream);
   if (k === 'animeheaven') return viaAnimeHeaven(titles, ep);
   if (k === 'gogoanime') return viaGogoanime(titles, ep);
   return viaAnivexa(q.id, ep, k, q.audio);
