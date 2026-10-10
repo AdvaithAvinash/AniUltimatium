@@ -887,8 +887,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function startSubLoop() { cancelAnimationFrame(state.subRaf); state.subRaf = requestAnimationFrame(renderSubs); }
 
-  var SOURCES = ['auto', 'animeparadise', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'anizone', 'kaa', 'senshi'];
-  var SRC_NAMES = { auto: 'Auto (best)', animeparadise: 'AnimeParadise', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
+  var SOURCES = ['auto', 'animeparadise', 'anv', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'anizone', 'kaa', 'senshi'];
+  var SRC_NAMES = { auto: 'Auto (best)', animeparadise: 'AnimeParadise', anv: 'anv.to', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
   // subtitle languages available now (English, Japanese, Malayalam, Hindi, Tamil, Telugu first), plus Off
   function subLangs() {
     var seen = {}, langs = [];
