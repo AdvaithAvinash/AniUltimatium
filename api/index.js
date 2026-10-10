@@ -707,7 +707,7 @@ function parseQuery(q) {
 // Each call tries sources one by one and stops early when its request budget runs low; the app then calls again with
 // ?skip=<sources already tried>, so every source gets a fresh budget. The app also skips a source whose stream fails to play.
 const CF_CHAIN = ['animeparadise', 'anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
-const DUB_OK = new Set(['anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'kaa', 'animenosub']);
+const DUB_OK = new Set(['anv', 'animex', 'animeyubi', 'anikoto']);   // the scrapers that are quick and light on Workers CPU
 function chainJob(k, titles, ep, q) {
   if (k === 'animeparadise') return viaAnimeParadise(q.id, titles, ep).then(probeStream);
   if (k === 'anv') return viaAnv(q.id, ep, q.audio).then(probeStream);
