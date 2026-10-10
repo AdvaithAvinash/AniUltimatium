@@ -36,10 +36,18 @@ Keep the computer on and on the same Wi-Fi as the TV while watching.
 dependency and run in-process) is the primary source. It aggregates AniZone, AniKoto, AnimeGG, KickAssAnime, AniWaves, Senshi …
 by AniList id and returns **adaptive HLS up to 1080p with English soft-subs** (SRT/ASS are converted to WebVTT by the proxy).
 Fallbacks: AnimeHeaven (720p hard-subbed MP4) and gogoanime.by.
-**AnimeParadise** (public JSON API: HLS up to 1080p + English/multi-language soft subs + intro/outro times) is tried first.
-On **Cloudflare Workers** (free plan ≈ 50 outgoing requests per call) sources are tried one at a time in the order measured from a Worker —
-AnimeParadise → AniKoto → AnimeGG → AniWaves → AnimeNoSub → AnimeHeaven → gogoanime → KickAssAnime → AniZone — and the app continues
-with `?skip=` in a new call when one runs out of requests. If a stream fails to play (or never starts) the app moves to the next source by itself.
+**Own scrapers (all keyed by AniList id or title, plain JSON APIs, tested from a Cloudflare Worker):**
+- **AnimeParadise** — HLS up to 1080p, 1–8 subtitle languages, intro/outro times; CORS-open, so the TV streams it directly.
+- **anv.to** — HLS 1080p, sub + English dub, multi-language VTT (needs its visitor cookie, so it goes through the relay).
+- **AnimeX** (animex.one, yuki/zuna/loli hosts) — HLS, sub + dub, many subtitle languages, intro/outro times.
+- **AnimeYubi** (ZokoAnime host) — HLS 1080p, sub + dub, English VTT.
+
+Order on **Cloudflare Workers** (free plan ≈ 50 outgoing requests and little CPU per call), one source at a time:
+AnimeParadise → anv.to → AnimeX → AnimeYubi → AniKoto → AnimeGG → AniWaves → AnimeNoSub → AnimeHeaven → gogoanime → KickAssAnime → AniZone
+(English dub: anv.to → AnimeX → AnimeYubi → AniKoto). Every stream's playlist is checked from the server before it is handed out; when a
+call runs out of budget the app continues with `?skip=`, and if a stream fails to play or never starts the app moves to the next source by itself.
+Measured on the live Worker (Oct 2026): English sub found and verified down to a video segment for 59/59 popular + current-season shows; English dub for 50/59
+(the rest have no dub anywhere yet). The next episode's stream is looked up in the background while you watch.
 Check any Anivexa provider from your host with `/api?action=avtest&p=<provider>&id=<anilistId>&ep=1`.
 In the player press **Up** (remote) / **Q** / click the quality button to open the settings menu: **Quality** (Auto/1080p/720p/…; your choice is remembered), **Subtitles** and **Source** (pick AnimeParadise, AniZone, AniKoto, AnimeGG, KickAssAnime, Omega, AniWaves, Senshi, AnimeHeaven or Gogoanime manually if the automatic one is poor or missing). Remote: Left/Right seek, Enter play/pause, Down show controls, red/Info = menu, green = subtitles.
 
