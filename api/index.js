@@ -426,7 +426,10 @@ async function viaAnimeParadise(anilistId, titles, ep) {
     for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) { lang = LANG_CODES[k]; break; }
     return { lang, label: x.label || 'English', url: /^https?:/.test(x.src) ? x.src : `${AP_API}/stream/file/${x.src}` };
   });
-  return { url: `https://stream.animeparadise.moe/m3u8?url=${d.streamLink}`, headers: { Referer: AP_SITE }, subtitles, mp4: false, quality: 'adaptive', matched: hit.title };
+  const sk = d.skipData || {}, iv = x => x && x.end > x.start ? { start: +x.start, end: +x.end } : null;
+  // CORS-open and not IP-bound: the TV streams it directly (relay only as fallback)
+  return { url: `https://stream.animeparadise.moe/m3u8?url=${d.streamLink}`, headers: { Referer: AP_SITE }, subtitles, mp4: false, quality: 'adaptive', matched: hit.title,
+           cors: true, skip: (iv(sk.intro) || iv(sk.outro)) ? { op: iv(sk.intro), ed: iv(sk.outro) } : null };
 }
 
 // 0b) gogoanime.by — WordPress site; its "blogger" player exposes a Google Video MP4 (English sub).
@@ -668,7 +671,7 @@ function finish(r, origin) {
   const isHls = /m3u8/i.test(r.url);
   // Route through our proxy when the CDN demands a Referer / CORS (browsers can't set it); HLS always goes through it
   // AnimeGG mp4 links redirect to a CDN that needs no Referer: the TV fetches it directly (no relay = no buffering), relay is the fallback
-  const direct = !isHls && /^https:\/\/(www\.)?animegg\.org\/play\//.test(r.url);
+  const direct = r.cors || (!isHls && /^https:\/\/(www\.)?animegg\.org\/play\//.test(r.url));
   const url = !direct && (ref || r.forceProxy || isHls) ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
   // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
   const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt&url=${encodeURIComponent(t.url)}` }));
@@ -677,7 +680,7 @@ function finish(r, origin) {
   const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
   // sources whose picture already has English subtitles burned in (so no overlay is added automatically)
   const hardsub = ['animeheaven', 'gogoanime'].includes(r.provider) || /^animegg/.test(r.matched || '');
-  return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities, hardsub };
+  return { url, proxyUrl, type: isHls ? 'hls' : 'mp4', subtitles, provider: r.provider, matched: r.matched, qualities, hardsub, skip: r.skip || undefined };
 }
 
 // Intro / outro timestamps (AniSkip, keyed by MyAnimeList id)

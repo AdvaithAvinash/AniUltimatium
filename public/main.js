@@ -590,14 +590,15 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!keepVia) addHist(a, ep);
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '' })
-      : api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(',') });
+      : takePrefetch(a, ep) || api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(',') });
     req.then(function (d) {
       if (tk !== state.token) return;
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
       if (!(d.subtitles && d.subtitles.length) && !d.hardsub) osFetchList(function () { if (tk === state.token) subAuto(); });   // OpenSubtitles automatically
-      if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
+      if (d.skip) state.skip = d.skip;                                              // the source's own intro/outro times
+      if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token && sk && (sk.op || sk.ed)) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
       if (tk === state.token && !movie && e.data && e.data.retry && e.data.skip && state.srcSkip.length < 12) {   // server ran out of its per-call budget: continue with the remaining sources
         return play(a, ep, startAt, true, String(e.data.skip).split(','));
@@ -1051,6 +1052,22 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.waitTimer = setTimeout(function () { if (state.view === 'player' && video.readyState < 3 && !video.paused) { if (fallbackToProxy()) toast('Slow connection — switching route'); } }, 15000);
   });
   video.addEventListener('volumechange', function () { store.set('ea_vol', { v: video.volume, m: video.muted }); });
+  // Look up the next episode's stream while this one plays, so "next episode" starts instantly
+  function sourceParams(a, ep) {
+    return { action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: '' };
+  }
+  function prefetchNext() {
+    var a = state.anime; if (!a || a.kind === 'movie' || (a.episodes && state.ep >= a.episodes)) return;
+    var key = a.id + ':' + (state.ep + 1) + ':' + state.audioPref + ':' + (state.via || 'auto');
+    if (state.pre && state.pre.key === key) return;
+    var p = api(sourceParams(a, state.ep + 1)); p.catch(function () {});
+    state.pre = { key: key, p: p, at: Date.now() };
+  }
+  function takePrefetch(a, ep) {
+    var pre = state.pre, key = a.id + ':' + ep + ':' + state.audioPref + ':' + (state.via || 'auto');
+    if (!pre || pre.key !== key || state.srcSkip.length || Date.now() - pre.at > 30 * 60000) return null;
+    state.pre = null; return pre.p;
+  }
   // This source's stream does not play here: ask the server for the next source (Auto mode only)
   function nextSource() {
     var d = state.src, a = state.anime;
@@ -1089,6 +1106,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('pTime').textContent = fmt(t) + ' / ' + fmt(d);
     if (Date.now() - state.lastSave > 5000 && t > 3 && d) { state.lastSave = Date.now(); setProg(state.anime, state.ep, t, d); }
     updateSkip(t);
+    if (d && t > d * 0.6 && t > 60) prefetchNext();
   });
   // Skip intro / outro (AniSkip timestamps)
   function updateSkip(t) {
