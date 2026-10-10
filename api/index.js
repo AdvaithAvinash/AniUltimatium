@@ -509,6 +509,34 @@ async function viaAnimex(anilistId, ep, audio) {
   throw new Error(errs.join('; '));
 }
 
+// 0e) AnimeYubi — plain JSON API (search by title -> episode -> videos[]). We use its ZokoAnime host:
+//     plain HLS up to 1080p, sub + dub, English VTT. Needs Referer/Origin zokoanime.video, so it goes through our relay.
+const AY = 'https://animeyubi.com/api/v4/hianime';
+async function viaAnimeYubi(titles, ep, audio) {
+  const hdr = { headers: { Referer: 'https://animeyubi.com/', Accept: 'application/json' } };
+  let hit = null;
+  for (const t of [...new Set(titles)].slice(0, 3)) {
+    const list = ((await fetchJson(`${AY}/?q=${encodeURIComponent(t)}`, hdr, 9000)).list) || [];
+    hit = bestMatch(list.filter(x => x && x.slug && !/\(dub\)/i.test(x.anime || '')), titles, x => x.anime, 80);
+    if (hit) break;
+  }
+  if (!hit) throw new Error('no match');
+  const d = await fetchJson(`${AY}/episode/?anime=${encodeURIComponent(hit.slug)}&episode=${ep}`, hdr, 12000);
+  const want = audio === 'dub' ? 'DUB' : 'SUB';
+  const v = (d.videos || []).find(x => x && x.is_public !== false && /zoko/i.test(x.title || '') && String(x.audio || '').toUpperCase() === want && /url=/.test(x.url || ''));
+  if (!v) throw new Error('no ' + want.toLowerCase());
+  const raw = v.url.slice(v.url.indexOf('url=') + 4).split('&headers=')[0];
+  let h = {}; try { h = JSON.parse(decodeURIComponent((v.url.split('&headers=')[1] || '').split('&')[0] || '{}')); } catch (e) { /* ignore */ }
+  const ref = h.referer || h.Referer || 'https://zokoanime.video/';
+  if (!/^https:\/\//.test(raw)) throw new Error('bad url');
+  const subtitles = (v.subtitles || []).filter(x => x && x.src).map(x => {
+    const l = String(x.name || 'English').toLowerCase(); let lang = 'en';
+    for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) { lang = LANG_CODES[k]; break; }
+    return { lang, label: x.name || 'English', url: x.src };
+  });
+  return { url: raw, headers: { Referer: ref }, subtitles, mp4: false, quality: 'adaptive', matched: 'animeyubi ' + hit.anime, forceProxy: true };
+}
+
 // 0b) gogoanime.by — WordPress site; its "blogger" player exposes a Google Video MP4 (English sub).
 //     Those links are locked to the requesting IP, so they are always relayed through this server.
 const GG = 'https://gogoanime.by';
@@ -652,6 +680,7 @@ function providerJobs(titles, ep, anilistId, via, audio) {
     ['animeparadise', () => withTimeout(viaAnimeParadise(anilistId, titles, ep), T, 'animeparadise')],
     ['anv', () => withTimeout(viaAnv(anilistId, ep, audio), T, 'anv')],
     ['animex', () => withTimeout(viaAnimex(anilistId, ep, audio), T, 'animex')],
+    ['animeyubi', () => withTimeout(viaAnimeYubi(titles, ep, audio), T, 'animeyubi')],
     ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via, audio), T, 'anivexa')],
     ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
     ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
@@ -677,12 +706,13 @@ function parseQuery(q) {
 // AnimeParadise (HLS 1080p + soft subs) > Anikoto (HLS + soft subs) > AnimeGG (hardsub mp4) > AniWaves > AnimeNoSub > AnimeHeaven > gogoanime.
 // Each call tries sources one by one and stops early when its request budget runs low; the app then calls again with
 // ?skip=<sources already tried>, so every source gets a fresh budget. The app also skips a source whose stream fails to play.
-const CF_CHAIN = ['animeparadise', 'anv', 'animex', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
-const DUB_OK = new Set(['anv', 'animex', 'anikoto', 'animegg', 'aniwaves', 'kaa', 'animenosub']);
+const CF_CHAIN = ['animeparadise', 'anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
+const DUB_OK = new Set(['anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'kaa', 'animenosub']);
 function chainJob(k, titles, ep, q) {
   if (k === 'animeparadise') return viaAnimeParadise(q.id, titles, ep);
   if (k === 'anv') return viaAnv(q.id, ep, q.audio);
   if (k === 'animex') return viaAnimex(q.id, ep, q.audio);
+  if (k === 'animeyubi') return viaAnimeYubi(titles, ep, q.audio);
   if (k === 'animeheaven') return viaAnimeHeaven(titles, ep);
   if (k === 'gogoanime') return viaGogoanime(titles, ep);
   return viaAnivexa(q.id, ep, k, q.audio);
@@ -690,7 +720,7 @@ function chainJob(k, titles, ep, q) {
 async function sourcesChain(titles, ep, q, origin) {
   const dub = q.audio === 'dub';
   const skip = String(q.skip || '').split(',').filter(Boolean);
-  const chain = CF_CHAIN.filter(k => !skip.includes(k) && (!dub || DUB_OK.has(k)) && (q.id || k === 'animeheaven' || k === 'gogoanime'));
+  const chain = CF_CHAIN.filter(k => !skip.includes(k) && (!dub || DUB_OK.has(k)) && (q.id || ['animeheaven', 'gogoanime', 'animeyubi'].includes(k)));
   const t0 = Date.now(), tried = [], errs = [];
   for (const k of chain) {
     try {
@@ -720,7 +750,7 @@ async function sources(req, q, origin) {
   const avVia = via && AV_ALL.includes(via) ? via : null;
   const skip = String(q.skip || '').split(',').filter(Boolean);
   const only = q.only ? String(q.only).split(',') : via ? [avVia ? 'anivexa' : via] : null;
-  const all = providerJobs(titles, ep, q.id, avVia, q.audio).filter(([n]) => (!only || only.includes(n)) && !skip.includes(n) && (q.audio !== 'dub' || n === 'anivexa' || n === 'anv' || n === 'animex'));
+  const all = providerJobs(titles, ep, q.id, avVia, q.audio).filter(([n]) => (!only || only.includes(n)) && !skip.includes(n) && (q.audio !== 'dub' || ['anivexa', 'anv', 'animex', 'animeyubi'].includes(n)));
   // AnimeParadise / Anivexa (HLS up to 1080p, soft English subs) go first; the rest only start if they fail or are slow (>6s)
   const prim = all.filter(([n]) => q.id && (n === 'animeparadise' || n === 'anv' || n === 'anivexa'));
   const primary = prim.length ? prim : all.filter(([n]) => n === 'animeheaven');
