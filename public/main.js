@@ -175,7 +175,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (opts.body) { init.method = 'POST'; headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
     return fetch(apiBase() + '/api?' + qs, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+        if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; throw er; }
         return j;
       });
     }).catch(function (e) {
@@ -574,8 +574,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     Object.keys(map).forEach(function (k) { document.querySelector('[data-act="' + k + '"]').innerHTML = ic(map[k]); });
     paintPlayBtn();
   }
-  function play(a, ep, startAt, keepVia) {
+  function play(a, ep, startAt, keepVia, skip) {
     var tk = ++state.token, movie = a.kind === 'movie';
+    state.srcSkip = skip || [];                                                   // sources already tried for this episode
     if (!keepVia) state.dubFailed = false;
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
     state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null; hideEmbed();
@@ -587,9 +588,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var pr = progOf(a);
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     if (!keepVia) addHist(a, ep);
-    pmsg(movie ? 'Finding a stream…' : 'Finding an English-subbed stream…', true);
+    pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '' })
-      : api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep });
+      : api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(',') });
     req.then(function (d) {
       if (tk !== state.token) return;
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
@@ -598,6 +599,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (!(d.subtitles && d.subtitles.length) && !d.hardsub) osFetchList(function () { if (tk === state.token) subAuto(); });   // OpenSubtitles automatically
       if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
+      if (tk === state.token && !movie && e.data && e.data.retry && e.data.skip && state.srcSkip.length < 12) {   // server ran out of its per-call budget: continue with the remaining sources
+        return play(a, ep, startAt, true, String(e.data.skip).split(','));
+      }
       if (tk === state.token && !movie && state.audioPref === 'dub' && !state.dubFailed) {   // no English dub here: fall back to Japanese audio
         state.dubFailed = true; state.audioPref = 'sub'; toast('No English dub for this episode — using Japanese audio');
         return play(a, ep, startAt, true);
@@ -609,19 +613,17 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function startEmbed(url) {
     stopVideo();
     state.embed = true; state.embedKind = /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';
-    state.cin = { t: 0, d: 0, paused: true, stamp: performance.now() };
+    state.cin = { t: 0, d: 0, paused: true, stamp: performance.now(), live: false };
     var f = $('embedFrame');
     f.className = 'show';
     f.src = url;
     pmsg('Loading player… (press Enter to focus it, Back to exit)', true);
     f.onload = function () { if (state.embed) pmsg('', false); };
     $('player').setAttribute('data-embed', '1');
-    $('embedCtl').className = state.embedKind === 'cinesrc' ? '' : 'hidden';
+    $('embedCtl').className = state.embedKind === 'cinesrc' ? '' : 'hidden';   // VidCore: shown once its player reports a clock
     setTimeout(function () { if (state.embed) pmsg('', false); }, 6000);
-    if (state.embedKind === 'cinesrc') {            // OpenSubtitles overlay, locked to the player clock
-      startSubLoop();
-      osFetchList(function () { subAuto(); });
-    }
+    startSubLoop();                                  // OpenSubtitles overlay, locked to the player clock
+    osFetchList(function () { subAuto(); });
   }
   function hideEmbed() {
     state.embed = false; state.embedKind = null; $('player').removeAttribute('data-embed');
@@ -816,11 +818,17 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function rememberSub(idx) { var it = state.os.items[idx]; if (it) { store.set('ea_sublang', it.lang); store.set('ea_subkind', it.kind); } }
 
-  // ---- CineSrc embed: documented postMessage API (timeupdate / seek / play / pause) ----
-  var CIN = 'https://cinesrc.st';
+  // ---- Embeds with a documented postMessage API: CineSrc (cinesrc:*) and VidCore (timeupdate / PLAYER_EVENT / ended) ----
+  var CIN = 'https://cinesrc.st', VCO = 'https://vidcore.io';
   state.cin = { t: 0, d: 0, paused: true, stamp: 0, last: 0 };
-  function isCin() { return state.embed && state.embedKind === 'cinesrc'; }
-  function cinSend(cmd, args) { try { $('embedFrame').contentWindow.postMessage({ type: 'cinesrc:command', command: cmd, args: args || [] }, CIN); } catch (e) {} }
+  function isCin() { return state.embed && (state.embedKind === 'cinesrc' || (state.embedKind === 'vidcore' && state.cin.live)); }
+  function cinSend(cmd, args) {
+    try {
+      var w = $('embedFrame').contentWindow;
+      if (state.embedKind === 'vidcore') w.postMessage({ command: cmd, time: args && args.length ? args[0] : cinNow() }, VCO);
+      else w.postMessage({ type: 'cinesrc:command', command: cmd, args: args || [] }, CIN);
+    } catch (e) {}
+  }
   function cinNow() { return state.cin.t + (state.cin.paused ? 0 : (performance.now() - state.cin.stamp) / 1000); }
   function cinSeek(delta) { var t = Math.max(0, cinNow() + delta); state.cin.t = t; state.cin.stamp = performance.now(); cinSend('seek', [t]); toast((delta > 0 ? '+' : '') + delta + 's'); }
   function cinToggle() {
@@ -828,7 +836,22 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     else { state.cin.t = cinNow(); cinSend('pause'); state.cin.paused = true; }
   }
   window.addEventListener('message', function (e) {
-    if (e.origin !== CIN || !isCin() || !e.data || typeof e.data !== 'object') return;
+    if (e.origin === VCO && state.embed && state.embedKind === 'vidcore' && e.data && typeof e.data === 'object') {
+      var v = e.data, vd = v.data || {}, vc = state.cin;
+      if (!vc.live && (v.type === 'timeupdate' || v.type === 'PLAYER_EVENT')) { vc.live = true; $('embedCtl').className = ''; pmsg('', false); }
+      if (v.type === 'timeupdate') {
+        var vt = +vd.currentTime || 0;
+        if (Math.abs(vt - vc.t) > 0.05 && vt > vc.t) vc.paused = false;
+        vc.t = vt; vc.d = +vd.duration || vc.d; vc.stamp = performance.now(); saveEmbedProgress();
+      } else if (v.type === 'PLAYER_EVENT') {
+        if (vd.currentTime != null) { vc.t = +vd.currentTime || 0; vc.stamp = performance.now(); }
+        if (vd.event === 'play' || vd.event === 'playing') vc.paused = false;
+        else if (vd.event === 'pause') vc.paused = true;
+        else if (vd.event === 'ended') { removeProg(keyOf(state.anime)); closePlayer(); }
+      } else if (v.type === 'ended') { removeProg(keyOf(state.anime)); closePlayer(); }
+      return;
+    }
+    if (e.origin !== CIN || state.embedKind !== 'cinesrc' || !state.embed || !e.data || typeof e.data !== 'object') return;
     var m = e.data, c = state.cin;
     switch (m.type) {
       case 'cinesrc:timeupdate': {                                   // only counts as "playing" while the time is actually moving
@@ -863,8 +886,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function startSubLoop() { cancelAnimationFrame(state.subRaf); state.subRaf = requestAnimationFrame(renderSubs); }
 
-  var SOURCES = ['auto', 'anizone', 'anikoto', 'animegg', 'kaa', 'animenosub', 'aniwaves', 'senshi', 'animeheaven', 'gogoanime'];
-  var SRC_NAMES = { auto: 'Auto (best)', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
+  var SOURCES = ['auto', 'animeparadise', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'anizone', 'kaa', 'senshi'];
+  var SRC_NAMES = { auto: 'Auto (best)', animeparadise: 'AnimeParadise', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
   // subtitle languages available now (English, Japanese, Malayalam, Hindi, Tamil, Telugu first), plus Off
   function subLangs() {
     var seen = {}, langs = [];
@@ -937,7 +960,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         change: function (dir) { o.userPick = true; o.off = 0; var ni = group[(pos + dir + group.length) % group.length]; subSelect(ni); rememberSub(ni); } };
     }
     if (movie && state.embed) {
-      if (!isCin()) return [srcRow,
+      if (state.embedKind === 'vidcore') return isCin() ? [srcRow, subRow(), fileRow(), syncRow,
+        { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast('VidCore picks quality automatically'); } }] : [srcRow,
         { key: 'subs', label: 'Subtitles', value: "Use player's CC", change: function () { toast('VidCore has its own subtitle button inside the player'); } },
         { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast('VidCore picks quality automatically'); } }];
       return [srcRow, subRow(), fileRow(), syncRow,
@@ -1003,7 +1027,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         if (!e.fatal) return;
         if (e.type === Hls.ErrorTypes.NETWORK_ERROR && state.netRetry++ < 3) { state.hls.startLoad(); return; }
         if (e.type === Hls.ErrorTypes.MEDIA_ERROR && state.mediaRetry++ < 3) { state.hls.recoverMediaError(); return; }
-        if (!fallbackToProxy()) pmsg('Playback error: ' + e.details, false);
+        if (!fallbackToProxy() && !nextSource()) pmsg('Playback error: ' + e.details, false);
       });
     } else {
       video.src = d.url; // native HLS (Tizen/Safari) or mp4
@@ -1013,6 +1037,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     };
     setQualityLabel();
     var pr = video.play(); if (pr && pr.catch) pr.catch(function () { pmsg('Press Enter / Space to play', false); });
+    clearTimeout(state.startTimer);                                          // never started after 25s: other route, then next source
+    state.startTimer = setTimeout(function startCheck() {
+      if (tk !== state.token || state.view !== 'player' || video.paused || video.readyState >= 3 || video.currentTime > 0.5) return;
+      if (fallbackToProxy()) { toast('Slow source — switching route'); state.startTimer = setTimeout(startCheck, 20000); } else nextSource();
+    }, 25000);
   }
   video.addEventListener('playing', function () { clearTimeout(state.waitTimer); pmsg('', false); paintPlayBtn(); });
   video.addEventListener('pause', function () { paintPlayBtn(); hud(); });
@@ -1022,6 +1051,15 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.waitTimer = setTimeout(function () { if (state.view === 'player' && video.readyState < 3 && !video.paused) { if (fallbackToProxy()) toast('Slow connection — switching route'); } }, 15000);
   });
   video.addEventListener('volumechange', function () { store.set('ea_vol', { v: video.volume, m: video.muted }); });
+  // This source's stream does not play here: ask the server for the next source (Auto mode only)
+  function nextSource() {
+    var d = state.src, a = state.anime;
+    if (!d || !d.key || !a || a.kind === 'movie' || (state.via && state.via !== 'auto') || state.srcSkip.length >= 12) return false;
+    var at = video.currentTime > 5 ? video.currentTime : state.startAt;
+    toast('That source did not play — trying the next one');
+    play(a, state.ep, at, true, state.srcSkip.concat([d.key]));
+    return true;
+  }
   // If the direct link fails in this viewer's browser/TV, retry once through our own server
   function fallbackToProxy() {
     var d = state.src;
@@ -1040,7 +1078,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   video.addEventListener('error', function () {
     if (!video.getAttribute('src')) return;
-    if (!fallbackToProxy()) pmsg('Video error — the stream could not be played', false);
+    if (!fallbackToProxy() && !nextSource()) pmsg('Video error — the stream could not be played', false);
   });
   video.addEventListener('progress', function () {
     if (video.duration && video.buffered.length) $('seekBuf').style.width = video.buffered.end(video.buffered.length - 1) / video.duration * 100 + '%';
