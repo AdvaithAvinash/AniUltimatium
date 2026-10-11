@@ -11,6 +11,10 @@ on:
         description: 'Tag to release (created on the selected commit if it does not exist)'
         required: true
         default: 'stable-v1.03'
+      draft:
+        description: 'Create as a draft (unpublished) release'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -36,11 +40,11 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft release with app.wgt
+      - name: Create release with app.wgt
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.name }}
-          draft: true
+          draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
           files: app.wgt
           body_path: RELEASE_NOTES.md

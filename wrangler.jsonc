@@ -14,6 +14,6 @@
   "kv_namespaces": [{ "binding": "STORE" }],
   // "VERCEL" only tells the bundled Anivexa API to skip its local-disk cache (Workers have no disk)
   // ANILIST_CLIENT_ID: id of your AniList API client (https://anilist.co/settings/developer, redirect URL = <site>/link.html)
-  "vars": { "VERCEL": "1", "ANILIST_CLIENT_ID": "" },
+  "vars": { "VERCEL": "1", "ANILIST_CLIENT_ID": "53471" },
   "observability": { "enabled": true }
 }
