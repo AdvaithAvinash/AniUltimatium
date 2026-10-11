@@ -50,10 +50,24 @@ Evaluated and **not** used (Oct 2026): MiruroAPI (XOR-encoded streams, Miruro bl
 consumet.ts (removed from GitHub after DMCA; providers dead or need decryption), REIATSU (repository not found),
 AnimeParadise / anv.to (did not play on the TV), hianimes/megaplay and AnimeStream (encrypted / DRM).
 
+## AniList
+Link your AniList account in **Account → AniList**. On the TV press *Link AniList*: it shows a 6-letter code and an address
+(`<your worker>/link.html`); open it on your phone or laptop, enter the code and sign in with AniList — the TV links itself.
+(On a laptop browser on the app's own site, *Link AniList* signs in directly.) Once linked:
+- finishing 85% of an episode updates your AniList progress (and marks the show Completed on the last episode; toggle *Auto-update*),
+- the home page shows an **AniList · Watching** row (next episode badge),
+- a show's page shows your AniList status; press it to cycle Plan to watch → Watching → Completed → Paused → Dropped → remove,
+  and *Play* continues from your AniList progress.
+
+One-time setup (AniList requires an API client): go to https://anilist.co/settings/developer → *Create new client*, name it
+Aniultimatium, Redirect URL `https://<your worker>.workers.dev/link.html`, save, and put the client **ID** into
+`wrangler.jsonc` → `"vars": { "ANILIST_CLIENT_ID": "<id>" }` (or the env var for `npm start`). Linking codes are kept in the
+Worker's KV namespace `STORE`.
+
 ## Movies, accounts, history
 - **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Playback: public-domain films from the Internet Archive play in our
-  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player (**VidCore** by IMDb id at vidcore.io, or **CineSrc** by TMDB id) in an iframe.
-  On a movie's page, the **Source** dropdown picks Auto / VidCore / CineSrc / Public domain before you press Play (remembered).
+  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player in an iframe: **CineSrc** (default), **VidFast**, **VidCore** or **Videasy**.
+  On a movie's page, the **Source** dropdown picks Auto / CineSrc / VidFast / VidCore / Videasy / Public domain before you press Play (remembered).
   Embedded players run their own controls, so resume/skip aren't available there. In the menu (Up / Q) choose Source: Auto / Embedded / Public domain.
 - **Accounts**: Account tab -> create account / sign in. Continue Watching, My List and History sync between devices.
   Storage: `data/` folder when you run `npm start`; Upstash Redis on Vercel (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,

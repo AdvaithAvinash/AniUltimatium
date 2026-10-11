@@ -55,7 +55,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
     genre: '', epRange: 0, searchTimer: null, trackUrls: [],
-    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|cinesrc|archive)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
+    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|vidfast|videasy|cinesrc|archive)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
   };
 
   // ======================= Persistence =======================
@@ -626,8 +626,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     setFocus($('dPlay'));
   }
   // ----- movie dropdowns: Source and desired Quality (picked on the movie page, before Play) -----
-  var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else VidCore'], ['vidcore', 'VidCore', 'own subtitles · auto quality up to 4K'],
-                       ['cinesrc', 'CineSrc', 'OpenSubtitles · ±10s · quality'], ['archive', 'Public domain', 'our own player']];
+  var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else CineSrc'], ['cinesrc', 'CineSrc', 'remote control · subtitles · quality'],
+                       ['vidfast', 'VidFast', 'remote control · auto quality'], ['vidcore', 'VidCore', 'auto quality up to 4K'],
+                       ['videasy', 'Videasy', 'auto quality'], ['archive', 'Public domain', 'our own player']];
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   var DROPS = {
     src: { btn: 'dSrcBtn', list: 'dSrcList', label: 'Source', opts: MOVIE_SOURCES, get: function () { return state.mvia; }, set: function (v) { state.mvia = v; store.set('ea_msrc', v); } },
@@ -753,7 +754,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
   function startEmbed(url) {
     stopVideo();
-    state.embed = true; state.embedKind = /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';
+    state.embed = true; state.embedKind = /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';   // 'vidcore' = the VidCore/VidFast/Videasy message API
+    state.embedName = /vidfast/.test(url) ? 'VidFast' : /videasy/.test(url) ? 'Videasy' : /cinesrc/.test(url) ? 'CineSrc' : 'VidCore';
     state.cin = { t: 0, d: 0, paused: true, stamp: performance.now(), live: false };
     state.vcNoCmd = false; state.vcChk = null;
     var f = $('embedFrame');
@@ -982,7 +984,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function vcFocus() {
     hideEbar();
     try { $('embedFrame').focus(); } catch (e) {}
-    toast('VidCore player selected — use its own controls; press Back to leave');
+    toast(state.embedName + ' player selected — use its own controls; press Back to leave');
   }
   function cinNow() { return state.cin.t + (state.cin.paused ? 0 : (performance.now() - state.cin.stamp) / 1000); }
   // VidCore documents seek/play/pause commands, but if its player ignores them we say so instead of failing silently
@@ -992,7 +994,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     setTimeout(function () {
       if (state.vcChk !== chk || chk.ok || !state.embed || !chk.seen) return;
       state.vcNoCmd = true;
-      toast('VidCore is not following remote commands — press OK to use its own controls, or pick another source in ⚙ Settings');
+      toast(state.embedName + ' is not following remote commands — press OK to use its own controls, or pick another source in ⚙ Settings');
     }, 3500);
   }
   function cinSeek(delta) {
@@ -1005,8 +1007,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   window.addEventListener('message', function (e) {
     var fromFrame = false; try { fromFrame = e.source === $('embedFrame').contentWindow; } catch (er) {}
-    if ((fromFrame || /vidcore/i.test(e.origin)) && state.embed && state.embedKind === 'vidcore' && e.data && typeof e.data === 'object') {
-      var v = e.data, vd = v.data || {}, vc = state.cin;
+    var raw = e.data; if (typeof raw === 'string' && /^\s*\{/.test(raw)) { try { raw = JSON.parse(raw); } catch (er2) {} }   // some players post JSON strings
+    if ((fromFrame || /vidcore|vidfast|videasy/i.test(e.origin)) && state.embed && state.embedKind === 'vidcore' && raw && typeof raw === 'object') {
+      var v = raw, vd = v.data || {}, vc = state.cin;
       if (!vc.live && (v.type === 'timeupdate' || v.type === 'PLAYER_EVENT')) { vc.live = true; pmsg('', false); }
       if (v.type === 'timeupdate') {
         var vt = +vd.currentTime || 0, ck = state.vcChk;
@@ -1178,9 +1181,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     }
     if (movie && state.embed) {
       if (state.embedKind === 'vidcore') return isCin() ? [srcRow, subRow(), fileRow(), syncRow,
-        { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast('VidCore picks quality automatically'); } }] : [srcRow,
-        { key: 'subs', label: 'Subtitles', value: "Use player's CC", change: function () { toast('VidCore has its own subtitle button inside the player'); } },
-        { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast('VidCore picks quality automatically'); } }];
+        { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast(state.embedName + ' picks quality automatically'); } }] : [srcRow,
+        { key: 'subs', label: 'Subtitles', value: "Use player's CC", change: function () { toast(state.embedName + ' has its own subtitle button inside the player'); } },
+        { key: 'q', label: 'Quality', value: 'Auto (up to 4K)', change: function () { toast(state.embedName + ' picks quality automatically'); } }];
       return [srcRow, subRow(), fileRow(), syncRow,
         { key: 'q', label: 'Quality', value: optName(MOVIE_QUALITIES, String(state.mq)),
           change: function (dir) {
