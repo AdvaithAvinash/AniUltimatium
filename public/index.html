@@ -145,12 +145,23 @@
     <button id="skipBtn" class="skipbtn hidden"></button>
     <div id="embedSubs"></div>
     <div id="embedCtl" class="hidden">
-      <button class="ectl" data-ec="back10" title="Back 10s">⟲ 10</button>
-      <button class="ectl" data-ec="toggle" title="Play / pause">⏯</button>
-      <button class="ectl" data-ec="fwd10" title="Forward 10s">10 ⟳</button>
-      <button class="ectl" data-ec="cc" title="Subtitles (OpenSubtitles)">CC</button>
-      <button class="ectl" data-ec="syncm" title="Subtitles earlier">−0.5s</button>
-      <button class="ectl" data-ec="syncp" title="Subtitles later">+0.5s</button>
+      <div class="erow">
+        <span id="eTime">0:00</span>
+        <button class="ectl eseek" data-ec="seek" title="Left/Right: seek 10s"><i id="eFill"></i></button>
+        <span id="eDur">--:--</span>
+      </div>
+      <div class="erow ebtns">
+        <button class="ectl" data-ec="back10" title="Back 10s">⟲ 10</button>
+        <button class="ectl eplay" data-ec="toggle" title="Play / pause">⏯</button>
+        <button class="ectl" data-ec="fwd10" title="Forward 10s">10 ⟳</button>
+        <span class="egap"></span>
+        <button class="ectl" data-ec="cc" title="Subtitles">CC</button>
+        <button class="ectl" data-ec="syncm" title="Subtitles earlier">Sub −0.5s</button>
+        <button class="ectl" data-ec="syncp" title="Subtitles later">Sub +0.5s</button>
+        <button class="ectl" data-ec="menu" title="Settings">⚙ Settings</button>
+        <button class="ectl" data-ec="exit" title="Exit">✕ Exit</button>
+      </div>
+      <div class="ehint">Left/Right move · Enter select · on the bar: Left/Right seek 10s · Up/Back hide</div>
     </div>
     <div id="pmenu" class="hidden"><div class="mhead">Playback settings</div><div id="mrows"></div><div class="mhint">Up/Down select · Left/Right or Enter change · Back close</div></div>
     <div id="phud">

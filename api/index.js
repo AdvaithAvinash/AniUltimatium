@@ -8,9 +8,7 @@
 //   ?action=debug&title=...&ep=1                -> per-provider status/timing (use this to diagnose 502s)
 //
 // Metadata: AniList GraphQL (English titles).
-// Streams: scrapers bundled with the function and raced in parallel (first success wins):
-//   `aniwatch` (HiAnime), @consumet/extensions AnimePahe / AnimeKai / HiAnime.
-// Optional env vars: ANIWATCH_URLS, CONSUMET_URLS (extra remote instances), ANIWATCH_DOMAIN.
+// Streams: AnimeX, AniKoto, AnimeYubi, AniWaves — tried one at a time in that order (see SOURCES below).
 
 // Scraper libraries sometimes reject after the race is already won; never let that crash the function.
 try {
@@ -23,10 +21,6 @@ const movies = require('../lib/movies');
 const subsLib = require('../lib/subs');
 
 const ANILIST = 'https://graphql.anilist.co';
-// Optional extra remote instances (comma separated base URLs). Empty by default: the scrapers
-// below run inside this function, so no third-party host has to be alive.
-const ANIWATCH = (process.env.ANIWATCH_URLS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
-const CONSUMET = (process.env.CONSUMET_URLS || '').split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
@@ -162,18 +156,6 @@ function pickSubtitles(tracks, base) {
 }
 
 
-// Mirror domains change constantly; every scraper is tried against a list (override via env, comma separated).
-const list = (env, def) => (process.env[env] || def).split(',').map(x => x.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '')).filter(Boolean);
-const HIANIME_DOMAINS = list('HIANIME_DOMAINS', 'hianime.to,hianimez.to,hianime.sx,hianime.is,hianime.nz,aniwatchtv.to');
-const PAHE_DOMAINS = list('PAHE_DOMAINS', 'animepahe.ru,animepahe.org,animepahe.pw,animepahe.com,animepahe.si');
-const KAI_DOMAINS = list('KAI_DOMAINS', 'anikai.to,animekai.to,animekai.bz,animekai.ac');
-async function firstDomain(domains, fn) {
-  const errs = [];
-  for (const d of domains) {
-    try { return await fn(d); } catch (e) { errs.push(d + ': ' + clean(e.message)); }
-  }
-  throw new Error(errs.join(' ; '));
-}
 // keep error text short and URL-free (it is shown on the TV screen)
 const clean = (m, n = 90) => String(m || '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
 const withTimeout = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + ' timed out')), ms))]);
@@ -197,67 +179,6 @@ function result(d) {
   if (!pick) throw new Error('no sources');
   return { url: pick.url, headers: d.headers || {}, subtitles: pickSubtitles(d.subtitles || d.tracks), mp4: !pick.isM3U8 && !/m3u8/i.test(pick.url) };
 }
-
-// 1) HiAnime scraped in-process via the `aniwatch` package (English sub, softsubs).
-//    The package fixes its domain at import time, so each mirror gets its own module instance.
-const awMods = {};
-async function awFor(domain) {
-  if (!awMods[domain]) {
-    process.env.ANIWATCH_DOMAIN = domain;
-    const file = require('path').join(__dirname, '..', 'node_modules', 'aniwatch', 'dist', 'index.js');
-    awMods[domain] = (await import(require('url').pathToFileURL(file).href + '?d=' + domain)).HiAnime;
-  }
-  return awMods[domain];
-}
-async function viaAniwatchLib(titles, ep) {
-  return firstDomain(HIANIME_DOMAINS, async domain => {
-    const HiAnime = await awFor(domain);
-    const hi = new HiAnime.Scraper();
-    let hit = null;
-    for (const t of titles) {
-      const s = await hi.search(t);
-      hit = bestMatch(s.animes || [], titles, a => a.name);
-      if (hit) break;
-    }
-    if (!hit) throw new Error('no match');
-    const eps = await hi.getEpisodes(hit.id);
-    const episode = (eps.episodes || []).find(x => x.number === ep);
-    if (!episode || !episode.episodeId) throw new Error('episode not found');
-    let last;
-    for (const server of ['hd-1', 'hd-2', 'megacloud']) {
-      try { return result(await hi.getEpisodeSources(episode.episodeId, server, 'sub')); } catch (e) { last = e; }
-    }
-    throw last || new Error('no server worked');
-  });
-}
-
-// 2-4) @consumet/extensions scrapers (AnimePahe, AnimeKai, HiAnime) — all English-subbed
-function viaConsumetLib(name, titles, ep) {
-  const domains = { AnimePahe: PAHE_DOMAINS, AnimeKai: KAI_DOMAINS, Hianime: HIANIME_DOMAINS }[name];
-  return firstDomain(domains, d => consumetOnce(name, d, titles, ep));
-}
-async function consumetOnce(name, domain, titles, ep) {
-  const { ANIME, SubOrSub } = require('@consumet/extensions');
-  const p = new ANIME[name]();
-  p.baseUrl = 'https://' + domain;
-  let hit = null;
-  for (const t of titles) {
-    const r = await p.search(t);
-    hit = findHit(r.results, titles);
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const info = await p.fetchAnimeInfo(hit.id);
-  const episode = (info.episodes || []).find(x => Number(x.number) === ep);
-  if (!episode) throw new Error('episode not found');
-  const d = name === 'AnimePahe'
-    ? await p.fetchEpisodeSources(episode.id)
-    : await p.fetchEpisodeSources(episode.id, undefined, SubOrSub.SUB);
-  return result(d);
-}
-
-
-
 
 // 00) Anivexa API (https://github.com/walterwhite-69/Anivexa-API): aggregates AniZone, AniKoto, AnimeGG, KickAssAnime,
 //     AniWaves, Senshi ... keyed by AniList id. Runs in-process (dependency `all-api`) or remotely via ANIVEXA_URL.
@@ -358,115 +279,6 @@ async function viaAnivexa(anilistId, ep, only, audio) {
   throw new Error(errs.join('; '));
 }
 
-// 0) AnimeHeaven — plain HTML + direct, hard-subbed (English) MP4 links, no bot protection.
-//    Verified live: search.php -> anime.php (episode ids) -> gate.php (cookie key=<id>) -> <source src=...mp4>
-const AH = 'https://animeheaven.me';
-const decodeEnt = t => t.replace(/&amp;/g, '&').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-async function ahText(pathname, headers = {}, timeout = 12000) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeout);
-  try {
-    const r = await fetch(AH + pathname, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...headers } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return await r.text();
-  } finally { clearTimeout(t); }
-}
-async function viaAnimeHeaven(titles, ep) {
-  let hit = null;
-  // the site's search is literal: also try the first words of each title ("Solo Leveling Season 2 ..." -> "Solo Leveling")
-  const queries = [...new Set([...titles, ...titles.map(t => norm(t).split(' ').slice(0, 2).join(' '))])].filter(q => q.length > 2);
-  for (const t of queries) {
-    const html = await ahText('/search.php?s=' + encodeURIComponent(t));
-    const seen = new Set(), items = [];
-    for (const m of html.matchAll(/<a href='anime\.php\?(\w+)' class='c'>([^<]+)<\/a>/g)) {
-      if (!seen.has(m[1])) { seen.add(m[1]); items.push({ id: m[1], name: decodeEnt(m[2]) }); }
-    }
-    hit = bestMatch(items.filter(i => !/\bdub\b/i.test(i.name)), titles, i => i.name);
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const page = await ahText('/anime.php?' + hit.id);
-  let epId = null;
-  for (const m of page.matchAll(/id ="([a-f0-9]{32})"[^>]*>[\s\S]*?watch2 bc\s*'\s*>\s*([\d.]+)\s*</g)) {
-    if (Number(m[2]) === ep) { epId = m[1]; break; }
-  }
-  if (!epId) throw new Error('episode not found');
-  const gate = await ahText('/gate.php', { Cookie: 'key=' + epId, Referer: AH + '/anime.php?' + hit.id });
-  const srcs = [...gate.matchAll(/<source src='([^']+\.mp4[^']*)'/g)].map(m => decodeEnt(m[1])).filter(u => !/&error/.test(u));
-  if (!srcs.length) throw new Error('no video link');
-  return { url: srcs[0], headers: {}, subtitles: [], mp4: true, matched: hit.name };
-}
-
-
-// 0a) AnimeParadise — public JSON API (works from Cloudflare): HLS up to 1080p + English soft subtitles.
-//     search -> /anime/{id}/episode -> /ep/{uid}?origin={id} -> streamLink (played via stream.animeparadise.moe/m3u8)
-const AP_API = 'https://api.animeparadise.moe', AP_SITE = 'https://www.animeparadise.moe/';
-const apGet = u => fetchJson(AP_API + u, { headers: { Referer: AP_SITE, Origin: 'https://www.animeparadise.moe', Accept: 'application/json' } }, 9000);
-async function viaAnimeParadise(anilistId, titles, ep) {
-  const alOf = x => { const m = /\/bx?(\d+)-/.exec((x.posterImage && (x.posterImage.large || x.posterImage.medium)) || ''); return m ? Number(m[1]) : null; };
-  const names = x => [x.title, x.alternativeTitle && x.alternativeTitle.english, x.alternativeTitle && x.alternativeTitle.romaji].filter(Boolean);
-  let hit = null;
-  for (const t of [...new Set(titles)].slice(0, 3)) {
-    const list = ((await apGet('/search?q=' + encodeURIComponent(t))).data) || [];
-    if (anilistId) hit = list.find(x => alOf(x) === Number(anilistId)) || null;   // AniList id is in the poster URL: exact match
-    if (!hit) {
-      const flat = []; list.forEach(x => { if (!anilistId || !alOf(x)) names(x).forEach(n => flat.push({ x, n })); });
-      const b = bestMatch(flat, titles, i => i.n, 90); hit = b && b.x;
-    }
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const eps = ((await apGet(`/anime/${encodeURIComponent(hit._id)}/episode`)).data) || [];
-  const e = eps.find(x => Number(x.number) === ep);
-  if (!e) throw new Error('episode not found');
-  const d = ((await apGet(`/ep/${encodeURIComponent(e.uid)}?origin=${encodeURIComponent(hit._id)}`)).data || {}).episode || {};
-  if (!d.streamLink) throw new Error('no stream');
-  const subtitles = (d.subData || []).filter(x => x && x.src && /vtt|ass|srt/i.test(x.type || 'vtt')).map(x => {
-    const l = String(x.label || 'English').toLowerCase(); let lang = 'en';
-    for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) { lang = LANG_CODES[k]; break; }
-    return { lang, label: x.label || 'English', url: /^https?:/.test(x.src) ? x.src : `${AP_API}/stream/file/${x.src}` };
-  });
-  const sk = d.skipData || {}, iv = x => x && x.end > x.start ? { start: +x.start, end: +x.end } : null;
-  // CORS-open and not IP-bound: the TV streams it directly (relay only as fallback)
-  return { url: `https://stream.animeparadise.moe/m3u8?url=${d.streamLink}`, headers: { Referer: AP_SITE }, subtitles, mp4: false, quality: 'adaptive', matched: hit.title,
-           cors: true, skip: (iv(sk.intro) || iv(sk.outro)) ? { op: iv(sk.intro), ed: iv(sk.outro) } : null };
-}
-
-// 0c) anv.to — JSON API keyed by AniList id: HLS up to 1080p, sub + English dub, multi-language VTT.
-//     An anonymous visitor cookie (shiro_watch, ~24h) is needed for the API and every /stream request,
-//     so streams always go through our relay (the cookie travels in the relay URL as ?ck=).
-const ANV = 'https://anv.to';
-let anvCookie = { v: '', exp: 0 };
-async function anvSession(force) {
-  if (!force && anvCookie.v && Date.now() < anvCookie.exp) return anvCookie.v;
-  const r = await fetch(ANV + '/anime/x-episode-1', { headers: { 'User-Agent': UA }, redirect: 'manual' });
-  const list = typeof r.headers.getSetCookie === 'function' ? r.headers.getSetCookie() : [r.headers.get('set-cookie') || ''];
-  try { r.body && await r.body.cancel(); } catch (e) { /* ignore */ }
-  const c = list.map(x => String(x).split(';')[0].trim()).find(x => /^shiro_watch=/.test(x));
-  if (!c) throw new Error('no session');
-  anvCookie = { v: c, exp: Date.now() + 20 * 3600 * 1000 };
-  return c;
-}
-async function viaAnv(anilistId, ep, audio) {
-  if (!anilistId) throw new Error('no anilist id');
-  const post = c => fetch(ANV + '/api/episode', { method: 'POST', body: JSON.stringify({ anilistId: Number(anilistId), episode: ep }),
-    headers: { 'User-Agent': UA, 'Content-Type': 'application/json', Accept: 'application/json', Cookie: c } });
-  let ck = await anvSession(), r = await post(ck);
-  if (r.status === 403) { ck = await anvSession(true); r = await post(ck); }
-  if (r.status === 429) throw new Error('rate limited');
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const d = await r.json();
-  if (d.status !== 'ready' || !(d.variants || []).length) throw new Error(d.reason || 'not available');
-  const want = audio === 'dub' ? 'dub' : 'sub';
-  const v = d.variants.find(x => x.id === want) || (want === 'sub' ? d.variants.find(x => x.id === 'hsub') : null);
-  const src = v && (v.sources || []).find(x => x && x.url);
-  if (!src) throw new Error('no ' + want);
-  const abs = u => /^https?:/.test(u) ? u : ANV + u;
-  const subtitles = (src.tracks || []).filter(t => t && t.src && /vtt|srt|ass/i.test(t.type || 'vtt')).map(t => ({
-    lang: String(t.language || 'en').slice(0, 2).toLowerCase(), label: t.label || 'English', url: abs(t.src), default: !!t.default }));
-  return { url: abs(src.url), headers: {}, cookie: ck, subtitles, mp4: false, quality: 'adaptive', matched: 'anv ' + (src.label || ''), hardsub: v.id === 'hsub' };
-}
-
 // 0d) animex.one — player backend keyed by AniList id (plyr.animex.one/e/{id}/{ep}/__data.json -> pp.animex.one sources).
 //     Providers that work through a relay: yuki (megaplay files), zuna, loli. Streams need the Referer the API returns.
 const AX_PLYR = 'https://plyr.animex.one', AX_API = 'https://pp.animex.one';
@@ -537,242 +349,59 @@ async function viaAnimeYubi(titles, ep, audio) {
   return { url: raw, headers: { Referer: ref }, subtitles, mp4: false, quality: 'adaptive', matched: 'animeyubi ' + hit.anime, forceProxy: true };
 }
 
-// 0b) gogoanime.by — WordPress site; its "blogger" player exposes a Google Video MP4 (English sub).
-//     Those links are locked to the requesting IP, so they are always relayed through this server.
-const GG = 'https://gogoanime.by';
-async function ggText(urlOrPath, headers = {}, timeout = 12000) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeout);
-  try {
-    const r = await fetch(urlOrPath.startsWith('http') ? urlOrPath : GG + urlOrPath, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...headers } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return await r.text();
-  } finally { clearTimeout(t); }
-}
-async function viaGogoanime(titles, ep) {
-  const queries = [...new Set([...titles, ...titles.map(t => norm(t).split(' ').slice(0, 2).join(' '))])].filter(q => q.length > 2);
-  let hit = null;
-  for (const q of queries) {
-    const html = await ggText('/?s=' + encodeURIComponent(q));
-    const seen = new Set(), items = [];
-    for (const m of html.matchAll(/class="bsx"[^>]*>\s*<a href="(https:\/\/gogoanime\.by\/series\/[^"]+)"[^>]*title="([^"]+)"/g)) {
-      if (!seen.has(m[1])) { seen.add(m[1]); items.push({ url: m[1], name: decodeEnt(m[2]).replace(/\s*GoGoanime$/i, '') }); }
-    }
-    hit = bestMatch(items.filter(i => !/\bdub\b/i.test(i.name)), titles, i => i.name);
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const page = await ggText(hit.url);
-  const base = hit.url.split('/series/')[1].replace(/\/$/, '').split('-').slice(0, 2).join('-');
-  let epUrl = null;
-  for (const m of page.matchAll(/href="(https:\/\/gogoanime\.by\/([^"\/]*)-episode-(\d+)-[^"\/]*\/)"/g)) {
-    if (m[2].startsWith(base) && Number(m[3]) === ep) { epUrl = m[1]; break; }
-  }
-  if (!epUrl) throw new Error('episode not found');
-  const epHtml = await ggText(epUrl, { Referer: hit.url });
-  const players = [...epHtml.matchAll(/data-src="(https:\/\/gogoanime\.by\/player\/[^"]+)"/g)].map(m => decodeEnt(m[1]));
-  if (!players.length) throw new Error('no players');
-  let last;
-  for (const pl of players) {
-    try {
-      const ph = await ggText(pl, { Referer: epUrl });
-      const m = ph.match(/var sources = (\[.*?\]);/s);
-      if (!m) continue;
-      const files = JSON.parse(m[1]).filter(f => f && f.file);
-      files.sort((a, b) => (parseInt(b.label, 10) || 0) - (parseInt(a.label, 10) || 0));
-      if (files.length) return { url: files[0].file, headers: {}, subtitles: [], mp4: true, matched: hit.name, forceProxy: true };
-    } catch (e) { last = e; }
-  }
-  throw last || new Error('no playable source');
-}
-
-// 5) AllAnime (the API ani-cli uses): plain JSON, no HTML scraping, English-subbed ("sub")
-const AA_API = 'https://api.allanime.day/api';
-const AA_REFR = 'https://allmanga.to';
-const AA_BASE = 'https://allanime.day';
-async function aaQuery(query, variables) {
-  const u = `${AA_API}?variables=${encodeURIComponent(JSON.stringify(variables))}&query=${encodeURIComponent(query)}`;
-  const d = await fetchJson(u, { headers: { Referer: AA_REFR, Origin: AA_REFR } }, 12000);
-  if (d.errors && !d.data) throw new Error(d.errors[0].message);
-  let data = d.data;
-  if (data && data.tobeparsed) data = aaDecrypt(data.tobeparsed);
-  return data;
-}
-// Newer API responses wrap the payload in AES-256-CTR ("tobeparsed"); same scheme ani-cli uses.
-function aaDecrypt(blob) {
-  const crypto = require('crypto');
-  const buf = Buffer.from(blob, 'base64');
-  const key = crypto.createHash('sha256').update('Xot36i3lK3:v1').digest();
-  const iv = Buffer.concat([buf.subarray(1, 13), Buffer.from([0, 0, 0, 2])]);
-  const dec = crypto.createDecipheriv('aes-256-ctr', key, iv);
-  const plain = Buffer.concat([dec.update(buf.subarray(13, buf.length - 16)), dec.final()]).toString('utf8');
-  const j = JSON.parse(plain);
-  return j.data || j;
-}
-function aaDecodeUrl(u) {
-  if (!u.startsWith('--')) return u;
-  let out = '';
-  for (let i = 2; i + 1 < u.length; i += 2) out += String.fromCharCode(parseInt(u.substr(i, 2), 16) ^ 56);
-  return out;
-}
-async function viaAllAnime(titles, ep) {
-  const SEARCH = 'query($search:SearchInput,$limit:Int,$page:Int,$translationType:VaildTranslationTypeEnumType,$countryOrigin:VaildCountryOriginEnumType){shows(search:$search,limit:$limit,page:$page,translationType:$translationType,countryOrigin:$countryOrigin){edges{_id name englishName availableEpisodes}}}';
-  let hit = null;
-  for (const t of titles) {
-    const d = await aaQuery(SEARCH, { search: { allowAdult: false, allowUnknown: false, query: t }, limit: 20, page: 1, translationType: 'sub', countryOrigin: 'ALL' });
-    const edges = ((d.shows && d.shows.edges) || []).filter(e => e.availableEpisodes && e.availableEpisodes.sub >= ep);
-    hit = bestMatch(edges, titles, e => [e.englishName, e.name].filter(Boolean).join(' '));
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const EP = 'query($showId:String!,$translationType:VaildTranslationTypeEnumType!,$episodeString:String!){episode(showId:$showId,translationType:$translationType,episodeString:$episodeString){episodeString sourceUrls}}';
-  const d = await aaQuery(EP, { showId: hit._id, translationType: 'sub', episodeString: String(ep) });
-  const urls = ((d.episode && d.episode.sourceUrls) || [])
-    .map(s => ({ name: s.sourceName, prio: s.priority || 0, url: aaDecodeUrl(s.sourceUrl || '') }))
-    .filter(s => s.url.startsWith('/')).sort((a, b) => b.prio - a.prio);
-  if (!urls.length) throw new Error('no usable sources');
-  let last;
-  for (const s of urls) {
-    try {
-      const j = await fetchJson(AA_BASE + s.url.replace('clock?', 'clock.json?'), { headers: { Referer: AA_REFR } }, 10000);
-      const links = (j.links || []).filter(l => l && l.link);
-      if (!links.length) continue;
-      const best = links.find(l => l.hls || /m3u8/.test(l.link)) || links[0];
-      const subs = (best.subtitles || []).map(t => ({ url: t.src || t.url, lang: t.lang || t.label || '' }));
-      return result({
-        sources: [{ url: best.link, isM3U8: !!best.hls || /m3u8/.test(best.link) }],
-        headers: Object.assign({ Referer: AA_REFR }, best.headers || {}),
-        subtitles: subs,
-      });
-    } catch (e) { last = e; }
-  }
-  throw last || new Error('no playable link');
-}
-
-// Optional remote instances (only used if ANIWATCH_URLS / CONSUMET_URLS are set)
-async function viaAniwatchRemote(base, titles, ep) {
-  let hit = null;
-  for (const t of titles) {
-    const s = await fetchJson(`${base}/api/v2/hianime/search?q=${encodeURIComponent(t)}`);
-    hit = bestMatch((s.data && s.data.animes) || [], titles, a => a.name);
-    if (hit) break;
-  }
-  if (!hit) throw new Error('no match');
-  const e = await fetchJson(`${base}/api/v2/hianime/anime/${encodeURIComponent(hit.id)}/episodes`);
-  const episode = ((e.data && e.data.episodes) || []).find(x => x.number === ep);
-  if (!episode) throw new Error('episode not found');
-  const src = await fetchJson(`${base}/api/v2/hianime/episode/sources?animeEpisodeId=${encodeURIComponent(episode.episodeId)}&category=sub`);
-  return result({ sources: src.data.sources, headers: src.data.headers, subtitles: src.data.subtitles || src.data.tracks });
-}
-async function viaConsumetRemote(base, titles, ep) {
-  const s = await fetchJson(`${base}/anime/animepahe/${encodeURIComponent(titles[0])}`);
-  const hit = findHit(s.results, titles);
-  if (!hit) throw new Error('no match');
-  const info = await fetchJson(`${base}/anime/animepahe/info/${encodeURIComponent(hit.id)}`);
-  const episode = (info.episodes || []).find(x => Number(x.number) === ep);
-  if (!episode) throw new Error('episode not found');
-  return result(await fetchJson(`${base}/anime/animepahe/watch?episodeId=${encodeURIComponent(episode.id)}`));
-}
-
-function providerJobs(titles, ep, anilistId, via, audio) {
-  const T = 40000;
-  return [
-    ['animeparadise', () => withTimeout(viaAnimeParadise(anilistId, titles, ep).then(probeStream), T, 'animeparadise')],
-    ['anv', () => withTimeout(viaAnv(anilistId, ep, audio).then(probeStream), T, 'anv')],
-    ['animex', () => withTimeout(viaAnimex(anilistId, ep, audio).then(probeStream), T, 'animex')],
-    ['animeyubi', () => withTimeout(viaAnimeYubi(titles, ep, audio).then(probeStream), T, 'animeyubi')],
-    ['anivexa', () => withTimeout(viaAnivexa(anilistId, ep, via, audio), T, 'anivexa')],
-    ['animeheaven', () => withTimeout(viaAnimeHeaven(titles, ep), T, 'animeheaven')],
-    ['gogoanime', () => withTimeout(viaGogoanime(titles, ep), T, 'gogoanime')],
-    ['allanime', () => withTimeout(viaAllAnime(titles, ep), T, 'allanime')],
-    // Cloudflare-blocked scrapers: off by default (they only add 20s of waiting). Set EXTRA_PROVIDERS=1 to try them.
-    ...(process.env.EXTRA_PROVIDERS ? [
-      ['aniwatch', () => withTimeout(viaAniwatchLib(titles, ep), T, 'aniwatch')],
-      ['animepahe', () => withTimeout(viaConsumetLib('AnimePahe', titles, ep), T, 'animepahe')],
-      ['animekai', () => withTimeout(viaConsumetLib('AnimeKai', titles, ep), T, 'animekai')],
-      ['hianime', () => withTimeout(viaConsumetLib('Hianime', titles, ep), T, 'hianime')],
-    ] : []),
-    ...ANIWATCH.map((b, i) => ['aniwatch-remote' + i, () => viaAniwatchRemote(b, titles, ep)]),
-    ...CONSUMET.map((b, i) => ['consumet-remote' + i, () => viaConsumetRemote(b, titles, ep)]),
-  ];
-}
 function parseQuery(q) {
   const titles = [q.title, q.alt, ...String(q.syn || '').split('|')].map(x => (x || '').trim()).filter(Boolean);
   if (!titles.length) { const e = new Error('title required'); e.status = 400; throw e; }
   return { titles, ep: parseInt(q.ep, 10) || 1 };
 }
 
-// Source chain used on Cloudflare Workers (free plan: ~50 outgoing requests per call). Measured from a Worker:
-// AnimeParadise (HLS 1080p + soft subs) > Anikoto (HLS + soft subs) > AnimeGG (hardsub mp4) > AniWaves > AnimeNoSub > AnimeHeaven > gogoanime.
-// Each call tries sources one by one and stops early when its request budget runs low; the app then calls again with
-// ?skip=<sources already tried>, so every source gets a fresh budget. The app also skips a source whose stream fails to play.
-const CF_CHAIN = ['animeparadise', 'anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'kaa', 'anizone'];
-const DUB_OK = new Set(['anv', 'animex', 'animeyubi', 'anikoto']);   // the scrapers that are quick and light on Workers CPU
-function chainJob(k, titles, ep, q) {
-  if (k === 'animeparadise') return viaAnimeParadise(q.id, titles, ep).then(probeStream);
-  if (k === 'anv') return viaAnv(q.id, ep, q.audio).then(probeStream);
-  if (k === 'animex') return viaAnimex(q.id, ep, q.audio).then(probeStream);
-  if (k === 'animeyubi') return viaAnimeYubi(titles, ep, q.audio).then(probeStream);
-  if (k === 'animeheaven') return viaAnimeHeaven(titles, ep);
-  if (k === 'gogoanime') return viaGogoanime(titles, ep);
-  return viaAnivexa(q.id, ep, k, q.audio);
-}
-async function sourcesChain(titles, ep, q, origin) {
-  const dub = q.audio === 'dub';
-  const skip = String(q.skip || '').split(',').filter(Boolean);
-  const chain = CF_CHAIN.filter(k => !skip.includes(k) && (!dub || DUB_OK.has(k)) && (q.id || ['animeheaven', 'gogoanime', 'animeyubi'].includes(k)));
-  const t0 = Date.now(), tried = [], errs = [];
-  for (const k of chain) {
-    try {
-      const r = await withTimeout(chainJob(k, titles, ep, q), 16000, k);
-      const provider = AV_ALL.includes(k) ? 'anivexa' : k;
-      return { ...finish({ ...r, provider, matched: r.matched || k }, origin), key: k, audio: dub ? 'dub' : 'sub' };
-    } catch (e) {
-      const budget = /subrequest/i.test(e.message);
-      if (!budget || !tried.length) tried.push(k);          // out of budget mid-way: retry this source in a fresh call
-      errs.push(k + ': ' + clean(e.message, 80));
-      if (budget || Date.now() - t0 > 12000) break;
-    }
-  }
-  const rest = chain.filter(k => !tried.includes(k));
+// ---------- Anime sources ----------
+// Auto tries them one at a time in this order (chosen from tests on a Samsung TV): AnimeX > AniKoto > AnimeYubi > AniWaves.
+// One source per budget on Cloudflare Workers (free plan ≈ 50 outgoing requests per call): when a call runs low the app
+// calls again with ?skip=<sources already tried>; if a stream fails to play on the TV the app skips that source too.
+const SOURCES = {
+  animex:    (q, titles, ep) => viaAnimex(q.id, ep, q.audio).then(probeStream),
+  anikoto:   (q, titles, ep) => viaAnivexa(q.id, ep, 'anikoto', q.audio),
+  animeyubi: (q, titles, ep) => viaAnimeYubi(titles, ep, q.audio).then(probeStream),
+  aniwaves:  (q, titles, ep) => viaAnivexa(q.id, ep, 'aniwaves', q.audio),
+};
+const AUTO_ORDER = ['animex', 'anikoto', 'animeyubi', 'aniwaves'];
+const NEEDS_ID = new Set(['animex', 'anikoto', 'aniwaves']);
+function noStream(dub, errs) {
   const err = new Error(dub ? 'No English dub was found for this episode.' : 'Not available yet — this title or episode has not been found on any source. Try another episode or title.');
   err.detail = errs.join(' | ').slice(0, 600);
   err.status = 502;
-  if (rest.length) { err.retry = true; err.skip = skip.concat(tried).join(','); }
-  throw err;
+  return err;
 }
-
+async function runSource(k, titles, ep, q, origin) {
+  const r = await withTimeout(SOURCES[k](q, titles, ep), 16000, k);
+  return { ...finish({ ...r, provider: k, matched: r.matched || k }, origin), key: k, audio: q.audio === 'dub' ? 'dub' : 'sub' };
+}
 async function sources(req, q, origin) {
   const { titles, ep } = parseQuery(q);
-  // forced source from the player's menu: an Anivexa sub-provider, or animeparadise / animeheaven / gogoanime
+  const dub = q.audio === 'dub';
   const via = q.via && q.via !== 'auto' ? String(q.via) : null;
-  if (globalThis.__AV_WORKER && !via && !q.only) return sourcesChain(titles, ep, q, origin);
-  const avVia = via && AV_ALL.includes(via) ? via : null;
-  const skip = String(q.skip || '').split(',').filter(Boolean);
-  const only = q.only ? String(q.only).split(',') : via ? [avVia ? 'anivexa' : via] : null;
-  const all = providerJobs(titles, ep, q.id, avVia, q.audio).filter(([n]) => (!only || only.includes(n)) && !skip.includes(n) && (q.audio !== 'dub' || ['anivexa', 'anv', 'animex', 'animeyubi'].includes(n)));
-  // AnimeParadise / Anivexa (HLS up to 1080p, soft English subs) go first; the rest only start if they fail or are slow (>6s)
-  const prim = all.filter(([n]) => q.id && (n === 'animeparadise' || n === 'anv' || n === 'anivexa'));
-  const primary = prim.length ? prim : all.filter(([n]) => n === 'animeheaven');
-  const runs = new Map(primary.map(([n, job]) => [n, job()]));
-  const firstOk = runs.size ? Promise.any([...runs.values()]) : Promise.reject(new Error('none'));
-  const gate = runs.size ? Promise.race([firstOk.then(() => new Promise(() => {}), () => {}), new Promise(r => setTimeout(r, 6000))]) : Promise.resolve();
-  const jobs = all.map(([name, job]) => (runs.has(name) ? runs.get(name) : gate.then(job)).then(r => ({ ...r, provider: name }), e => { throw new Error(name + ': ' + clean(e.message, 260)); }));
-  try {
-    // Race every provider; AnimeParadise wins ties (soft subs, 1080p): give it a moment if Anivexa answers first
-    const r = await Promise.any(jobs);
-    if (r.provider !== 'animeparadise' && runs.has('animeparadise')) {
-      const ap = await Promise.race([runs.get('animeparadise').then(x => ({ ...x, provider: 'animeparadise' }), () => null), new Promise(res => setTimeout(() => res(null), 2500))]);
-      if (ap) return { ...finish(ap, origin), key: 'animeparadise', audio: q.audio === 'dub' ? 'dub' : 'sub' };
-    }
-    const key = r.provider === 'anivexa' ? String(r.matched || '').split(' ')[0] : r.provider;
-    return { ...finish(r, origin), key, audio: q.audio === 'dub' ? 'dub' : 'sub' };
-  } catch (e) {
-    const err = new Error(q.audio === 'dub' ? 'No English dub was found for this episode.' : 'Not available yet — this title or episode has not been found on any source. Try another episode or title.');
-    err.detail = (e.errors || [e]).map(x => x.message).join(' | ').slice(0, 600);
-    err.status = 502;
-    throw err;
+  if (via) {                                                   // a source picked in the player's menu
+    if (!SOURCES[via]) { const e = new Error('Unknown source: ' + via); e.status = 400; throw e; }
+    try { return await runSource(via, titles, ep, q, origin); }
+    catch (e) { throw noStream(dub, [via + ': ' + clean(e.message, 120)]); }
   }
+  const skip = String(q.skip || '').split(',').filter(Boolean);
+  const chain = AUTO_ORDER.filter(k => !skip.includes(k) && (q.id || !NEEDS_ID.has(k)));
+  const t0 = Date.now(), tried = [], errs = [];
+  for (const k of chain) {
+    try { return await runSource(k, titles, ep, q, origin); }
+    catch (e) {
+      const budget = /subrequest/i.test(e.message);
+      if (!budget || !tried.length) tried.push(k);              // out of budget mid-way: retry this source in a fresh call
+      errs.push(k + ': ' + clean(e.message, 80));
+      if (budget || Date.now() - t0 > 14000) break;
+    }
+  }
+  const err = noStream(dub, errs);
+  const rest = chain.filter(k => !tried.includes(k));
+  if (rest.length) { err.retry = true; err.skip = skip.concat(tried).join(','); }
+  throw err;
 }
 
 
@@ -783,12 +412,11 @@ function finish(r, origin) {
   // Route through our proxy when the CDN demands a Referer / CORS (browsers can't set it); HLS always goes through it
   // AnimeGG mp4 links redirect to a CDN that needs no Referer: the TV fetches it directly (no relay = no buffering), relay is the fallback
   const direct = r.cors || (!isHls && /^https:\/\/(www\.)?animegg\.org\/play\//.test(r.url));
-  const ck = r.cookie ? '&ck=' + encodeURIComponent(r.cookie) : '';                     // site session cookie the relay must send (anv.to)
-  const url = !direct && (ref || r.forceProxy || isHls || ck) ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}${ck}&url=${encodeURIComponent(r.url)}` : r.url;
+  const url = !direct && (ref || r.forceProxy || isHls) ? `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(r.url)}` : r.url;
   // Subtitle files are relayed too so the app can fetch them cross-origin (CORS *)
-  const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt${ck}${ref ? '&ref=' + encodeURIComponent(ref) : ''}&url=${encodeURIComponent(t.url)}` }));
+  const subtitles = (r.subtitles || []).map(t => ({ ...t, url: `${origin}/api?action=proxy&fmt=vtt${ref ? '&ref=' + encodeURIComponent(ref) : ''}&url=${encodeURIComponent(t.url)}` }));
   // Same stream relayed through this server (used by the app if the direct link fails in the viewer's browser)
-  const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}${ck}&url=${encodeURIComponent(r.url)}`;
+  const proxyUrl = `${origin}/api?action=proxy&ref=${encodeURIComponent(ref || r.referer || '')}&url=${encodeURIComponent(r.url)}`;
   const qualities = (r.qualities || []).length > 1 ? r.qualities.map(x => ({ label: x.label, url: `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(x.url)}` })) : undefined;
   // sources whose picture already has English subtitles burned in (so no overlay is added automatically)
   const hardsub = !!r.hardsub || ['animeheaven', 'gogoanime'].includes(r.provider) || /^animegg/.test(r.matched || '');
@@ -824,13 +452,13 @@ async function readBody(req) {
   return {};
 }
 
-// Diagnostic: runs every provider to completion and reports what each one did
+// Diagnostic: runs every source to completion and reports what each one did
 async function debug(q) {
   const { titles, ep } = parseQuery(q);
-  const out = await Promise.all(providerJobs(titles, ep, q.id).map(async ([name, job]) => {
+  const out = await Promise.all(Object.keys(SOURCES).map(async k => {
     const t0 = Date.now();
-    try { const r = await job(); return { provider: name, ok: true, ms: Date.now() - t0, matched: r.matched, url: r.url, subtitles: r.subtitles.length }; }
-    catch (e) { return { provider: name, ok: false, ms: Date.now() - t0, error: e.message }; }
+    try { const r = await withTimeout(SOURCES[k](q, titles, ep), 25000, k); return { provider: k, ok: true, ms: Date.now() - t0, matched: r.matched, url: r.url, subtitles: (r.subtitles || []).length }; }
+    catch (e) { return { provider: k, ok: false, ms: Date.now() - t0, error: e.message }; }
   }));
   return { titles, ep, node: process.version, providers: out };
 }
@@ -865,8 +493,6 @@ async function proxy(req, res, q, origin) {
   const headers = { 'User-Agent': UA };
   if (ref) { headers.Referer = ref; try { headers.Origin = new URL(ref).origin; } catch (e) { /* ignore */ } }
   if (req.headers.range) headers.Range = req.headers.range;
-  const ck = q.ck ? String(q.ck) : '';
-  if (ck && /^https:\/\/anv\.to\//.test(target)) headers.Cookie = ck;            // only ever sent back to the site that issued it
   const r = await fetch(target, { headers });
   cors(res);
   if (q.fmt === 'vtt') {
@@ -879,7 +505,7 @@ async function proxy(req, res, q, origin) {
     const text = await r.text();
     if (!r.ok || text.indexOf('#EXTM3U') < 0) return send(res, r.ok ? 502 : r.status, { error: 'upstream playlist unavailable (' + r.status + ')' }, 'no-store');
     const abs = u => new URL(u, target).href;
-    const wrap = u => `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}${ck ? '&ck=' + encodeURIComponent(ck) : ''}&url=${encodeURIComponent(abs(u))}`;
+    const wrap = u => `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(abs(u))}`;
     const out = text.split('\n').map(line => {
       const t = line.trim();
       if (!t) return line;

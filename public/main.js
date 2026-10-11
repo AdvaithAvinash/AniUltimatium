@@ -621,14 +621,18 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     pmsg('Loading player… (press Enter to focus it, Back to exit)', true);
     f.onload = function () { if (state.embed) pmsg('', false); };
     $('player').setAttribute('data-embed', '1');
-    $('embedCtl').className = state.embedKind === 'cinesrc' ? '' : 'hidden';   // VidCore: shown once its player reports a clock
+    $('embedCtl').className = '';                    // bottom control bar: Down opens it
+    state.ebar = { open: false, idx: 2 };
+    clearInterval(state.ebarTick); state.ebarTick = setInterval(paintEbar, 500);
+    clearInterval(state.vcPoll); if (state.embedKind === 'vidcore') state.vcPoll = setInterval(function () { cinSend('getStatus'); }, 2000);
     setTimeout(function () { if (state.embed) pmsg('', false); }, 6000);
     startSubLoop();                                  // OpenSubtitles overlay, locked to the player clock
     osFetchList(function () { subAuto(); });
   }
   function hideEmbed() {
     state.embed = false; state.embedKind = null; $('player').removeAttribute('data-embed');
-    $('embedSubs').textContent = ''; $('embedCtl').className = 'hidden';
+    $('embedSubs').textContent = ''; $('embedCtl').className = 'hidden'; state.ebar = { open: false, idx: 2 };
+    clearInterval(state.ebarTick); clearInterval(state.vcPoll); clearTimeout(state.ebarHide);
     var f = $('embedFrame');
     if (f.className !== '') { f.className = ''; f.removeAttribute('src'); }
   }
@@ -826,33 +830,42 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function cinSend(cmd, args) {
     try {
       var w = $('embedFrame').contentWindow;
-      if (state.embedKind === 'vidcore') w.postMessage({ command: cmd, time: args && args.length ? args[0] : cinNow() }, VCO);
+      if (state.embedKind === 'vidcore') {
+        var t = args && args.length ? args[0] : cinNow();
+        w.postMessage({ command: cmd, time: t }, '*');
+        w.postMessage({ action: cmd, time: t }, '*');
+      }
       else w.postMessage({ type: 'cinesrc:command', command: cmd, args: args || [] }, CIN);
     } catch (e) {}
   }
   function cinNow() { return state.cin.t + (state.cin.paused ? 0 : (performance.now() - state.cin.stamp) / 1000); }
-  function cinSeek(delta) { var t = Math.max(0, cinNow() + delta); state.cin.t = t; state.cin.stamp = performance.now(); cinSend('seek', [t]); toast((delta > 0 ? '+' : '') + delta + 's'); }
+  function cinSeek(delta) {
+    if (state.embedKind === 'vidcore' && !state.cin.live) { cinSend('getStatus'); toast('The player has not reported its position yet — try again in a moment'); return; }
+    var t = Math.max(0, cinNow() + delta); state.cin.t = t; state.cin.stamp = performance.now(); cinSend('seek', [t]); toast((delta > 0 ? '+' : '') + delta + 's'); }
   function cinToggle() {
     if (state.cin.paused) { cinSend('play'); state.cin.paused = false; state.cin.stamp = performance.now(); }
     else { state.cin.t = cinNow(); cinSend('pause'); state.cin.paused = true; }
   }
   window.addEventListener('message', function (e) {
-    if (e.origin === VCO && state.embed && state.embedKind === 'vidcore' && e.data && typeof e.data === 'object') {
+    var fromFrame = false; try { fromFrame = e.source === $('embedFrame').contentWindow; } catch (er) {}
+    if ((fromFrame || /vidcore/i.test(e.origin)) && state.embed && state.embedKind === 'vidcore' && e.data && typeof e.data === 'object') {
       var v = e.data, vd = v.data || {}, vc = state.cin;
-      if (!vc.live && (v.type === 'timeupdate' || v.type === 'PLAYER_EVENT')) { vc.live = true; $('embedCtl').className = ''; pmsg('', false); }
+      if (!vc.live && (v.type === 'timeupdate' || v.type === 'PLAYER_EVENT')) { vc.live = true; pmsg('', false); }
       if (v.type === 'timeupdate') {
         var vt = +vd.currentTime || 0;
         if (Math.abs(vt - vc.t) > 0.05 && vt > vc.t) vc.paused = false;
         vc.t = vt; vc.d = +vd.duration || vc.d; vc.stamp = performance.now(); saveEmbedProgress();
       } else if (v.type === 'PLAYER_EVENT') {
         if (vd.currentTime != null) { vc.t = +vd.currentTime || 0; vc.stamp = performance.now(); }
+        if (vd.duration) vc.d = +vd.duration;
+        if (vd.event === 'playerstatus' && vd.paused != null) vc.paused = !!vd.paused;
         if (vd.event === 'play' || vd.event === 'playing') vc.paused = false;
         else if (vd.event === 'pause') vc.paused = true;
         else if (vd.event === 'ended') { removeProg(keyOf(state.anime)); closePlayer(); }
       } else if (v.type === 'ended') { removeProg(keyOf(state.anime)); closePlayer(); }
       return;
     }
-    if (e.origin !== CIN || state.embedKind !== 'cinesrc' || !state.embed || !e.data || typeof e.data !== 'object') return;
+    if (!(fromFrame || e.origin === CIN) || state.embedKind !== 'cinesrc' || !state.embed || !e.data || typeof e.data !== 'object') return;
     var m = e.data, c = state.cin;
     switch (m.type) {
       case 'cinesrc:timeupdate': {                                   // only counts as "playing" while the time is actually moving
@@ -868,6 +881,50 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       case 'cinesrc:ready': pmsg('', false); break;
     }
   });
+  // ---- Bottom control bar for embedded movie players (Down opens it) ----
+  function ebarItems() { return [].slice.call(document.querySelectorAll('#embedCtl .ectl')); }
+  function paintEbar() {
+    if (!state.embed) return;
+    var c = state.cin, now = cinNow(), known = state.embedKind === 'cinesrc' || c.live;
+    $('eTime').textContent = known ? fmt(now) : '--:--';
+    $('eDur').textContent = known && c.d ? fmt(c.d) : '--:--';
+    $('eFill').style.width = known && c.d ? Math.min(100, now / c.d * 100) + '%' : '0';
+    var pb = document.querySelector('#embedCtl .eplay'); if (pb) pb.textContent = c.paused ? '▶' : '❚❚';
+    ebarItems().forEach(function (b, i) { b.className = b.className.replace(/ ?sel/g, '') + (state.ebar.open && i === state.ebar.idx ? ' sel' : ''); });
+  }
+  function showEbar() {
+    if (!state.embed) return;
+    if (!state.ebar.open) state.ebar.idx = 2;                       // always starts on play/pause
+    state.ebar.open = true; $('embedCtl').className = 'open'; paintEbar();
+    clearTimeout(state.ebarHide); state.ebarHide = setTimeout(hideEbar, 8000);
+  }
+  function hideEbar() {
+    clearTimeout(state.ebarHide); state.ebar.open = false;
+    if (state.embed) { $('embedCtl').className = ''; paintEbar(); }
+  }
+  function ebarAct(a) {
+    if (a === 'back10') cinSeek(-10); else if (a === 'fwd10') cinSeek(10); else if (a === 'toggle') cinToggle();
+    else if (a === 'cc') { var so = subOptions(); so.opts[(so.cur + 1) % so.opts.length].apply(); }
+    else if (a === 'syncm' || a === 'syncp') { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + (a === 'syncp' ? 0.5 : -0.5)) * 10) / 10)); toast('Subtitle sync ' + (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's'); }
+    else if (a === 'menu') { hideEbar(); openMenu(); }
+    else if (a === 'exit') closePlayer();
+    else if (a === 'seek') toast('Use Left / Right to seek 10s');
+    paintEbar();
+  }
+  function ebarKey(k) {
+    var items = ebarItems(), cur = items[state.ebar.idx], onSeek = cur && cur.getAttribute('data-ec') === 'seek';
+    clearTimeout(state.ebarHide); state.ebarHide = setTimeout(hideEbar, 8000);
+    if (k === KEY.LEFT || k === KEY.RIGHT) {
+      if (onSeek) cinSeek(k === KEY.LEFT ? -10 : 10);
+      else state.ebar.idx = Math.max(1, Math.min(items.length - 1, state.ebar.idx + (k === KEY.LEFT ? -1 : 1)));
+    }
+    else if (k === KEY.UP) { if (!onSeek) state.ebar.idx = 0; else hideEbar(); }
+    else if (k === KEY.DOWN) { if (onSeek) state.ebar.idx = 2; }
+    else if (k === KEY.ENTER) ebarAct(cur.getAttribute('data-ec'));
+    else if (k === KEY.RW) cinSeek(-30); else if (k === KEY.FF) cinSeek(30);
+    else if (k === KEY.PLAY || k === KEY.PAUSE || k === KEY.PLAYPAUSE || k === KEY.SPACE) cinToggle();
+    paintEbar();
+  }
   function saveEmbedProgress() {
     var c = state.cin; if (!state.anime || Date.now() - state.lastSave < 5000 || c.t < 5 || !c.d) return;
     state.lastSave = Date.now(); setProg(state.anime, 1, c.t, c.d);
@@ -887,8 +944,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function startSubLoop() { cancelAnimationFrame(state.subRaf); state.subRaf = requestAnimationFrame(renderSubs); }
 
-  var SOURCES = ['auto', 'animeparadise', 'anv', 'animex', 'animeyubi', 'anikoto', 'animegg', 'aniwaves', 'animenosub', 'animeheaven', 'gogoanime', 'anizone', 'kaa', 'senshi'];
-  var SRC_NAMES = { auto: 'Auto (best)', animeparadise: 'AnimeParadise', anv: 'anv.to', animex: 'AnimeX', animeyubi: 'AnimeYubi', anizone: 'AniZone', anikoto: 'AniKoto', animegg: 'AnimeGG', kaa: 'KickAssAnime', animenosub: 'Omega/Vidmoly', aniwaves: 'AniWaves', senshi: 'Senshi', animeheaven: 'AnimeHeaven', gogoanime: 'Gogoanime' };
+  // Anime sources in Auto order (AnimeX is the default; the rest are fallbacks, also pickable here)
+  var SOURCES = ['auto', 'animex', 'anikoto', 'animeyubi', 'aniwaves'];
+  var SRC_NAMES = { auto: 'Auto (AnimeX first)', animex: 'AnimeX', anikoto: 'AniKoto', animeyubi: 'AnimeYubi', aniwaves: 'AniWaves' };
   // subtitle languages available now (English, Japanese, Malayalam, Hindi, Tamil, Telugu first), plus Off
   function subLangs() {
     var seen = {}, langs = [];
@@ -1168,10 +1226,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   $('embedCtl').addEventListener('click', function (e) {
     var b = up(e.target, 'ectl'); if (!b) return;
     var a = b.getAttribute('data-ec');
-    if (a === 'back10') cinSeek(-10); else if (a === 'fwd10') cinSeek(10); else if (a === 'toggle') cinToggle();
-    else if (a === 'cc') { var so = subOptions(); so.opts[(so.cur + 1) % so.opts.length].apply(); }
-    else if (a === 'syncm' || a === 'syncp') { state.os.off = Math.max(-15, Math.min(15, Math.round((state.os.off + (a === 'syncp' ? 0.5 : -0.5)) * 10) / 10)); toast('Subtitle sync ' + (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's'); }
+    if (a === 'seek') {                                                  // click on the bar = jump there
+      var c = state.cin, r = b.getBoundingClientRect();
+      if (c.d && (state.embedKind === 'cinesrc' || c.live)) { var t = Math.max(0, Math.min(c.d - 5, (e.clientX - r.left) / r.width * c.d)); c.t = t; c.stamp = performance.now(); cinSend('seek', [t]); }
+      paintEbar(); return;
+    }
+    ebarAct(a);
   });
+  $('player').addEventListener('mousemove', function () { if (state.embed && !state.menuOpen) showEbar(); });
   $('player').addEventListener('click', function (e) {
     if (e.target.id === 'skipBtn' || up(e.target, 'skipbtn')) { doSkip(); return; }
     var b = up(e.target, 'pbtn');
@@ -1317,6 +1379,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function goBack() {
     if (state.view === 'notice') { hideNotice(false); return; }
     if (state.view === 'player' && state.menuOpen) { closeMenu(); return; }          // Back closes the settings menu first
+    if (state.view === 'player' && state.embed && state.ebar && state.ebar.open) { hideEbar(); return; }
     if (state.view === 'detail' && anyDropOpen()) { closeDrops(true); return; }
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
@@ -1328,10 +1391,15 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var k = e.keyCode;
     if (state.view === 'player') {
       e.preventDefault();
+      if (state.embed && !state.menuOpen && state.ebar && state.ebar.open) {
+        if (isBackKey(k)) { state.lastBack = Date.now(); hideEbar(); } else ebarKey(k);
+        return;
+      }
       if (state.embed && !state.menuOpen) {
+        if (k === KEY.DOWN) { showEbar(); return; }
         if (isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); closePlayer(); }
-        else if (isCin() && (k === KEY.LEFT || k === KEY.RW)) cinSeek(-10);
-        else if (isCin() && (k === KEY.RIGHT || k === KEY.FF)) cinSeek(10);
+        else if (k === KEY.LEFT || k === KEY.RW) cinSeek(k === KEY.RW ? -30 : -10);
+        else if (k === KEY.RIGHT || k === KEY.FF) cinSeek(k === KEY.FF ? 30 : 10);
         else if (isCin() && (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE)) cinToggle();
         else if (isCin() && k === 404) { var so = subOptions(); so.opts[(so.cur + 1) % so.opts.length].apply(); }
         else if (k === KEY.ENTER) { try { $('embedFrame').focus(); } catch (e) {} toast('Player selected — press Back to exit'); }
