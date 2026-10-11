@@ -1,5 +1,5 @@
 // Stand-in for Node-only / native packages that cannot run on Cloudflare Workers
-// (@consumet/extensions, aniwatch, wreq-js). The code paths that use them are optional fallbacks and fail softly.
+// (wreq-js). The code paths that use it are optional and fail softly.
 // wreq-js (browser-like TLS) is replaced by the platform fetch, with a tiny cookie jar per session.
 export const createSession = async () => {
   const jar = new Map();

@@ -32,32 +32,27 @@ Laptop: open `http://localhost:3000`. TV: open the app → **Settings** → *Str
 Keep the computer on and on the same Wi-Fi as the TV while watching.
 
 ## Stream sources
-**Anivexa API** ([walterwhite-69/Anivexa-API](https://github.com/walterwhite-69/Anivexa-API), installed as the `all-api`
-dependency and run in-process) is the primary source. It aggregates AniZone, AniKoto, AnimeGG, KickAssAnime, AniWaves, Senshi …
-by AniList id and returns **adaptive HLS up to 1080p with English soft-subs** (SRT/ASS are converted to WebVTT by the proxy).
-Fallbacks: AnimeHeaven (720p hard-subbed MP4) and gogoanime.by.
-**Own scrapers (all keyed by AniList id or title, plain JSON APIs, tested from a Cloudflare Worker):**
-- **AnimeParadise** — HLS up to 1080p, 1–8 subtitle languages, intro/outro times; CORS-open, so the TV streams it directly.
-- **anv.to** — HLS 1080p, sub + English dub, multi-language VTT (needs its visitor cookie, so it goes through the relay).
-- **AnimeX** (animex.one, yuki/zuna/loli hosts) — HLS, sub + dub, many subtitle languages, intro/outro times.
-- **AnimeYubi** (ZokoAnime host) — HLS 1080p, sub + dub, English VTT.
+Anime streams come from four sources, tried one at a time in this order (chosen from tests on a Samsung TV):
 
-Order on **Cloudflare Workers** (free plan ≈ 50 outgoing requests and little CPU per call), one source at a time:
-AnimeParadise → anv.to → AnimeX → AnimeYubi → AniKoto → AnimeGG → AniWaves → AnimeNoSub → AnimeHeaven → gogoanime → KickAssAnime → AniZone
-(English dub: anv.to → AnimeX → AnimeYubi → AniKoto). Every stream's playlist is checked from the server before it is handed out; when a
-call runs out of budget the app continues with `?skip=`, and if a stream fails to play or never starts the app moves to the next source by itself.
-Measured on the live Worker (Oct 2026): English sub found and verified down to a video segment for 59/59 popular + current-season shows; English dub for 50/59
-(the rest have no dub anywhere yet). The next episode's stream is looked up in the background while you watch.
-Check any Anivexa provider from your host with `/api?action=avtest&p=<provider>&id=<anilistId>&ep=1`.
-In the player press **Up** (remote) / **Q** / click the quality button to open the settings menu: **Quality** (Auto/1080p/720p/…; your choice is remembered), **Subtitles** and **Source** (pick AnimeParadise, AniZone, AniKoto, AnimeGG, KickAssAnime, Omega, AniWaves, Senshi, AnimeHeaven or Gogoanime manually if the automatic one is poor or missing). Remote: Left/Right seek, Enter play/pause, Down show controls, red/Info = menu, green = subtitles.
+1. **AnimeX** (animex.one player API, keyed by AniList id) — default. HLS, sub + English dub, many subtitle languages, intro/outro times.
+2. **AniKoto** (via the bundled [Anivexa API](https://github.com/walterwhite-69/Anivexa-API), `all-api` dependency) — HLS 1080p with soft subs.
+3. **AnimeYubi** (ZokoAnime host) — HLS 1080p, sub + dub, English VTT.
+4. **AniWaves** (via Anivexa) — last resort.
 
-These sites block cloud/datacenter IPs, so **run the app locally** (`npm install && npm start`) for best results.
-To use a separately hosted Anivexa instance instead, set `ANIVEXA_URL`.
-This app combines all anime apis into one.
+Streams whose CDN needs a Referer are relayed by `/api?action=proxy` (playlists rewritten); subtitle files are converted to WebVTT.
+Each stream's playlist is checked from the server before it is handed out. On **Cloudflare Workers** (free plan ≈ 50 outgoing requests
+per call) a call that runs low on budget tells the app to continue with `?skip=`; if a stream fails to play or never starts on the TV,
+the app moves on to the next source by itself. The next episode is looked up in the background while you watch.
+In the player press **Up** for the settings menu (Quality, Audio sub/dub, Subtitles, Subtitle file and sync, Speed, **Source**).
+Diagnose from any host with `/api?action=debug&id=<anilistId>&title=<title>&ep=1`.
+
+Evaluated and **not** used (Oct 2026): MiruroAPI (XOR-encoded streams, Miruro blocks Cloudflare), animetsu-api (upstream gone),
+consumet.ts (removed from GitHub after DMCA; providers dead or need decryption), REIATSU (repository not found),
+AnimeParadise / anv.to (did not play on the TV), hianimes/megaplay and AnimeStream (encrypted / DRM).
 
 ## Movies, accounts, history
 - **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Playback: public-domain films from the Internet Archive play in our
-  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player (**VidCore** or **CineSrc**, all keyed by TMDB id) in an iframe.
+  own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player (**VidCore** by IMDb id at vidcore.io, or **CineSrc** by TMDB id) in an iframe.
   On a movie's page, the **Source** dropdown picks Auto / VidCore / CineSrc / Public domain before you press Play (remembered).
   Embedded players run their own controls, so resume/skip aren't available there. In the menu (Up / Q) choose Source: Auto / Embedded / Public domain.
 - **Accounts**: Account tab -> create account / sign in. Continue Watching, My List and History sync between devices.
@@ -70,7 +65,7 @@ This app combines all anime apis into one.
 ## Subtitles, ±10s and quality (movies)
 - **OpenSubtitles** (English, up to 6 candidates per title, keyless via Stremio's OpenSubtitles data endpoint) work in our own player and over **CineSrc**:
   CineSrc is driven through its documented postMessage API, so subtitles are drawn locked to its playback clock. Menu (Up / Q): Subtitles (pick a candidate) and
-  *Subtitle sync* (±0.5s) if a file is early/late. **VidCore** has no player API, so use its own CC button (it supports 30 languages).
+  *Subtitle sync* (±0.5s) if a file is early/late. **VidCore** and **CineSrc**: press **Down** for the control bar (seek bar with time, −10 / play-pause / +10, subtitles, sync, settings, exit); Left/Right skip 10s anytime.
 - CineSrc: ±10s with Left/Right on the remote (or the ⟲ 10 / 10 ⟳ buttons), Enter = play/pause, green = cycle subtitles; progress is saved so Continue Watching resumes (`t=`).
 - **Quality** dropdown on the movie page: Auto, 4K, 1440p, 1080p, 720p, 480p (sent to CineSrc as `quality=`, applied to our own HLS player too; VidCore auto-selects up to 4K).
 - Anime: if a stream has no English subtitles, press Up → Subtitles to pick OpenSubtitles (matched through the AniList→IMDb mapping).

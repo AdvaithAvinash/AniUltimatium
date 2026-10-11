@@ -8,8 +8,6 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
   // Node-only / native packages are swapped for a stub (they are optional fallbacks)
   "alias": {
-    "@consumet/extensions": "./worker/stub.js",
-    "aniwatch": "./worker/stub.js",
     "wreq-js": "./worker/stub.js"
   },
   // Optional: persistent accounts + sync. Wrangler creates the KV namespace automatically on deploy.
