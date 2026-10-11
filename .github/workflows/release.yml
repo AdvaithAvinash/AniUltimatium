@@ -1,0 +1,46 @@
+# Builds app.wgt (tools/build_wgt.py) and attaches it to a DRAFT GitHub release.
+# Runs when a tag like "stable-v1.03" or "v1.03" is pushed, or by hand from the Actions tab.
+name: Release app.wgt
+
+on:
+  push:
+    tags: ['stable-v*', 'v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (created on the selected commit if it does not exist)'
+        required: true
+        default: 'stable-v1.03'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app.wgt
+        run: |
+          python3 tools/build_wgt.py
+          unzip -l app.wgt
+          head -1 public/main.js
+
+      - name: Release name
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          NAME="${TAG#stable-}"
+          case "$TAG" in stable-*) NAME="Stable ${NAME}";; esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release with app.wgt
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          draft: true
+          files: app.wgt
+          body_path: RELEASE_NOTES.md
