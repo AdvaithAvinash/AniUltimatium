@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link AniList · Aniultimatium</title>
+<style>
+  :root { --bg: #0b0b10; --card: #16161f; --text: #f2f2f7; --muted: #9a9ab0; --accent: #ff3d7f; --ok: #3ddc97; --bad: #ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px;
+         background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  .card { width: 100%; max-width: 420px; background: var(--card); border-radius: 16px; padding: 28px 24px; }
+  h1 { margin: 0 0 6px; font-size: 1.4rem; }
+  p { color: var(--muted); margin: 0 0 18px; }
+  input { width: 100%; padding: 14px; font-size: 1.6rem; letter-spacing: .3em; text-align: center; text-transform: uppercase;
+          border-radius: 10px; border: 2px solid #2a2a38; background: #0f0f16; color: var(--text); }
+  button { width: 100%; margin-top: 14px; padding: 14px; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: 10px;
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button[disabled] { opacity: .5; cursor: default; }
+  #msg { margin-top: 16px; min-height: 1.5em; }
+  .ok { color: var(--ok) !important; } .bad { color: var(--bad) !important; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Link AniList</h1>
+  <p id="lead">Enter the code shown on your TV, then sign in with AniList.</p>
+  <div id="form">
+    <input id="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE">
+    <button id="go">Sign in with AniList</button>
+  </div>
+  <p id="msg"></p>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function say(t, cls) { $('msg').textContent = t; $('msg').className = cls || ''; }
+  function store(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} }
+  function read(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+  var q = new URLSearchParams(location.search), local = q.get('local') === '1';
+  if (q.get('code')) $('code').value = q.get('code').toUpperCase();
+  if (local) { $('lead').textContent = 'Sign in with AniList to link it to this browser.'; $('code').style.display = 'none'; }
+
+  // Back from AniList: #access_token=...&token_type=Bearer&expires_in=...
+  var h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if (h.get('access_token')) {
+    var token = h.get('access_token'), exp = parseInt(h.get('expires_in'), 10) || 0, mode = read('al_mode'), code = read('al_code');
+    history.replaceState(null, '', location.pathname);
+    $('form').style.display = 'none';
+    if (mode === 'local') {
+      try { localStorage.setItem('ea_anilist', JSON.stringify({ token: token, exp: exp ? Date.now() + exp * 1000 : 0 })); } catch (e) {}
+      say('Linked! Taking you back to the app…', 'ok');
+      setTimeout(function () { location.href = '/'; }, 800);
+      return;
+    }
+    say('Linking your TV…');
+    fetch('/api?action=al_put', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code, token: token, expiresIn: exp }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; }); })
+      .then(function () { store('al_code', null); say('Done! Your TV is now linked to AniList. You can close this page.', 'ok'); })
+      .catch(function (e) { say('Could not link: ' + e.message, 'bad'); });
+    return;
+  }
+  if (h.get('error')) say('AniList sign-in was cancelled.', 'bad');
+
+  var clientId = '';
+  fetch('/api?action=config').then(function (r) { return r.json(); }).then(function (c) {
+    clientId = c.anilistClientId || '';
+    if (!clientId) { say('AniList is not set up on this server yet (ANILIST_CLIENT_ID is empty).', 'bad'); $('go').disabled = true; }
+  }).catch(function () { say('Could not reach the server.', 'bad'); });
+
+  $('go').onclick = function () {
+    var code = $('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!local && code.length !== 6) { say('Enter the 6-character code from your TV.', 'bad'); return; }
+    if (!clientId) return;
+    store('al_code', code); store('al_mode', local ? 'local' : 'code');
+    location.href = 'https://anilist.co/api/v2/oauth/authorize?client_id=' + encodeURIComponent(clientId) + '&response_type=token';
+  };
+})();
+</script>
+</body>
+</html>

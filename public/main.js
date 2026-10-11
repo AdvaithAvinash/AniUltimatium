@@ -242,6 +242,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (extra && extra.cont) {
       p.appendChild(el('div', 'badge ep', movie ? 'RESUME' : 'EP ' + extra.ep));
       if (extra.dur) p.appendChild(el('div', 'pbar', '<i style="width:' + Math.min(100, extra.time / extra.dur * 100) + '%"></i>'));
+    } else if (extra && extra.al) {
+      p.appendChild(el('div', 'badge ep al', 'EP ' + extra.ep));
     } else if (extra && extra.hist) {
       p.appendChild(el('div', 'badge ep', movie ? 'MOVIE' : 'EP ' + extra.ep));
     } else if (a.score) p.appendChild(el('div', 'badge', '★ ' + esc(a.score)));
@@ -313,6 +315,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     last.className += ' cont';
     rows.insertBefore(last, rows.firstChild);
   }
+  var renderContinue0 = renderContinue;
+  renderContinue = function () { renderContinue0(); renderAlRow(); };
 
   function setHeroList(list) {
     state.hero = list; state.heroIdx = 0;
@@ -410,6 +414,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('accLogin').innerHTML = ic('check') + 'Sign in'; $('accRegister').innerHTML = ic('plus') + 'Create account';
     $('accSync').innerHTML = ic('history') + 'Sync now'; $('accLogout').innerHTML = 'Sign out';
     $('accWho').textContent = au ? 'Signed in as ' + au.username : '';
+    renderAniList();
   }
   function accMsg(t, bad) { $('accMsg').textContent = t || ''; $('accMsg').className = 'accmsg' + (bad ? ' bad' : ''); }
   function doAuth(kind) {
@@ -425,6 +430,139 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     }).catch(function (e) { accMsg(e.message, true); });
   }
   function logout() { store.set('ea_auth', null); paintTabs(); renderAccount(); accMsg(''); toast('Signed out'); setFocus($('accUser')); }
+
+  // ======================= AniList (optional link to the user's AniList account) =======================
+  // The TV shows a code; the user signs in on a phone/laptop at <server>/link.html. AniList calls go straight to graphql.anilist.co.
+  var AL_GQL = 'https://graphql.anilist.co';
+  state.alProg = {};                                     // AniList progress by media id (from the user's list)
+  function alAuth() {
+    var a = store.get('ea_anilist', null);
+    if (a && a.exp && a.exp < Date.now()) { store.set('ea_anilist', null); return null; }
+    return a && a.token ? a : null;
+  }
+  function alAutoOn() { return store.get('ea_al_auto', true) !== false; }
+  function alGql(query, vars) {
+    var a = alAuth(); if (!a) return Promise.reject(new Error('AniList is not linked'));
+    return fetch(AL_GQL, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + a.token },
+      body: JSON.stringify({ query: query, variables: vars || {} }) }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 401 || (j.errors && /invalid token|unauthorized/i.test(j.errors[0].message || ''))) { store.set('ea_anilist', null); renderAniList(); throw new Error('AniList sign-in expired — link it again in Account'); }
+        if (j.errors && j.errors.length) throw new Error(j.errors[0].message);
+        if (!j.data) throw new Error('AniList HTTP ' + r.status);
+        return j.data;
+      });
+    });
+  }
+  function alLoadViewer() {
+    return alGql('query{Viewer{id name avatar{medium}}}').then(function (d) {
+      var a = alAuth(); if (!a) return;
+      a.id = d.Viewer.id; a.name = d.Viewer.name; store.set('ea_anilist', a);
+      renderAniList(); return a;
+    });
+  }
+  function renderAniList() {
+    var a = alAuth();
+    $('alWho').textContent = a ? 'Linked to AniList as ' + (a.name || '…') + '. Episodes you finish here update your AniList progress.'
+      : 'Link your AniList account to update your watch progress automatically and see your AniList “Watching” list on the home page.';
+    $('alLink').innerHTML = a ? ic('history') + 'Refresh' : ic('plus') + 'Link AniList';
+    $('alAuto').innerHTML = 'Auto-update: ' + (alAutoOn() ? 'On' : 'Off');
+    $('alAuto').style.display = a ? '' : 'none';
+    $('alUnlink').innerHTML = 'Unlink';
+    $('alUnlink').style.display = a ? '' : 'none';
+  }
+  function alStopPoll() { clearInterval(state.alPoll); state.alPoll = null; $('alLinkBox').className = 'hidden'; }
+  function alStartLink() {
+    if (alAuth()) { alLoadViewer().then(function () { toast('AniList refreshed'); state.alRowAt = 0; }).catch(function (e) { toast(e.message); }); return; }
+    // a laptop browser on the app's own site can sign in right here
+    if (!IS_TV && /^https?:$/.test(location.protocol) && location.origin === apiBase()) { location.href = '/link.html?local=1'; return; }
+    accMsg('');
+    api({ action: 'al_start' }).then(function (r) {
+      $('alUrl').textContent = r.url.replace(/^https?:\/\//, ''); $('alCode').textContent = r.code;
+      $('alWait').textContent = r.persistent ? 'Waiting for you to sign in…' : 'Waiting… (tip: add a KV namespace named STORE to the Worker if linking never completes)';
+      $('alLinkBox').className = '';
+      clearInterval(state.alPoll);
+      var until = Date.now() + r.expiresIn * 1000;
+      state.alPoll = setInterval(function () {
+        if (Date.now() > until) { alStopPoll(); toast('The code expired — try again'); return; }
+        api({ action: 'al_poll', code: r.code }).then(function (p) {
+          if (p.status === 'ok') {
+            alStopPoll();
+            store.set('ea_anilist', { token: p.token, exp: p.expiresIn ? Date.now() + p.expiresIn * 1000 : 0 });
+            alLoadViewer().then(function (a) { toast('AniList linked' + (a && a.name ? ' — hi ' + a.name : '')); state.alRowAt = 0; }).catch(function (e) { toast(e.message); });
+          } else if (p.status === 'expired') { alStopPoll(); toast('The code expired — try again'); }
+        }).catch(function () {});
+      }, 4000);
+    }).catch(function (e) { toast(e.message); $('alWho').textContent = e.message; });
+  }
+  function alUnlink() { alStopPoll(); store.set('ea_anilist', null); state.alProg = {}; state.alRowAt = 0; renderAniList(); toast('AniList unlinked'); }
+  // Home: the user's AniList "Watching" list
+  var AL_LIST_Q = 'query($u:Int){MediaListCollection(userId:$u,type:ANIME,status_in:[CURRENT,REPEATING],sort:UPDATED_TIME_DESC){lists{entries{progress media{' + AL_F + '}}}}}';
+  function renderAlRow() {
+    var a = alAuth();
+    var old = $('rows').querySelector('.row.alrow'); if (old) old.parentNode.removeChild(old);
+    if (!a || !a.id || state.mode !== 'anime') return;
+    function draw(items) {
+      if (!items.length || state.mode !== 'anime') return;
+      var o2 = $('rows').querySelector('.row.alrow'); if (o2) o2.parentNode.removeChild(o2);
+      var rows = $('rows'), row = el('div', 'row alrow');
+      row.appendChild(el('div', 'rowhead', '<h3>AniList · Watching</h3><div class="rowbtns"><button class="rowbtn" data-dir="-1">&#8249;</button><button class="rowbtn" data-dir="1">&#8250;</button></div>'));
+      var track = el('div', 'track');
+      items.forEach(function (it) { var c = card(it.anime, { al: true, ep: it.next }); track.appendChild(c); });
+      row.appendChild(track);
+      var cont = rows.querySelector('.row.cont');
+      rows.insertBefore(row, cont ? cont.nextSibling : rows.firstChild);
+    }
+    if (state.alRow && Date.now() - (state.alRowAt || 0) < 120000) return draw(state.alRow);
+    alGql(AL_LIST_Q, { u: a.id }).then(function (d) {
+      var items = [];
+      ((d.MediaListCollection && d.MediaListCollection.lists) || []).forEach(function (l) { (l.entries || []).forEach(function (e) {
+        var m = aniMap(e.media); state.alProg[m.id] = e.progress || 0;
+        if (!m.episodes || e.progress < m.episodes) items.push({ anime: m, next: (e.progress || 0) + 1 });
+      }); });
+      state.alRow = items.slice(0, 30); state.alRowAt = Date.now(); draw(state.alRow);
+    }).catch(function () {});
+  }
+  // Detail page: status button (cycles Planning > Watching > Completed > Paused > Dropped > not on list)
+  var AL_STATUS = ['PLANNING', 'CURRENT', 'COMPLETED', 'PAUSED', 'DROPPED'];
+  var AL_NAMES = { PLANNING: 'Plan to watch', CURRENT: 'Watching', COMPLETED: 'Completed', PAUSED: 'Paused', DROPPED: 'Dropped', REPEATING: 'Rewatching' };
+  function paintAlButton(entry) {
+    var a = state.anime, b = $('dAL');
+    if (!alAuth() || !a || a.kind === 'movie') { b.className = 'btn focusable hidden'; return; }
+    b.className = 'btn focusable';
+    state.alEntry = entry === undefined ? state.alEntry : entry;
+    var e = state.alEntry;
+    b.innerHTML = e ? 'AniList: ' + (AL_NAMES[e.status] || e.status) + (e.progress ? ' · EP ' + e.progress : '') : '+ AniList';
+  }
+  function alLoadEntry(a) {
+    state.alEntry = null; paintAlButton(null);
+    if (!alAuth() || a.kind === 'movie') return;
+    alGql('query($id:Int){Media(id:$id){mediaListEntry{id status progress}}}', { id: a.id }).then(function (d) {
+      if (state.anime !== a) return;
+      var e = d.Media && d.Media.mediaListEntry;
+      if (e) state.alProg[a.id] = e.progress || 0;
+      paintAlButton(e || null); paintDetailButtons();
+    }).catch(function () {});
+  }
+  function alCycle() {
+    var a = state.anime, e = state.alEntry;
+    var i = e ? AL_STATUS.indexOf(e.status) : -1, next = AL_STATUS[i + 1];
+    var p = next ? alGql('mutation($m:Int,$s:MediaListStatus){SaveMediaListEntry(mediaId:$m,status:$s){id status progress}}', { m: a.id, s: next })
+                   .then(function (d) { return d.SaveMediaListEntry; })
+                 : alGql('mutation($id:Int){DeleteMediaListEntry(id:$id){deleted}}', { id: e.id }).then(function () { return null; });
+    p.then(function (ne) { if (state.anime === a) paintAlButton(ne); state.alRowAt = 0; toast(ne ? 'AniList: ' + AL_NAMES[ne.status] : 'Removed from your AniList'); })
+     .catch(function (er) { toast(er.message); });
+  }
+  // Player: mark the episode watched on AniList once 85% of it has played
+  function alMaybeUpdate(a, ep, t, d) {
+    if (!alAuth() || !alAutoOn() || !a || a.kind === 'movie' || !d || t < d * 0.85) return;
+    var key = a.id + ':' + ep; if (state.alDone === key) return; state.alDone = key;
+    if ((state.alProg[a.id] || 0) >= ep) return;
+    var done = a.episodes && ep >= a.episodes;
+    alGql('mutation($m:Int,$p:Int,$s:MediaListStatus){SaveMediaListEntry(mediaId:$m,progress:$p,status:$s){id status progress}}',
+      { m: a.id, p: ep, s: done ? 'COMPLETED' : 'CURRENT' }).then(function (r) {
+      state.alProg[a.id] = ep; state.alRowAt = 0; toast('AniList updated: EP ' + ep + (done ? ' · Completed' : ''));
+    }).catch(function (e) { state.alDone = null; });
+  }
 
   // ======================= Search =======================
   function paintTypeChips() {
@@ -482,6 +620,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('detail').setAttribute('data-kind', movie ? 'movie' : 'anime');
     closeDrops(false); if (movie) renderDrops();
     paintDetailButtons();
+    alLoadEntry(a);
     renderEpisodes();
     $('dScroll').scrollTop = 0;
     setFocus($('dPlay'));
@@ -518,7 +657,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function paintDetailButtons() {
     var a = state.anime, p = progOf(a), movie = a.kind === 'movie';
     $('dPlay').innerHTML = ic('play') + (movie ? (p ? 'Resume' + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play Movie')
-      : (p ? 'Continue EP ' + p.ep + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play EP 1'));
+      : (p ? 'Continue EP ' + p.ep + (p.time > 10 ? ' · ' + fmt(p.time) : '') : alNextEp(a) > 1 ? 'Continue EP ' + alNextEp(a) + ' (AniList)' : 'Play EP 1'));
     $('dList').innerHTML = ic(inList(a) ? 'check' : 'plus') + (inList(a) ? 'In My List' : 'My List');
     $('dRemove').innerHTML = '✕ Remove from Continue Watching';
     $('dRemove').style.display = p ? '' : 'none';
@@ -551,9 +690,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var f = state.returnFocus;
     if (f && document.body.contains(f)) setFocus(f); else setFocus($('heroPlay'));
   }
+  function alNextEp(a) { var n = state.alProg[a.id]; return n ? Math.min(n + 1, a.episodes || n + 1) : 0; }
   function startFromDetail() {
-    var p = progOf(state.anime);
-    play(state.anime, state.anime.kind === 'movie' ? 1 : (p ? p.ep : 1));
+    var p = progOf(state.anime), al = !p && state.anime.kind !== 'movie' ? alNextEp(state.anime) : 0;
+    play(state.anime, state.anime.kind === 'movie' ? 1 : (p ? p.ep : al || 1));
   }
 
   // ======================= Player =======================
@@ -1162,7 +1302,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var d = video.duration, t = video.currentTime;
     if (d) $('seekBar').style.width = t / d * 100 + '%';
     $('pTime').textContent = fmt(t) + ' / ' + fmt(d);
-    if (Date.now() - state.lastSave > 5000 && t > 3 && d) { state.lastSave = Date.now(); setProg(state.anime, state.ep, t, d); }
+    if (Date.now() - state.lastSave > 5000 && t > 3 && d) { state.lastSave = Date.now(); setProg(state.anime, state.ep, t, d); alMaybeUpdate(state.anime, state.ep, t, d); }
     updateSkip(t);
     if (d && t > d * 0.6 && t > 60) prefetchNext();
   });
@@ -1323,6 +1463,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.id === 'accRegister') { doAuth('register'); return; }
     if (e.id === 'accLogout') { logout(); return; }
     if (e.id === 'accSync') { syncNow(true); return; }
+    if (e.id === 'alLink') { alStartLink(); return; }
+    if (e.id === 'alAuto') { store.set('ea_al_auto', !alAutoOn()); renderAniList(); return; }
+    if (e.id === 'alUnlink') { alUnlink(); return; }
+    if (e.id === 'dAL') { alCycle(); return; }
     if (e.id === 'clearHist') { clearHist(); renderHistory(); toast('History cleared'); setFocus($('clearHist')); return; }
     if (e.id === 'dSrcBtn' || e.id === 'dQBtn') { var dk = e.id === 'dSrcBtn' ? 'src' : 'q'; openDropKey() === dk ? closeDrops(true) : openDrop(dk); return; }
     if (e.__dropval !== undefined) { pickDrop(e.__drop, e.__dropval); return; }
@@ -1487,5 +1631,6 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   setFocus($('heroPlay'));
   loadHome();
   if (auth()) syncNow(false);
+  if (alAuth() && !alAuth().id) alLoadViewer().then(function () { state.alRowAt = 0; renderContinue(); }).catch(function () {});
   if (!store.get('ea_notice_off', false)) showNotice();
 })();

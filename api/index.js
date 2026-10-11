@@ -452,6 +452,37 @@ async function readBody(req) {
   return {};
 }
 
+// ---------- AniList linking ----------
+// AniList OAuth (implicit grant) needs an API client registered at https://anilist.co/settings/developer with the
+// redirect URL <this site>/link.html; put its id in ANILIST_CLIENT_ID (wrangler.jsonc "vars" or env).
+const alClientId = () => String((typeof process !== 'undefined' && process.env && process.env.ANILIST_CLIENT_ID) || (globalThis.__ENV && globalThis.__ENV.ANILIST_CLIENT_ID) || '').trim();
+const AL_TTL = 10 * 60 * 1000;
+function alCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 6; i++) c += A[Math.floor(Math.random() * A.length)]; return c; }
+async function alStart(origin) {
+  if (!alClientId()) { const e = new Error('AniList is not set up on this server yet (ANILIST_CLIENT_ID is empty).'); e.status = 501; throw e; }
+  const code = alCode();
+  await accounts.store.set('al:' + code, { at: Date.now(), token: null });
+  return { code, url: origin + '/link.html', expiresIn: AL_TTL / 1000, persistent: accounts.store.persistent() };
+}
+async function alPoll(code) {
+  code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const v = code && await accounts.store.get('al:' + code);
+  if (!v || Date.now() - v.at > AL_TTL) return { status: 'expired' };
+  if (!v.token) return { status: 'waiting' };
+  await accounts.store.set('al:' + code, { at: 0, token: null });      // hand the token out once
+  return { status: 'ok', token: v.token, expiresIn: v.expiresIn || null };
+}
+async function alPut(b) {
+  const code = String((b && b.code) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const token = String((b && b.token) || '');
+  if (!code || token.length < 20 || token.length > 4000) { const e = new Error('Missing code or token'); e.status = 400; throw e; }
+  const v = await accounts.store.get('al:' + code);
+  if (!v || Date.now() - v.at > AL_TTL) { const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
+  await accounts.store.set('al:' + code, { at: v.at, token, expiresIn: parseInt(b.expiresIn, 10) || null });
+  return { ok: true };
+}
+
+
 // Diagnostic: runs every source to completion and reports what each one did
 async function debug(q) {
   const { titles, ep } = parseQuery(q);
@@ -581,6 +612,12 @@ module.exports = async (req, res) => {
           return send(res, 200, { p, ok: probe === 'ok', ms: t1 - t0, probeMs: Date.now() - t1, probe, url: r.url, mp4: r.mp4, quality: r.quality, subs: (r.subtitles || []).length, ref: (r.headers && r.headers.Referer) || '' }, 'no-store');
         } catch (e) { return send(res, 200, { p, ok: false, ms: Date.now() - t0, error: clean(e.message, 160) }, 'no-store'); }
       }
+      // ---- AniList account linking (TV shows a code; a phone/laptop signs in at /link.html) ----
+      case 'config':
+        return send(res, 200, { anilistClientId: alClientId(), persistentStore: accounts.store.persistent() }, 'no-store');
+      case 'al_start': return send(res, 200, await alStart(origin), 'no-store');
+      case 'al_poll': return send(res, 200, await alPoll(q.code), 'no-store');
+      case 'al_put': return send(res, 200, await alPut(await readBody(req)), 'no-store');
       case 'proxy':
         return await proxy(req, res, q, origin);
       case 'home':

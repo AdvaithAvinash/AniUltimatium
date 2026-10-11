@@ -259,3 +259,10 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
 .ngrid span b{display:inline;color:#fff;margin:0}
 .nbtns{display:flex;gap:1rem;margin-top:1.4rem;justify-content:flex-end;flex-wrap:wrap}
 @media (max-width:820px){.ngrid{grid-template-columns:1fr}}
+
+/* AniList */
+#alPanel{margin-top:2.2rem;max-width:44rem}
+#alPanel h3{font-size:1.3rem;margin:0 0 .4rem}
+#alCode{font-size:3.2rem;font-weight:900;letter-spacing:.35em;color:var(--accent);margin:.3rem 0 .6rem;font-variant-numeric:tabular-nums}
+#alLinkBox.hidden,#dAL.hidden{display:none}
+.badge.al{background:#02a9ff;color:#fff}
