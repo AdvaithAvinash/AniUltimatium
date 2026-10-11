@@ -755,6 +755,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     stopVideo();
     state.embed = true; state.embedKind = /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';
     state.cin = { t: 0, d: 0, paused: true, stamp: performance.now(), live: false };
+    state.vcNoCmd = false; state.vcChk = null;
     var f = $('embedFrame');
     f.className = 'show';
     f.src = url;
@@ -978,10 +979,26 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       else w.postMessage({ type: 'cinesrc:command', command: cmd, args: args || [] }, CIN);
     } catch (e) {}
   }
+  function vcFocus() {
+    hideEbar();
+    try { $('embedFrame').focus(); } catch (e) {}
+    toast('VidCore player selected — use its own controls; press Back to leave');
+  }
   function cinNow() { return state.cin.t + (state.cin.paused ? 0 : (performance.now() - state.cin.stamp) / 1000); }
+  // VidCore documents seek/play/pause commands, but if its player ignores them we say so instead of failing silently
+  function vcExpect(target) {
+    if (state.embedKind !== 'vidcore') return;
+    var chk = { target: target, sent: Date.now(), ok: false, seen: false }; state.vcChk = chk;
+    setTimeout(function () {
+      if (state.vcChk !== chk || chk.ok || !state.embed || !chk.seen) return;
+      state.vcNoCmd = true;
+      toast('VidCore is not following remote commands — press OK to use its own controls, or pick another source in ⚙ Settings');
+    }, 3500);
+  }
   function cinSeek(delta) {
+    if (state.embedKind === 'vidcore' && state.vcNoCmd) { vcFocus(); return; }
     if (state.embedKind === 'vidcore' && !state.cin.live) { cinSend('getStatus'); toast('The player has not reported its position yet — try again in a moment'); return; }
-    var t = Math.max(0, cinNow() + delta); state.cin.t = t; state.cin.stamp = performance.now(); cinSend('seek', [t]); toast((delta > 0 ? '+' : '') + delta + 's'); }
+    var t = Math.max(0, cinNow() + delta); state.cin.t = t; state.cin.stamp = performance.now(); cinSend('seek', [t]); vcExpect(t); toast((delta > 0 ? '+' : '') + delta + 's'); }
   function cinToggle() {
     if (state.cin.paused) { cinSend('play'); state.cin.paused = false; state.cin.stamp = performance.now(); }
     else { state.cin.t = cinNow(); cinSend('pause'); state.cin.paused = true; }
@@ -992,7 +1009,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       var v = e.data, vd = v.data || {}, vc = state.cin;
       if (!vc.live && (v.type === 'timeupdate' || v.type === 'PLAYER_EVENT')) { vc.live = true; pmsg('', false); }
       if (v.type === 'timeupdate') {
-        var vt = +vd.currentTime || 0;
+        var vt = +vd.currentTime || 0, ck = state.vcChk;
+        if (ck && !ck.ok && Date.now() - ck.sent > 400) { ck.seen = true; if (Math.abs(vt - ck.target) < 4) { ck.ok = true; state.vcNoCmd = false; } }
         if (Math.abs(vt - vc.t) > 0.05 && vt > vc.t) vc.paused = false;
         vc.t = vt; vc.d = +vd.duration || vc.d; vc.stamp = performance.now(); saveEmbedProgress();
       } else if (v.type === 'PLAYER_EVENT') {
