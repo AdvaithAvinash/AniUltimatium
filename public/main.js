@@ -203,7 +203,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     function remote() {
       return fetch(apiBase() + '/api?' + qs, init).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) {
-          if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; throw er; }
+          if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; er.status = r.status; er.nojson = !Object.keys(j).length; throw er; }
           return j;
         });
       }).then(function (j) {
@@ -785,6 +785,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     }).catch(function (e) {
       if (e && e.name === 'AbortError') return;
       if (tk === state.token && !movie && e.data && e.data.trace) iq.recordTrace(e.data.trace);
+      if (tk === state.token && !movie && e.nojson && e.status >= 500 && state.srcSkip.length < 3) {   // the backend call died without an answer (e.g. Cloudflare CPU limit): drop the lead source and ask again
+        var lead = iqOrder().split(',').filter(function (k) { return state.srcSkip.indexOf(k) < 0; })[0];
+        if (lead && (!state.via || state.via === 'auto')) { iq.recordTrace([{ k: lead, ok: false, ms: 0, kind: 'fail' }]); return play(a, ep, startAt, true, state.srcSkip.concat([lead])); }
+      }
       if (tk === state.token && !movie && e.data && e.data.retry && e.data.skip && state.srcSkip.length < 12) {   // server ran out of its per-call budget: continue with the remaining sources
         return play(a, ep, startAt, true, String(e.data.skip).split(','));
       }

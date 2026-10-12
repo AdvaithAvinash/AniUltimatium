@@ -309,7 +309,7 @@ const AX_HDR = { 'User-Agent': UA, Referer: AX_PLYR + '/', Origin: AX_PLYR, Acce
 // show lookup (internal id + which hosts carry sub/dub): stable for a show, so it is cached and shared between episodes and callers
 const axMeta = (anilistId, ep) => turbo.cached('ax:meta:' + anilistId, 30 * 60 * 1000, async () => {
   const meta = await fetchJson(`${AX_PLYR}/e/${encodeURIComponent(anilistId)}/${ep}/__data.json`, { headers: AX_HDR }, 8000);
-  const node = (meta.nodes || []).find(n => n && n.data && Array.isArray(n.data) && JSON.stringify(n.data).includes('subProviders'));
+  const node = (meta.nodes || []).find(n => n && Array.isArray(n.data) && n.data[0] && typeof n.data[0] === 'object' && 'servers' in n.data[0]);     // cheap check (no JSON.stringify of the whole page data)
   const root = node ? devalue(node.data, 0) : null;
   if (!root || !root.id || !root.servers) throw turbo.absent('not found');
   const ids = l => (l || []).map(x => x && x.id).filter(Boolean);
