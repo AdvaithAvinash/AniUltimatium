@@ -10,11 +10,11 @@ on:
       tag:
         description: 'Tag to release (created on the selected commit if it does not exist)'
         required: true
-        default: 'stable-v1.03'
+        default: 'stable-v1.04'
       draft:
         description: 'Create as a draft (unpublished) release'
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -24,6 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tests and Tizen 4 compatibility check
+        run: |
+          node --test tests/*.test.js
+          python3 tools/check_compat.py
 
       - name: Build app.wgt
         run: |
@@ -36,7 +41,7 @@ jobs:
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           NAME="${TAG#stable-}"
-          case "$TAG" in stable-*) NAME="Stable ${NAME}";; esac
+          case "$TAG" in stable-*) NAME="Aniultimatium Stable ${NAME}";; *) NAME="Aniultimatium ${NAME}";; esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 

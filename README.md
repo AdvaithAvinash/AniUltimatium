@@ -1,13 +1,114 @@
-# Aniultimatium
+# Aniultimatium — English sub & dub anime app for Samsung Tizen smart TVs
 
-English-subtitled anime for **Samsung Tizen TVs** and **laptops/desktops** (same code, responsive UI).
+> **Free, open-source anime streaming app built for Samsung Tizen TVs (2018 / Tizen 4.0 and newer)** — English subtitles, English dub, a remote-first interface,
+> automatic source switching and AniList sync. The same code also runs in any laptop or desktop browser.
+> Our goal: to be the best English sub and dub anime app for Samsung Tizen TVs.
 
-- `public/` – the front-end. On Vercel it is served at the site root, so laptops just open your Vercel URL.
-- `api/index.js` – Vercel serverless backend (AniList metadata + stream lookup, CORS `*`).
-- `tools/build_wgt.py` – zips `public/` into `app.wgt` for the TV (sign with your Samsung certificate before installing).
-Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
+This app combines all anime apis into one.
 
-Set `VERCEL_API_URL` at the top of `public/main.js`, then run `python3 tools/build_wgt.py`.
+[Download the latest `app.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Install guide](#install-on-a-samsung-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation)
+
+## Quick facts
+| | |
+|---|---|
+| **What it is** | Anime streaming client for Samsung smart TVs (Tizen web app, `.wgt`) and web browsers |
+| **TV support** | Samsung Tizen 4.0 (2018) and newer. Layout and scrolling are checked against a Chromium 56 engine, the browser inside Tizen 4 TVs |
+| **Languages** | English subtitles (OpenSubtitles auto-picked, 15+ other languages) and English dub where a source has one; Japanese audio by default |
+| **Control** | Built for the 10-key remote: arrows, OK, Return, media keys. Mouse and keyboard work on a laptop |
+| **Sources** | AnimeX (default), AniKoto, AnimeYubi, AniWaves, ranked automatically from real playback results on *your* TV (SourceIQ) |
+| **Accounts** | Optional sync of Continue Watching / My List / History, and optional [AniList](https://anilist.co) linking |
+| **Movies** | Movies tab with CineSrc, VidFast, VidCore, Videasy and public-domain films, with an on-screen control bar |
+| **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
+| **Install** | Sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no Samsung store account needed) |
+
+## Why choose Aniultimatium on a Samsung TV
+- **Made for Tizen first.** Most anime apps target phones or PCs. This one is a Tizen web app: remote navigation, TV-safe layout, hardware Back key, and an
+  old-engine compatibility layer so it also works on 2018 TVs (v1.04 fixed a "no video / no scrolling" bug on Tizen 4).
+- **English sub *and* dub.** Switch Japanese / English dub in the player (Up, then Audio), pick any subtitle language, and nudge subtitle timing by ±0.5 s.
+  The app falls back to Japanese audio automatically when a dub does not exist yet.
+- **Sources that fix themselves (SourceIQ).** The app records which source actually *plays* on your TV (resolution success, first-frame time, errors),
+  ranks sources by that, cools down a failing source and brings it back automatically. The source menu shows *Recommended / Reliable / Untested / Temporarily unavailable*.
+  Nothing is faked: with no history every source says "Untested".
+- **Fast source discovery (TurboScrape).** Sources are raced with per-source time limits, the next source starts early when the first is slow, lookups are cached and
+  de-duplicated, abandoned lookups are cancelled, and the next episode is prepared while you watch. See [measured results](#performance-measured).
+- **AniList sync.** Link AniList with a code from your phone; finishing an episode updates your progress and your "Watching" list shows on the home page.
+- **Movies too.** A Movies tab with several players, OpenSubtitles, and a Down-key control bar for seeking.
+- **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
+
+## Install on a Samsung TV
+1. Download `app.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest).
+2. Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
+3. Open **Aniultimatium** on the TV. (The first start shows the controls; "Don't show again" hides it.)
+
+Samsung TVs need Developer Mode for sideloading (Apps screen, type 12345, Developer mode ON, enter your computer's IP, reboot). Apps2Samsung walks through it.
+
+## FAQ
+**What is the best anime app for Samsung smart TVs?**
+It depends on what you need. For *licensed* catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others). If you want a **free, open-source anime app
+built specifically for Samsung Tizen TVs, with English sub and dub, remote-first controls, automatic source fallback and AniList sync**, Aniultimatium is made for exactly that,
+and that is the gap it is designed to be the best at. Phone/PC apps and website wrappers generally are not built for a TV remote or for Tizen's older browser.
+
+**Does it work on older Samsung TVs (2018, Tizen 4.0)?**
+Yes, that is a design goal. Tizen 4 TVs use Chromium 56, which lacks CSS `inset`, flex `gap`, CSS grid and more; the app detects this and uses fallbacks, and
+`python3 tools/check_compat.py` fails the build if newer-only CSS/JS is added. If something still looks wrong, open an issue with your TV model and year.
+
+**Does it have English dub?**
+Yes, where a source offers one: open the player menu (Up), then **Audio**, then English dub. In our latest tests 49 of 59 popular and current-season shows had an English dub on at least one source; the rest do not have a dub yet.
+
+**Is it free? Is it legal?**
+The app is free and open source. It does not host any video: it looks up streams that third-party sites publish and plays them. Availability and legality of that content
+depend on your country and on those sites; you are responsible for what you watch. The project is not affiliated with any streaming service, AniList or Samsung. Please support official releases when you can.
+
+**Why does a show not play?**
+Sources differ per title. Open the player menu, then **Source**, to try another; the app also switches by itself if a stream does not start within about 25 seconds.
+`/api?action=debug&id=<AniList id>&title=<title>&ep=1` on your server shows what each source returned.
+
+**How do I link AniList?** Account, then AniList, then *Link AniList*; open the address shown on the TV on your phone and enter the code. Details in [AniList](#anilist).
+
+**Can I run it without Cloudflare?** Yes: `npm install && npm start` on a computer on your Wi-Fi, then enter its address in the TV app (Settings, Stream server). A home IP is the most reliable for streaming sites.
+
+## Performance (measured)
+`tools/bench_sources.js` compares the old behaviour (`?turbo=0`) with TurboScrape **on the same live Cloudflare Worker, interleaved**, following the same retry loop the app uses.
+Time = until a usable (playlist-verified) stream is returned; 12 popular shows, 3 rounds, 36 samples per cell, run from a cloud server (absolute numbers depend on network and time of day):
+
+| Scenario | Old: median / slowest 10% | New: median / slowest 10% |
+|---|---|---|
+| Cold lookup (first AnimeX answer) | 760 ms / 8.6 s | 695 ms / 3.9 s |
+| Same episode again | 675 ms / 1.1 s | 74 ms / 1.5 s |
+| AnimeX failing (falls to the next source) | 2.5 s / 7.0 s | 2.3 s / 6.4 s |
+| AnimeX and AniKoto failing | 2.5 s / 9.5 s | 2.1 s / 4.5 s |
+
+An earlier identical run showed a cold median of 1.5 s to 0.7 s and slowest-10% of 16.8 s to 5.2 s. The reliable gains are in the *slow tail* (a slow source no longer blocks the next one) and in repeats;
+when the first source is already fast there is little left to save. Time to first video frame depends on the TV and is recorded on-device by SourceIQ; it cannot be measured from a server.
+
+---
+
+# Developer documentation
+
+- `public/` is the front-end and the TV app. `public/iq.js` is SourceIQ, `public/main.js` the app.
+- `api/index.js` is the backend (AniList metadata, stream lookup, relay); it runs on Cloudflare Workers (`worker/index.js`), Vercel or Node (`server/local.js`).
+- `lib/turbo.js` is TurboScrape (cache, de-duplication, hedged race, cancellation).
+- `tools/build_wgt.py` zips `public/` into `app.wgt`; `tools/check_compat.py` is the old-TV compatibility check; `tools/gen_compat_css.py` generates the CSS fallbacks;
+  `tools/bench_sources.js` is the latency benchmark. Tests: `npm test`.
+
+Set `VERCEL_API_URL` at the top of `public/main.js` (any backend URL), then run `python3 tools/build_wgt.py`.
+
+## TurboScrape and SourceIQ
+**TurboScrape** (`lib/turbo.js`, used by `api/index.js`):
+- *Hedged race*: the best source starts first; if it has not answered after a short, self-adjusting delay the next source starts too (at most two at a time), the first playable result wins and the loser is cancelled.
+  A failure starts the next source immediately. Every source has its own time limit.
+- *Request budget*: each source's real number of outgoing requests is learned; heavy sources (AniKoto and AniWaves use 15-90 per call, the Workers free plan allows about 50) never overlap with others.
+- *Caching*: AniList results 5 min (a host that blocks AniList is remembered for 10 min), AnimeX show lookup 30 min, AnimeYubi searches 6 h, episode data 3 min, a verified result 45 s. Concurrent identical lookups share one execution.
+  Media links are never kept longer than that, so links do not go stale. Bounded to 300 small entries.
+- *Cancellation*: outgoing requests are tied to the client request; when the app leaves the episode (or a race is lost) the work is aborted. The app also aborts abandoned lookups where the browser supports `AbortController` (Tizen 4 does not; stale answers are ignored there).
+- Responses include a `trace` (per source: ok / failed / timeout / absent / cancelled and milliseconds, never URLs) and `ms` / `n` (time, outgoing requests). `?turbo=0` runs the pre-TurboScrape behaviour for comparison.
+
+**SourceIQ** (`public/iq.js`, stored on the device under `ea_iq`):
+- Records per source: *resolution* outcomes from the backend trace, and *playback* outcomes measured on the TV (first frame reached and time to first frame, fatal errors, stalls). A show missing from a source is not counted against it.
+- Score = 0.50 x smoothed playback success + 0.25 x smoothed resolution success + 0.15 x speed + a small default preference that fades as evidence grows; evidence halves every 24 h.
+- Two playback failures in a row (or three resolution failures) start a **cool-down** (2 min, doubling up to 30 min); the source is ranked last, can still be picked manually, recovers automatically, and one failure while recovering trips it again. A success clears it.
+- The ranking is sent as `order=` with each lookup; the source menu shows *Recommended / Reliable / Untested / Temporarily unavailable*. No URLs, cookies or titles are stored.
+- If a backend call dies without any answer (for example Cloudflare's CPU limit, error 1102) the app drops the lead source and asks again.
 
 ## Deploy on Cloudflare Workers (works while Vercel is paused)
 The same `api/index.js` backend runs as a Cloudflare Worker (`worker/index.js` + `wrangler.jsonc`); the Worker also serves `public/`, so one URL covers laptop + TV.
@@ -20,8 +121,8 @@ Controls – TV remote: arrows / Enter / Return, media keys. Laptop: mouse, or a
 `/` search, Space play-pause, ←/→ seek 10s, `N`/`P` next/prev episode, `C` subtitles, `F` fullscreen, `M` mute.
 
 ## Troubleshooting streams
-Open `https://<your-vercel-url>/api?action=debug&title=Solo%20Leveling&ep=1` — it runs every bundled scraper
-(AnimeHeaven, AllAnime, aniwatch/HiAnime, AnimePahe, AnimeKai, HiAnime) and shows which one worked, how long it took, or why it failed.
+Open `https://<your-worker>/api?action=debug&id=154587&title=Frieren&ep=1` (use the show's AniList id): it runs every source (AnimeX, AniKoto, AnimeYubi, AniWaves)
+to completion and shows which one worked, how long it took, how many outgoing requests it used (`n`), or why it failed (`kind`: absent = not on that source, fail, timeout, budget).
 
 ## Run locally (recommended — streaming sites block cloud IPs)
 ```

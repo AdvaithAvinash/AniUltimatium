@@ -60,6 +60,9 @@ test('kindOf separates missing content from broken providers', () => {
   assert.equal(turbo.kindOf(new Error('anivexa HTTP 500 No MKissa match for "x"')), 'absent');
   assert.equal(turbo.kindOf(new Error('no dub')), 'absent');
   assert.equal(turbo.kindOf(new Error('stream HTTP 403')), 'fail');
+  assert.equal(turbo.kindOf(new Error('HTTP 400')), 'absent');                   // provider API: episode not available
+  assert.equal(turbo.kindOf(new Error('HTTP 404')), 'absent');
+  assert.equal(turbo.kindOf(new Error('HTTP 503')), 'fail');
   assert.equal(turbo.kindOf(new Error('animex timed out')), 'timeout');
   assert.equal(turbo.kindOf(new Error('Too many subrequests by single Worker invocation')), 'budget');
   assert.equal(turbo.kindOf(turbo.abortErr()), 'cancelled');

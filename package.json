@@ -1,6 +1,6 @@
 {
-  "name": "english-anime-api",
-  "version": "2.3.0",
+  "name": "aniultimatium",
+  "version": "1.4.0",
   "private": true,
   "engines": {
     "node": ">=18"
@@ -9,9 +9,34 @@
     "all-api": "github:walterwhite-69/Anivexa-API#97b91ccd69afc6a55a21ecb81d13268b1c8fc5d6"
   },
   "scripts": {
-    "start": "node server/local.js"
+    "start": "node server/local.js",
+    "test": "node --test tests/*.test.js && python3 tools/check_compat.py",
+    "bench": "node tools/bench_sources.js",
+    "build:wgt": "python3 tools/build_wgt.py"
   },
   "devDependencies": {
     "wrangler": "^4.148.0"
-  }
+  },
+  "description": "English sub & dub anime app for Samsung Tizen smart TVs (and browsers): remote-first, adaptive source ranking, fast source discovery, AniList sync.",
+  "homepage": "https://github.com/AdvaithAvinash/AniUltimatium#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AdvaithAvinash/AniUltimatium.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AdvaithAvinash/AniUltimatium/issues"
+  },
+  "keywords": [
+    "samsung",
+    "tizen",
+    "smart-tv",
+    "anime",
+    "anime-app",
+    "english-dub",
+    "english-subtitles",
+    "anilist",
+    "streaming",
+    "cloudflare-workers",
+    "hls"
+  ]
 }

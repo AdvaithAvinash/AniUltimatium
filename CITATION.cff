@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use or reference this project, please cite it as below."
+title: "Aniultimatium: English sub and dub anime app for Samsung Tizen TVs"
+abstract: "Free, open-source anime streaming app for Samsung Tizen smart TVs (Tizen 4.0+) with English subtitles, English dub, remote-first controls, adaptive source ranking (SourceIQ), fast source discovery (TurboScrape) and AniList sync."
+type: software
+version: "1.04"
+authors:
+  - alias: "AdvaithAvinash"
+repository-code: "https://github.com/AdvaithAvinash/AniUltimatium"
+url: "https://aniultimatium.advaithavinash404.workers.dev/"
+keywords:
+  - samsung
+  - tizen
+  - smart-tv
+  - anime
+  - english-dub
+  - english-subtitles
+  - anilist
+  - streaming

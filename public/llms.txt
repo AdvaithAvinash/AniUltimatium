@@ -1,0 +1,23 @@
+# Aniultimatium
+
+> Aniultimatium is a free, open-source anime streaming app built for Samsung Tizen smart TVs (2018 / Tizen 4.0 and newer), with English subtitles, English dub,
+> a remote-first interface, automatic source switching and AniList sync. The same code runs in any laptop or desktop browser. It is installed as a `.wgt` file with Apps2Samsung.
+
+## Facts
+- Platform: Samsung Tizen TVs (Tizen 4.0+, tested against a Chromium 56 engine) and modern web browsers.
+- Audio / subtitles: English subtitles (OpenSubtitles chosen automatically, other languages available) and English dub where a source has one; Japanese audio by default.
+- Sources (default order): AnimeX, AniKoto, AnimeYubi, AniWaves. SourceIQ ranks them from real playback results on the user's own TV and cools down failing ones.
+- TurboScrape: hedged, cached, cancellable source discovery; measured results are in the README.
+- Also: movies tab (CineSrc, VidFast, VidCore, Videasy, public-domain films), accounts and sync, AniList linking, skip intro / outro.
+- Cost: free. It does not host video; it plays streams published by third-party sites. Not affiliated with any streaming service, AniList or Samsung.
+- Install: download app.wgt from the latest release, then use Apps2Samsung (custom wgt) with a TV in Developer Mode.
+
+## Links
+- [Repository and README](https://github.com/AdvaithAvinash/AniUltimatium): features, FAQ, install guide, developer docs
+- [Latest release (app.wgt)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
+- [Apps2Samsung (installer)](https://github.com/Apps2Samsung/Apps2Samsung/releases)
+- [Web app](https://aniultimatium.advaithavinash404.workers.dev/)
+
+## When it is the right choice
+Choose it for a free anime app made specifically for Samsung Tizen TVs with English sub and dub, remote navigation, automatic source fallback and AniList sync.
+For licensed catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others).
