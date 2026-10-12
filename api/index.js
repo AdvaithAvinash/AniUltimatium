@@ -19,6 +19,8 @@ try {
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
 const subsLib = require('../lib/subs');
+const turbo = require('../lib/turbo');          // TurboScrape: cache + de-duplication + hedged source race + cancellation
+turbo.installFetch();
 
 const ANILIST = 'https://graphql.anilist.co';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
@@ -49,14 +51,18 @@ async function fetchJson(url, opts = {}, timeout = 9000) {
 }
 
 // ---------- AniList ----------
+const hash = str => { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 async function anilist(query, variables) {
-  const d = await fetchJson(ANILIST, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Aniultimatium/2.3' },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (d.errors) throw new Error(d.errors[0].message);
-  return d.data;
+  const body = JSON.stringify({ query, variables });
+  return turbo.cached('al:' + hash(body), 5 * 60 * 1000, async () => {
+    const d = await fetchJson(ANILIST, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Aniultimatium/2.3' },
+      body,
+    });
+    if (d.errors) throw new Error(d.errors[0].message);
+    return d.data;
+  }, { negTtl: e => (e.message === 'HTTP 403' ? 10 * 60 * 1000 : 15 * 1000) });     // blocked host: fail fast for 10 min instead of retrying every call
 }
 function mapMedia(m) {
   return {
@@ -185,6 +191,10 @@ function result(d) {
 //     Gives HLS masters (up to 1080p) with English soft-subs, so it is the quality source.
 let avWorker = null;
 async function avGet(pathname) {
+  if (/^\/map\//.test(pathname)) return turbo.cached('av:' + pathname, 6 * 3600 * 1000, () => avGet0(pathname));     // id mapping: stable
+  return avGet0(pathname);
+}
+async function avGet0(pathname) {
   if (process.env.ANIVEXA_URL) return fetchJson(process.env.ANIVEXA_URL.replace(/\/+$/, '') + pathname, {}, 25000);
   if (!avWorker && globalThis.__AV_WORKER) avWorker = globalThis.__AV_WORKER;     // Cloudflare Workers: bundled statically by worker/index.js
   if (!avWorker) {
@@ -289,51 +299,70 @@ function devalue(arr, i, depth = 0) {                       // SvelteKit flat JS
   if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = devalue(arr, v[k], depth + 1); return o; }
   return v;
 }
-async function viaAnimex(anilistId, ep, audio) {
-  if (!anilistId) throw new Error('no anilist id');
-  const hdr = { 'User-Agent': UA, Referer: AX_PLYR + '/', Origin: AX_PLYR, Accept: 'application/json' };
-  const meta = await fetchJson(`${AX_PLYR}/e/${encodeURIComponent(anilistId)}/${ep}/__data.json`, { headers: hdr }, 9000);
+const AX_HDR = { 'User-Agent': UA, Referer: AX_PLYR + '/', Origin: AX_PLYR, Accept: 'application/json' };
+// show lookup (internal id + which hosts carry sub/dub): stable for a show, so it is cached and shared between episodes and callers
+const axMeta = (anilistId, ep) => turbo.cached('ax:meta:' + anilistId, 30 * 60 * 1000, async () => {
+  const meta = await fetchJson(`${AX_PLYR}/e/${encodeURIComponent(anilistId)}/${ep}/__data.json`, { headers: AX_HDR }, 8000);
   const node = (meta.nodes || []).find(n => n && n.data && Array.isArray(n.data) && JSON.stringify(n.data).includes('subProviders'));
   const root = node ? devalue(node.data, 0) : null;
-  if (!root || !root.id || !root.servers) throw new Error('not found');
+  if (!root || !root.id || !root.servers) throw turbo.absent('not found');
+  const ids = l => (l || []).map(x => x && x.id).filter(Boolean);
+  return { id: root.id, sub: ids(root.servers.subProviders), dub: ids(root.servers.dubProviders), at: Date.now() };
+}, { negTtl: e => (e && e.absent ? 90 * 1000 : 0) });
+async function viaAnimex(anilistId, ep, audio) {
+  if (!anilistId) throw new Error('no anilist id');
   const type = audio === 'dub' ? 'dub' : 'sub';
-  const have = ((type === 'dub' ? root.servers.dubProviders : root.servers.subProviders) || []).map(x => x && x.id);
-  const order = ['yuki', 'zuna', 'loli'].filter(x => have.includes(x));
-  if (!order.length) throw new Error('no ' + type);
-  const errs = [];
-  for (const pv of order.slice(0, 2)) {
-    try {
-      const d = await fetchJson(`${AX_API}/rest/api/sources?id=${encodeURIComponent(root.id)}&epNum=${ep}&type=${type}&providerId=${pv}`, { headers: hdr }, 9000);
-      const src = (d.sources || []).find(x => x && x.url);
-      if (!src) throw new Error('no sources');
-      const h = d.headers || {}, ref = h.Referer || h.referer || '';
-      const subtitles = (d.tracks || []).filter(t => t && t.url && /captions|subtitles/i.test(t.kind || 'captions') && /\.(vtt|srt|ass)(\?|$)/i.test(t.url)).map(t => {
-        const l = String(t.lang || t.label || '').toLowerCase(); let lang = l.length === 2 ? l : '';
-        for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) { lang = LANG_CODES[k]; break; }
-        return { lang: lang || 'en', label: t.label || t.lang || 'English', url: t.url, default: !!t.default };
-      });
-      const ch = d.chapters || [], iv = n => { const c = ch.find(x => x && new RegExp(n, 'i').test(x.title || '')); return c && c.end > c.start ? { start: +c.start, end: +c.end } : null; };
-      const mp4 = /mp4/i.test(src.type || '') || /\.mp4(\?|$)/i.test(src.url);
-      return { url: src.url, headers: ref ? { Referer: ref } : {}, subtitles, mp4, quality: mp4 ? (src.quality || '') : 'adaptive', matched: 'animex ' + pv,
-               skip: (iv('intro') || iv('outro')) ? { op: iv('intro'), ed: iv('outro') } : null, forceProxy: true };
-    } catch (e) { errs.push(pv + ': ' + clean(e.message, 40)); }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const root = await axMeta(anilistId, ep);
+    const order = ['yuki', 'zuna', 'loli'].filter(x => (type === 'dub' ? root.dub : root.sub).includes(x));
+    if (!order.length) throw turbo.absent('no ' + type);
+    const errs = [];
+    for (const pv of order.slice(0, 2)) {
+      try {
+        const d = await fetchJson(`${AX_API}/rest/api/sources?id=${encodeURIComponent(root.id)}&epNum=${ep}&type=${type}&providerId=${pv}`, { headers: AX_HDR }, 8000);
+        const src = (d.sources || []).find(x => x && x.url);
+        if (!src) throw turbo.absent('no sources');
+        const h = d.headers || {}, ref = h.Referer || h.referer || '';
+        const subtitles = (d.tracks || []).filter(t => t && t.url && /captions|subtitles/i.test(t.kind || 'captions') && /\.(vtt|srt|ass)(\?|$)/i.test(t.url)).map(t => {
+          const l = String(t.lang || t.label || '').toLowerCase(); let lang = l.length === 2 ? l : '';
+          for (const k of Object.keys(LANG_CODES)) if (l.includes(k)) { lang = LANG_CODES[k]; break; }
+          return { lang: lang || 'en', label: t.label || t.lang || 'English', url: t.url, default: !!t.default };
+        });
+        const ch = d.chapters || [], iv = n => { const c = ch.find(x => x && new RegExp(n, 'i').test(x.title || '')); return c && c.end > c.start ? { start: +c.start, end: +c.end } : null; };
+        const mp4 = /mp4/i.test(src.type || '') || /\.mp4(\?|$)/i.test(src.url);
+        return { url: src.url, headers: ref ? { Referer: ref } : {}, subtitles, mp4, quality: mp4 ? (src.quality || '') : 'adaptive', matched: 'animex ' + pv,
+                 skip: (iv('intro') || iv('outro')) ? { op: iv('intro'), ed: iv('outro') } : null, forceProxy: true };
+      } catch (e) { if (turbo.isAbort(e)) throw e; errs.push(pv + ': ' + clean(e.message, 40)); }
+    }
+    if (attempt === 0 && Date.now() - root.at > 3000) { turbo.drop('ax:meta:' + anilistId); continue; }   // the cached host list may be stale: look the show up again once
+    throw new Error(errs.join('; '));
   }
-  throw new Error(errs.join('; '));
 }
 
 // 0e) AnimeYubi — plain JSON API (search by title -> episode -> videos[]). We use its ZokoAnime host:
 //     plain HLS up to 1080p, sub + dub, English VTT. Needs Referer/Origin zokoanime.video, so it goes through our relay.
 const AY = 'https://animeyubi.com/api/v4/hianime';
+const AY_HDR = { headers: { Referer: 'https://animeyubi.com/', Accept: 'application/json' } };
+const ayList = t => turbo.cached('ay:s:' + norm(t), 6 * 3600 * 1000, async () => {
+  const list = ((await fetchJson(`${AY}/?q=${encodeURIComponent(t)}`, AY_HDR, 8000)).list) || [];
+  return list.filter(x => x && x.slug).slice(0, 25).map(x => ({ anime: x.anime, slug: x.slug }));
+});
 async function viaAnimeYubi(titles, ep, audio) {
-  const hdr = { headers: { Referer: 'https://animeyubi.com/', Accept: 'application/json' } };
-  let hit = null;
-  for (const t of [...new Set(titles)].slice(0, 3)) {
-    const list = ((await fetchJson(`${AY}/?q=${encodeURIComponent(t)}`, hdr, 9000)).list) || [];
-    hit = bestMatch(list.filter(x => x && x.slug && !/\(dub\)/i.test(x.anime || '')), titles, x => x.anime, 80);
-    if (hit) break;
+  const ts = [...new Set(titles)].slice(0, 3);
+  const lists = [ayList(ts[0]), ts[1] ? ayList(ts[1]) : null];          // the first two spellings are searched at the same time
+  lists.forEach(l => l && l.catch(() => {}));
+  let hit = null, lastErr = null;
+  for (let i = 0; i < ts.length && !hit; i++) {
+    try {
+      const list = await (lists[i] || (lists[i] = ayList(ts[i])));
+      hit = bestMatch(list.filter(x => !/\(dub\)/i.test(x.anime || '')), titles, x => x.anime, 80);
+    } catch (e) { if (turbo.isAbort(e)) throw e; lastErr = e; }
   }
-  if (!hit) throw new Error('no match');
-  const d = await fetchJson(`${AY}/episode/?anime=${encodeURIComponent(hit.slug)}&episode=${ep}`, hdr, 12000);
+  if (!hit) { if (lastErr) throw lastErr; throw turbo.absent('no match'); }
+  const d = await turbo.cached(`ay:e:${hit.slug}:${ep}`, 3 * 60 * 1000, async () => {      // short: keeps media links fresh
+    const r = await fetchJson(`${AY}/episode/?anime=${encodeURIComponent(hit.slug)}&episode=${ep}`, AY_HDR, 10000);
+    return { videos: (r.videos || []).filter(x => x && /zoko/i.test(x.title || '')) };
+  });
   const want = audio === 'dub' ? 'DUB' : 'SUB';
   const v = (d.videos || []).find(x => x && x.is_public !== false && /zoko/i.test(x.title || '') && String(x.audio || '').toUpperCase() === want && /url=/.test(x.url || ''));
   if (!v) throw new Error('no ' + want.toLowerCase());
@@ -356,9 +385,11 @@ function parseQuery(q) {
 }
 
 // ---------- Anime sources ----------
-// Auto tries them one at a time in this order (chosen from tests on a Samsung TV): AnimeX > AniKoto > AnimeYubi > AniWaves.
-// One source per budget on Cloudflare Workers (free plan ≈ 50 outgoing requests per call): when a call runs low the app
-// calls again with ?skip=<sources already tried>; if a stream fails to play on the TV the app skips that source too.
+// Default order (from tests on a Samsung TV): AnimeX > AniKoto > AnimeYubi > AniWaves. The app may send its own order
+// (?order=a,b,c) learned from real playback outcomes on that TV (SourceIQ); unknown names are ignored, missing ones are appended.
+// TurboScrape: sources are raced with a hedge (the next source starts early when the current one is slow, losers are cancelled),
+// every source has its own timeout, lookups are cached and de-duplicated. `cost` ~ outgoing requests (keeps overlaps inside the
+// Workers free-plan budget of ~50 per call); when a call runs low the app continues with ?skip=<sources already tried>.
 const SOURCES = {
   animex:    (q, titles, ep) => viaAnimex(q.id, ep, q.audio).then(probeStream),
   anikoto:   (q, titles, ep) => viaAnivexa(q.id, ep, 'anikoto', q.audio),
@@ -367,41 +398,50 @@ const SOURCES = {
 };
 const AUTO_ORDER = ['animex', 'anikoto', 'animeyubi', 'aniwaves'];
 const NEEDS_ID = new Set(['animex', 'anikoto', 'aniwaves']);
+const COST = { animex: 4, animeyubi: 4, anikoto: 70, aniwaves: 30 };           // starting estimates; the race learns the real numbers
+const MAX_MS = { animex: 9000, animeyubi: 10000, anikoto: 14000, aniwaves: 14000 };
+function pickOrder(orderStr, skip, hasId) {
+  const want = String(orderStr || '').split(',').map(x => x.trim()).filter(k => SOURCES[k]);
+  return [...new Set([...want, ...AUTO_ORDER])].filter(k => !skip.includes(k) && (hasId || !NEEDS_ID.has(k)));
+}
 function noStream(dub, errs) {
   const err = new Error(dub ? 'No English dub was found for this episode.' : 'Not available yet — this title or episode has not been found on any source. Try another episode or title.');
   err.detail = errs.join(' | ').slice(0, 600);
   err.status = 502;
   return err;
 }
-async function runSource(k, titles, ep, q, origin) {
-  const r = await withTimeout(SOURCES[k](q, titles, ep), 16000, k);
-  return { ...finish({ ...r, provider: k, matched: r.matched || k }, origin), key: k, audio: q.audio === 'dub' ? 'dub' : 'sub' };
-}
+const pubTrace = tr => (tr || []).map(t => ({ k: t.k, ok: !!t.ok, ms: t.ms, kind: t.kind }));        // no URLs, cookies or messages leave the server
+// a fresh result is reused for 45 s: de-duplicates the prefetch + play of the same episode and double taps, never serves stale media links
+const runSource = (k, titles, ep, q) => turbo.cached(`res:${k}:${q.id || hash(titles.join('|'))}:${ep}:${q.audio === 'dub' ? 'dub' : 'sub'}`, 45 * 1000, () => SOURCES[k](q, titles, ep));
+const candidate = (k, titles, ep, q) => ({ key: k, cost: COST[k], max: MAX_MS[k], run: () => runSource(k, titles, ep, q) });
+
 async function sources(req, q, origin) {
   const { titles, ep } = parseQuery(q);
   const dub = q.audio === 'dub';
   const via = q.via && q.via !== 'auto' ? String(q.via) : null;
-  if (via) {                                                   // a source picked in the player's menu
+  const t0 = Date.now(), signal = req && req.signal;
+  const reply = (r, key, trace) => ({ ...finish({ ...r, provider: key, matched: r.matched || key }, origin), key, audio: dub ? 'dub' : 'sub', trace: pubTrace(trace), ms: Date.now() - t0, n: turbo.used() });
+  if (via) {                                                   // a source picked in the player's menu: no fallback, but still cached / time-limited
     if (!SOURCES[via]) { const e = new Error('Unknown source: ' + via); e.status = 400; throw e; }
-    try { return await runSource(via, titles, ep, q, origin); }
-    catch (e) { throw noStream(dub, [via + ': ' + clean(e.message, 120)]); }
+    try { const r = await turbo.race([candidate(via, titles, ep, q)], { signal, maxParallel: 1 }); return reply(r.result, via, r.trace); }
+    catch (e) { if (turbo.isAbort(e)) throw e; const err = noStream(dub, [via + ': ' + clean((e.trace && e.trace[0] && e.trace[0].msg) || e.message, 120)]); err.trace = pubTrace(e.trace); throw err; }
   }
   const skip = String(q.skip || '').split(',').filter(Boolean);
-  const chain = AUTO_ORDER.filter(k => !skip.includes(k) && (q.id || !NEEDS_ID.has(k)));
-  const t0 = Date.now(), tried = [], errs = [];
-  for (const k of chain) {
-    try { return await runSource(k, titles, ep, q, origin); }
-    catch (e) {
-      const budget = /subrequest/i.test(e.message);
-      if (!budget || !tried.length) tried.push(k);              // out of budget mid-way: retry this source in a fresh call
-      errs.push(k + ': ' + clean(e.message, 80));
-      if (budget || Date.now() - t0 > 14000) break;
-    }
+  const order = pickOrder(q.order, skip, !!q.id);
+  try {
+    const r = await turbo.race(order.map(k => candidate(k, titles, ep, q)), { signal, maxParallel: 2, budget: 45 });
+    return reply(r.result, r.key, r.trace);
+  } catch (e) {
+    if (turbo.isAbort(e)) throw e;
+    const trace = e.trace || [];
+    const err = noStream(dub, trace.filter(t => t.kind !== 'cancelled').map(t => t.k + ': ' + clean(t.msg || t.kind, 80)));
+    err.trace = pubTrace(trace);
+    let tried = trace.filter(t => t.kind !== 'budget' && t.kind !== 'cancelled').map(t => t.k);
+    if (!tried.length) tried = trace.filter(t => t.kind === 'budget').map(t => t.k);          // never loop on a source that cannot fit the request budget
+    const rest = order.filter(k => !tried.includes(k));
+    if (rest.length) { err.retry = true; err.skip = skip.concat(tried).join(','); }          // the app continues with the sources not tried yet
+    throw err;
   }
-  const err = noStream(dub, errs);
-  const rest = chain.filter(k => !tried.includes(k));
-  if (rest.length) { err.retry = true; err.skip = skip.concat(tried).join(','); }
-  throw err;
 }
 
 
@@ -483,15 +523,15 @@ async function alPut(b) {
 }
 
 
-// Diagnostic: runs every source to completion and reports what each one did
+// Diagnostic: runs every source to completion and reports what each one did (time + outgoing requests)
 async function debug(q) {
   const { titles, ep } = parseQuery(q);
-  const out = await Promise.all(Object.keys(SOURCES).map(async k => {
+  const out = await Promise.all(Object.keys(SOURCES).map(k => turbo.scope(null, async () => {
     const t0 = Date.now();
-    try { const r = await withTimeout(SOURCES[k](q, titles, ep), 25000, k); return { provider: k, ok: true, ms: Date.now() - t0, matched: r.matched, url: r.url, subtitles: (r.subtitles || []).length }; }
-    catch (e) { return { provider: k, ok: false, ms: Date.now() - t0, error: e.message }; }
-  }));
-  return { titles, ep, node: process.version, providers: out };
+    try { const r = await turbo.race([candidate(k, titles, ep, q)], { maxParallel: 1 }); return { provider: k, ok: true, ms: Date.now() - t0, n: turbo.used(), matched: r.result.matched, subtitles: (r.result.subtitles || []).length }; }
+    catch (e) { return { provider: k, ok: false, ms: Date.now() - t0, n: turbo.used(), kind: ((e.trace || [])[0] || {}).kind, error: clean((((e.trace || [])[0] || {}).msg) || e.message, 120) }; }
+  })));
+  return { titles, ep, node: process.version, providers: out, cache: turbo.stats };
 }
 
 
@@ -563,7 +603,7 @@ async function proxy(req, res, q, origin) {
 
 const bearer = req => String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
 
-module.exports = async (req, res) => {
+async function handle(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   const q = req.query || {};
@@ -627,6 +667,7 @@ module.exports = async (req, res) => {
         return send(res, 200, { results: await trending() });
     }
   } catch (e) {
-    return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip }, 'no-store');
+    return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace }, 'no-store');
   }
-};
+}
+module.exports = (req, res) => turbo.scope(req.signal, () => handle(req, res));       // cancels this request's outgoing work when the client leaves

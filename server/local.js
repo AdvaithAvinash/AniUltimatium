@@ -24,6 +24,8 @@ http.createServer(async (req, res) => {
     res.status = c => { res.statusCode = c; return res; };
     res.json = b => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(b)); return res; };
     res.send = b => { res.end(b); return res; };
+    const ac = new AbortController(); req.signal = ac.signal;          // client left (app closed the player / changed episode): cancel the scraping work
+    res.on('close', () => { if (!res.writableEnded) ac.abort(); });
     try { await handler(req, res); } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })); }
     return;
   }
