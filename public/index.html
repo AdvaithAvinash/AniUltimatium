@@ -9,6 +9,27 @@
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="alternate icon" href="icon.png">
 <link rel="stylesheet" href="styles.css">
+<script>
+/* Old TV browsers (Tizen 4 = Chromium 56) lack flex gap / CSS grid / aspect-ratio: flag them so styles.css can use fallbacks.
+   Add ?compat=1 to the address to force the fallbacks on any browser. */
+(function () {
+  var d = document, h = d.documentElement, cls = '';
+  try {
+    var force = /[?&]compat=1/.test(location.search);
+    var t = d.createElement('div');
+    t.style.cssText = 'display:flex;flex-direction:column;gap:5px;position:absolute;left:-99px;top:0;visibility:hidden';
+    t.innerHTML = '<i style="height:1px"></i><i style="height:1px"></i>';
+    h.appendChild(t);
+    var gapOk = t.offsetHeight === 7;
+    h.removeChild(t);
+    var sup = window.CSS && CSS.supports;
+    if (force || !gapOk) cls += ' nogap';
+    if (force || !(sup && CSS.supports('display', 'grid'))) cls += ' nogrid';
+    if (force || !(sup && CSS.supports('aspect-ratio', '1 / 1'))) cls += ' noar';
+  } catch (e) { cls = ' nogap nogrid noar'; }
+  h.className += cls;
+})();
+</script>
 </head>
 <body class="desktop">
 <div id="app">
