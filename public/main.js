@@ -151,6 +151,26 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     });
   }
 
+  // ======================= SourceIQ: ranks sources from real outcomes on this device (see iq.js) =======================
+  var SRC_KEYS = ['animex', 'anikoto', 'animeyubi', 'aniwaves'];
+  var iq = window.SourceIQ ? SourceIQ.create({ get: function () { return store.get('ea_iq', null); }, set: function (v) { store.set('ea_iq', v); } })
+    : { order: function (k) { return k; }, recordTrace: function () {}, recordPlay: function () {}, status: function () { return { short: '' }; }, rank: function (k) { return k; } };
+  function iqOrder() { return iq.order(SRC_KEYS).join(','); }
+  function playFailed() {                       // the stream of this source did not (or stopped) play: remember it once per attempt
+    var p = state.pPlay;
+    if (p && !p.failed && p.key) { p.failed = true; iq.recordPlay(p.key, false); }
+  }
+  function streamDead() {                       // route switch did not help: refresh a possibly stale prefetched link once, else try the next source
+    var d = state.src;
+    if (d && d.pre && !state.preRetried && state.anime && state.anime.kind !== 'movie') {
+      state.preRetried = true; toast('Refreshing the link…');
+      play(state.anime, state.ep, video.currentTime > 5 ? video.currentTime : state.startAt, true, state.srcSkip);
+      return true;
+    }
+    playFailed();
+    return nextSource();
+  }
+
   // ======================= API =======================
   // Which backend to use: user-set server (Settings) > the local server that served this page > cloud (Vercel)
   function apiBase() {
@@ -166,24 +186,40 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       return aniFull(amId).then(function (am) {
         var p2 = {}; Object.keys(params).forEach(function (k) { p2[k] = params[k]; });
         if (am) p2.am = am;
-        return api(p2, { body: opts.body, hasAm: true });
+        return api(p2, { body: opts.body, hasAm: true, signal: opts.signal });
       });
     }
     var qs = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
     var headers = {}, au = auth(), init = { headers: headers };
+    if (opts.signal) init.signal = opts.signal;
     if (au && /^(me|sync_get|sync_put)$/.test(params.action)) headers.Authorization = 'Bearer ' + au.token;
     if (opts.body) { init.method = 'POST'; headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
-    return fetch(apiBase() + '/api?' + qs, init).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; throw er; }
+    var aniAct = /^(home|trending|search)$/.test(params.action);
+    var ckey = /^(search|trending|movies_search)$/.test(params.action) && !opts.body ? qs : null;
+    if (ckey && apiCache[ckey] && Date.now() - apiCache[ckey].t < 120000) return Promise.resolve(apiCache[ckey].d);       // same search again within 2 min
+    // A server that AniList blocks (Cloudflare Workers) is skipped for 10 minutes: ask AniList from the device straight away (saves a failing round trip)
+    if (aniAct && Date.now() < (store.get('ea_aldirect', 0) || 0)) return aniDirect(params).catch(function () { return remote(); });
+    return remote();
+    function remote() {
+      return fetch(apiBase() + '/api?' + qs, init).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; throw er; }
+          return j;
+        });
+      }).then(function (j) {
+        if (ckey) { apiCache[ckey] = { t: Date.now(), d: j }; var ks = Object.keys(apiCache); if (ks.length > 12) delete apiCache[ks[0]]; }
         return j;
+      }).catch(function (e) {
+        // Some hosts (e.g. Cloudflare Workers) get blocked by AniList: ask AniList straight from the device instead
+        if (aniAct && !(e && e.name === 'AbortError')) {
+          if (/403/.test(e.message || '')) store.set('ea_aldirect', Date.now() + 10 * 60 * 1000);
+          return aniDirect(params).catch(function () { throw e; });
+        }
+        throw e;
       });
-    }).catch(function (e) {
-      // Some hosts (e.g. Cloudflare Workers) get blocked by AniList: ask AniList straight from the device instead
-      if (/^(home|trending|search)$/.test(params.action)) return aniDirect(params).catch(function () { throw e; });
-      throw e;
-    });
+    }
   }
+  var apiCache = {};
   // Full AniList record, handed to the backend so it never has to reach AniList itself (Cloudflare Workers get blocked there)
   var amCache = {};
   function aniFull(id) {
@@ -621,6 +657,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     closeDrops(false); if (movie) renderDrops();
     paintDetailButtons();
     alLoadEntry(a);
+    if (!movie) aniFull(a.id);                                                     // warm the AniList record the backend needs, so Play does not wait for it
     renderEpisodes();
     $('dScroll').scrollTop = 0;
     setFocus($('dPlay'));
@@ -717,8 +754,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function play(a, ep, startAt, keepVia, skip) {
     var tk = ++state.token, movie = a.kind === 'movie';
+    abortSources();                                                               // the previous lookup is not needed any more
     state.srcSkip = skip || [];                                                   // sources already tried for this episode
-    if (!keepVia) state.dubFailed = false;
+    if (!keepVia) { state.dubFailed = false; state.preRetried = false; }
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
     state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null; hideEmbed();
     if (state.os.key !== osKey()) state.os = newOs(osKey());
@@ -730,10 +768,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
     if (!keepVia) addHist(a, ep);
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
+    state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
+    var usedPre = false;
     var req = movie ? api({ action: 'movie_sources', via: state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '' })
-      : takePrefetch(a, ep) || api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(',') });
+      : (function () { var pre = takePrefetch(a, ep); if (pre) { usedPre = true; return pre; } return api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(','), order: iqOrder() }, { signal: state.srcCtl && state.srcCtl.signal }); })();
     req.then(function (d) {
       if (tk !== state.token) return;
+      if (!movie && d.trace) iq.recordTrace(d.trace);                             // which sources answered / failed / timed out, as seen by the backend
+      if (usedPre) d.pre = true;
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) { startEmbed(d.embeds[0].url); return; }
       if (!d.url) throw new Error(d.error || 'No stream found');
       startVideo(d, startAt, tk);
@@ -741,6 +783,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (d.skip) state.skip = d.skip;                                              // the source's own intro/outro times
       if (!movie && a.mal) api({ action: 'skip', mal: a.mal, ep: ep }).then(function (sk) { if (tk === state.token && sk && (sk.op || sk.ed)) state.skip = sk; }).catch(function () {});
     }).catch(function (e) {
+      if (e && e.name === 'AbortError') return;
+      if (tk === state.token && !movie && e.data && e.data.trace) iq.recordTrace(e.data.trace);
       if (tk === state.token && !movie && e.data && e.data.retry && e.data.skip && state.srcSkip.length < 12) {   // server ran out of its per-call budget: continue with the remaining sources
         return play(a, ep, startAt, true, String(e.data.skip).split(','));
       }
@@ -1155,11 +1199,16 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var movie = state.anime && state.anime.kind === 'movie';
     var vias = movie ? MOVIE_SOURCES.map(function (o) { return o[0]; }) : SOURCES, cur = movie ? (state.mvia || 'auto') : (state.via || 'auto'), vi = Math.max(0, vias.indexOf(cur));
     var names = movie ? (function () { var n = {}; MOVIE_SOURCES.forEach(function (o) { n[o[0]] = o[1]; }); return n; })() : SRC_NAMES;
-    var srcRow = { key: 'source', label: 'Source', value: names[vias[vi]] || vias[vi],
+    function srcLabel(k) {                                          // SourceIQ status: Recommended / Reliable / Untested / Temporarily unavailable
+      if (movie) return names[k] || k;
+      if (k === 'auto') return 'Auto · ' + (SRC_NAMES[iq.order(SRC_KEYS)[0]] || 'AnimeX') + ' first';
+      var st = iq.status(k, SRC_KEYS); return (SRC_NAMES[k] || k) + (st && st.short ? ' · ' + st.short : '');
+    }
+    var srcRow = { key: 'source', label: 'Source', value: srcLabel(vias[vi]),
       change: function (dir) {
         var nv = vias[(vi + dir + vias.length) % vias.length];
         if (movie) { state.mvia = nv; store.set('ea_msrc', nv); } else state.via = nv;
-        var at = state.embed ? (isCin() ? cinNow() : 0) : video.currentTime; toast('Source: ' + (names[nv] || nv));
+        var at = state.embed ? (isCin() ? cinNow() : 0) : video.currentTime; toast('Source: ' + srcLabel(nv));
         closeMenu(); play(state.anime, movie ? 1 : state.ep, at > 5 ? at : 0, true);
       } };
     var syncRow = { key: 'sync', label: 'Subtitle sync', value: (state.os.off >= 0 ? '+' : '') + state.os.off.toFixed(1) + 's',
@@ -1229,7 +1278,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function startVideo(d, startAt, tk) {
     clearTracks();
-    state.src = d; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0; state.menuOpen = false; $('pmenu').className = 'hidden';
+    state.src = d; state.pPlay = { key: d.key, t0: performance.now(), ok: false, failed: false }; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0; state.menuOpen = false; $('pmenu').className = 'hidden';
     // Subtitle tracks from the stream are fetched through the API (CORS-open) and drawn by our overlay (exact sync)
     state.srcAudio = d.audio || 'sub';
     subSetStream(d.subtitles || []);
@@ -1247,7 +1296,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         if (!e.fatal) return;
         if (e.type === Hls.ErrorTypes.NETWORK_ERROR && state.netRetry++ < 3) { state.hls.startLoad(); return; }
         if (e.type === Hls.ErrorTypes.MEDIA_ERROR && state.mediaRetry++ < 3) { state.hls.recoverMediaError(); return; }
-        if (!fallbackToProxy() && !nextSource()) pmsg('Playback error: ' + e.details, false);
+        if (!fallbackToProxy() && !streamDead()) pmsg('Playback error: ' + e.details, false);
       });
     } else {
       video.src = d.url; // native HLS (Tizen/Safari) or mp4
@@ -1260,10 +1309,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     clearTimeout(state.startTimer);                                          // never started after 25s: other route, then next source
     state.startTimer = setTimeout(function startCheck() {
       if (tk !== state.token || state.view !== 'player' || video.paused || video.readyState >= 3 || video.currentTime > 0.5) return;
-      if (fallbackToProxy()) { toast('Slow source — switching route'); state.startTimer = setTimeout(startCheck, 20000); } else nextSource();
+      if (fallbackToProxy()) { toast('Slow source — switching route'); state.startTimer = setTimeout(startCheck, 20000); } else streamDead();
     }, 25000);
   }
-  video.addEventListener('playing', function () { clearTimeout(state.waitTimer); pmsg('', false); paintPlayBtn(); });
+  video.addEventListener('playing', function () {
+    clearTimeout(state.waitTimer); pmsg('', false); paintPlayBtn();
+    var p = state.pPlay;
+    if (p && !p.ok && p.key && state.anime && state.anime.kind !== 'movie') { p.ok = true; iq.recordPlay(p.key, true, performance.now() - p.t0); }      // time to first frame
+  });
   video.addEventListener('pause', function () { paintPlayBtn(); hud(); });
   video.addEventListener('waiting', function () {
     pmsg('', true);
@@ -1273,18 +1326,26 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   video.addEventListener('volumechange', function () { store.set('ea_vol', { v: video.volume, m: video.muted }); });
   // Look up the next episode's stream while this one plays, so "next episode" starts instantly
   function sourceParams(a, ep) {
-    return { action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: '' };
+    return { action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: '', order: iqOrder() };
+  }
+  function abortSources() {                         // leaving a search / episode: stop work nobody is waiting for
+    if (state.srcCtl) { try { state.srcCtl.abort(); } catch (e) {} state.srcCtl = null; }
+  }
+  function dropPrefetch() {
+    if (state.pre && state.pre.ctl) { try { state.pre.ctl.abort(); } catch (e) {} }
+    state.pre = null;
   }
   function prefetchNext() {
     var a = state.anime; if (!a || a.kind === 'movie' || (a.episodes && state.ep >= a.episodes)) return;
     var key = a.id + ':' + (state.ep + 1) + ':' + state.audioPref + ':' + (state.via || 'auto');
     if (state.pre && state.pre.key === key) return;
-    var p = api(sourceParams(a, state.ep + 1)); p.catch(function () {});
-    state.pre = { key: key, p: p, at: Date.now() };
+    var ctl = window.AbortController ? new AbortController() : null;
+    var p = api(sourceParams(a, state.ep + 1), { signal: ctl && ctl.signal }); p.catch(function () {});
+    state.pre = { key: key, p: p, at: Date.now(), ctl: ctl };
   }
   function takePrefetch(a, ep) {
     var pre = state.pre, key = a.id + ':' + ep + ':' + state.audioPref + ':' + (state.via || 'auto');
-    if (!pre || pre.key !== key || state.srcSkip.length || Date.now() - pre.at > 30 * 60000) return null;
+    if (!pre || pre.key !== key || state.srcSkip.length || Date.now() - pre.at > 10 * 60000) return null;   // older links may be stale
     state.pre = null; return pre.p;
   }
   // This source's stream does not play here: ask the server for the next source (Auto mode only)
@@ -1314,7 +1375,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   video.addEventListener('error', function () {
     if (!video.getAttribute('src')) return;
-    if (!fallbackToProxy() && !nextSource()) pmsg('Video error — the stream could not be played', false);
+    if (!fallbackToProxy() && !streamDead()) pmsg('Video error — the stream could not be played', false);
   });
   video.addEventListener('progress', function () {
     if (video.duration && video.buffered.length) $('seekBuf').style.width = video.buffered.end(video.buffered.length - 1) / video.duration * 100 + '%';
@@ -1350,7 +1411,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('seekBar').style.width = '0'; $('seekBuf').style.width = '0';
   }
   function closePlayer() {
-    state.token++; state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden'; hideEmbed();
+    state.token++; abortSources(); dropPrefetch(); state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden'; hideEmbed();
     if (video.duration && video.currentTime > 3) setProg(state.anime, state.ep, video.currentTime, video.duration);
     stopVideo();
     if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }

@@ -59,7 +59,7 @@ async function runApi(request) {
   let body;
   if (request.method === 'POST') { try { body = await request.json(); } catch (e) { body = {}; } }
   if (url.searchParams.get('am')) { try { const m = JSON.parse(url.searchParams.get('am')); if (m && m.id) AL_MEDIA[m.id] = m; } catch (e) { /* ignore */ } }
-  const req = { method: request.method, url: url.pathname + url.search, query: Object.fromEntries(url.searchParams), headers, body };
+  const req = { method: request.method, url: url.pathname + url.search, query: Object.fromEntries(url.searchParams), headers, body, signal: request.signal };
   const res = makeRes();
   try { await handler(req, res); } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
   await res.whenDone;
