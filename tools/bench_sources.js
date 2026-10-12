@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Repeatable source-discovery benchmark: measures time until the app would have a usable stream (the same retry/skip loop the
 // app runs, one request at a time). Usage:  node tools/bench_sources.js [baseUrl] [shows=12] [reps=2]
+// Compares the old behaviour (?turbo=0) with TurboScrape on the same deployment, interleaved.
 // Scenarios: cold (fresh episode), warm (same request again), animex-down (skip=animex), two-down (skip=animex,anikoto).
 // "down" scenarios simulate a failing primary source with ?skip=, exactly what the app sends after a source fails to play.
 const BASE = (process.argv[2] || 'https://aniultimatium.advaithavinash404.workers.dev').replace(/\/+$/, '');
@@ -25,21 +26,36 @@ async function discover(m, ep, skip0, extra) {                       // emulates
   const al = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ query: `query{Page(perPage:${SHOWS}){media(type:ANIME,sort:POPULARITY_DESC,isAdult:false,format_in:[TV]){${F}}}}` }) }).then(r => r.json());
   const media = al.data.Page.media;
-  const res = { cold: [], warm: [], 'animex-down': [], 'two-down': [] }, fails = { cold: 0, warm: 0, 'animex-down': 0, 'two-down': 0 }, calls = { cold: [], warm: [], 'animex-down': [], 'two-down': [] };
-  const note = (k, r) => { res[k].push(r.ms); calls[k].push(r.calls); if (!r.ok) fails[k]++; };
+  // A/B on the SAME deployment at the SAME time: `turbo=0` makes the backend behave like before TurboScrape (one source at a time,
+  // full timeouts, no caching); the default is the new behaviour. Pairs alternate order so neither side is favoured by timing.
+  const SC = ['cold', 'warm', 'animex-down', 'two-down'], MODES = { old: { turbo: '0' }, new: {} };
+  const res = {}, fails = {}, calls = {};
+  for (const sc of SC) for (const m of ['old', 'new']) { res[sc + m] = []; fails[sc + m] = 0; calls[sc + m] = []; }
+  const note = (sc, m, r) => { res[sc + m].push(r.ms); calls[sc + m].push(r.calls); if (!r.ok) fails[sc + m]++; };
+  let n = 0;
   for (let rep = 0; rep < REPS; rep++) {
-    for (const m of media) {
-      const ep = 1 + ((m.id + rep * 3) % 6);                            // varies per rep so nothing is cached by an earlier rep
-      note('cold', await discover(m, ep, ''));
-      note('warm', await discover(m, ep, ''));
-      note('animex-down', await discover(m, ep + 6, 'animex'));
-      note('two-down', await discover(m, ep + 12, 'animex,anikoto'));
+    for (const mdl of media) {
+      const ep = 1 + ((mdl.id + rep * 3) % 6), flip = (n++ % 2) === 1;
+      const pair = async (sc, e, skip, twice) => {
+        for (const m of (flip ? ['new', 'old'] : ['old', 'new'])) {
+          note(sc, m, await discover(mdl, e, skip, MODES[m]));
+          if (twice) note('warm', m, await discover(mdl, e, skip, MODES[m]));            // same request again immediately
+        }
+      };
+      await pair('cold', ep, '', true);
+      await pair('animex-down', ep + 6, 'animex');
+      await pair('two-down', ep + 12, 'animex,anikoto');
     }
   }
-  console.log(`bench ${BASE}  shows=${media.length} reps=${REPS} (sequential, each sample = time until a usable stream)`);
-  console.log('scenario      n   median   p90     max    avg calls  failed');
-  for (const k of Object.keys(res)) {
-    const a = res[k];
-    console.log(`${k.padEnd(12)} ${String(a.length).padStart(3)}  ${String(pct(a, .5)).padStart(6)}ms ${String(pct(a, .9)).padStart(6)}ms ${String(Math.max(...a)).padStart(6)}ms  ${(calls[k].reduce((x, y) => x + y, 0) / a.length).toFixed(2)}      ${fails[k]}`);
+  console.log(`bench ${BASE}  shows=${media.length} reps=${REPS}  (old = ?turbo=0, new = default; sequential requests; each sample = time until a usable stream)`);
+  console.log('scenario       mode    n   median     p90      max   avg calls  failed');
+  const med = a => pct(a, .5), p90 = a => pct(a, .9);
+  for (const sc of SC) {
+    for (const m of ['old', 'new']) {
+      const a = res[sc + m], c = calls[sc + m];
+      console.log(`${sc.padEnd(13)}  ${m.padEnd(4)} ${String(a.length).padStart(4)}  ${String(med(a)).padStart(6)}ms ${String(p90(a)).padStart(6)}ms ${String(Math.max(...a)).padStart(6)}ms   ${(c.reduce((x, y) => x + y, 0) / a.length).toFixed(2)}      ${fails[sc + m]}`);
+    }
+    const o = res[sc + 'old'], w = res[sc + 'new'];
+    console.log(`               change: median ${((med(w) - med(o)) / med(o) * 100).toFixed(0)}%  p90 ${((p90(w) - p90(o)) / p90(o) * 100).toFixed(0)}%`);
   }
 })().catch(e => { console.error(e); process.exit(1); });

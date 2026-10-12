@@ -42,11 +42,15 @@ function send(res, code, body, cache) {
 
 async function fetchJson(url, opts = {}, timeout = 9000) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeout);
+  let late = false;
+  const t = setTimeout(() => { late = true; ctl.abort(); }, timeout);
   try {
     const r = await fetch(url, { ...opts, signal: ctl.signal, headers: { 'User-Agent': UA, ...(opts.headers || {}) } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
+  } catch (e) {
+    if (late) throw new Error('request timed out');             // our own time limit (a failure), as opposed to the client leaving (a cancellation)
+    throw e;
   } finally { clearTimeout(t); }
 }
 
@@ -249,7 +253,8 @@ function avPick(d) {
 // Make sure a stream really plays from THIS host (some CDNs answer 404/HTML to cloud IPs) before we hand it out
 async function probeStream(r) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 9000);
+  let late = false;
+  const t = setTimeout(() => { late = true; ctl.abort(); }, 5000);                 // a playlist that cannot be fetched in 5 s will not play well either
   try {
     let x;
     try { x = await fetch(r.url, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...(r.headers || {}), ...(r.headers && r.headers.Referer ? { Origin: (() => { try { return new URL(r.headers.Referer).origin; } catch (e) { return undefined; } })() } : {}), ...(r.cookie ? { Cookie: r.cookie } : {}), ...(r.mp4 ? { Range: 'bytes=0-1023' } : {}) } }); }
@@ -259,7 +264,8 @@ async function probeStream(r) {
     if (r.mp4) { if (/text\/html|json/.test(ct)) throw new Error('stream is not video'); }
     else { const head = (await x.text()).slice(0, 64); if (head.indexOf('#EXTM3U') < 0) throw new Error('stream is not a playlist'); }
     try { x.body && x.body.cancel(); } catch (e) { /* ignore */ }
-  } finally { clearTimeout(t); }
+  } catch (e) { if (late) throw new Error('stream probe timed out'); throw e; }
+  finally { clearTimeout(t); }
   return r;
 }
 async function viaAnivexa(anilistId, ep, only, audio) {
@@ -420,6 +426,7 @@ async function sources(req, q, origin) {
   const dub = q.audio === 'dub';
   const via = q.via && q.via !== 'auto' ? String(q.via) : null;
   const t0 = Date.now(), signal = req && req.signal;
+  const legacy = q.turbo === '0';                          // diagnostic: the pre-TurboScrape behaviour (one source at a time, full timeouts, no caching) for A/B measurements
   const reply = (r, key, trace) => ({ ...finish({ ...r, provider: key, matched: r.matched || key }, origin), key, audio: dub ? 'dub' : 'sub', trace: pubTrace(trace), ms: Date.now() - t0, n: turbo.used() });
   if (via) {                                                   // a source picked in the player's menu: no fallback, but still cached / time-limited
     if (!SOURCES[via]) { const e = new Error('Unknown source: ' + via); e.status = 400; throw e; }
@@ -429,7 +436,7 @@ async function sources(req, q, origin) {
   const skip = String(q.skip || '').split(',').filter(Boolean);
   const order = pickOrder(q.order, skip, !!q.id);
   try {
-    const r = await turbo.race(order.map(k => candidate(k, titles, ep, q)), { signal, maxParallel: 2, budget: 45 });
+    const r = await turbo.race(order.map(k => candidate(k, titles, ep, q)), legacy ? { signal, maxParallel: 1, hedgeMs: 1e9, timeoutMs: 16000 } : { signal, maxParallel: 2, budget: 45 });
     return reply(r.result, r.key, r.trace);
   } catch (e) {
     if (turbo.isAbort(e)) throw e;
@@ -670,4 +677,4 @@ async function handle(req, res) {
     return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace }, 'no-store');
   }
 }
-module.exports = (req, res) => turbo.scope(req.signal, () => handle(req, res));       // cancels this request's outgoing work when the client leaves
+module.exports = (req, res) => turbo.scope(req.signal, () => handle(req, res), { noCache: !!(req.query && req.query.turbo === '0') });       // cancels this request's outgoing work when the client leaves
