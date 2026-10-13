@@ -6,7 +6,13 @@
 
 This app combines all anime apis into one.
 
-[Download the latest `app.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Install guide](#install-on-a-samsung-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation)
+[![Latest release](https://img.shields.io/github/v/release/AdvaithAvinash/AniUltimatium?label=release&color=ff3d7f)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Samsung%20Tizen%204.0%2B-1428a0)](#install-on-a-samsung-tv)
+[![Subtitles](https://img.shields.io/badge/English-sub%20%26%20dub-00b8d4)](#faq)
+[![AniList](https://img.shields.io/badge/AniList-sync-02a9ff)](#anilist)
+[![Last commit](https://img.shields.io/github/last-commit/AdvaithAvinash/AniUltimatium?color=555)](https://github.com/AdvaithAvinash/AniUltimatium/commits/main)
+
+[Download the latest `app.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Install guide](#install-on-a-samsung-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/about)
 
 ## Quick facts
 | | |
@@ -20,6 +26,15 @@ This app combines all anime apis into one.
 | **Movies** | Movies tab with CineSrc, VidFast, VidCore, Videasy and public-domain films, with an on-screen control bar |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no Samsung store account needed) |
+
+## Screenshots
+| Home | Search |
+|---|---|
+| ![Aniultimatium home screen for Samsung Tizen TVs with trending anime rows](docs/screenshots/home.jpg) | ![Anime search results in Aniultimatium](docs/screenshots/search.jpg) |
+
+| Show page with episodes | Player settings: audio sub/dub, subtitles and source status |
+|---|---|
+| ![Anime detail page with episode list, AniList status and Play button](docs/screenshots/detail.jpg) | ![Aniultimatium player menu on a Samsung TV: audio (Japanese or English dub), subtitles, speed and source selection](docs/screenshots/player-menu.jpg) |
 
 ## Why choose Aniultimatium on a Samsung TV
 - **Made for Tizen first.** Most anime apps target phones or PCs. This one is a Tizen web app: remote navigation, TV-safe layout, hardware Back key, and an

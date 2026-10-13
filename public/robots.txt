@@ -1,4 +1,48 @@
+# Aniultimatium — crawlers are welcome on the public pages; the API and the account link page are not for indexing.
 User-agent: *
+Allow: /
+Disallow: /api
+Disallow: /link.html
+
+# Search engines
+User-agent: Googlebot
+Allow: /
+Disallow: /api
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api
+
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /api
+
+# AI assistants / answer engines (so they can read the About page and llms.txt)
+User-agent: GPTBot
+Allow: /
+Disallow: /api
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /api
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /api
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api
+
+User-agent: Google-Extended
 Allow: /
 Disallow: /api
 
