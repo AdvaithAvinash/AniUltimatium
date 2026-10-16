@@ -81,7 +81,7 @@
     }
 
     // stream a URL through onText; first block must look like a playlist
-    function stream(url, id, onText, onProgress) {
+    function stream(url, id, onText, onProgress, maxBytes) {
       return withTimeout(fetch(url, { credentials: 'omit' }), 30000, 'The server did not answer in 30 s').then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         var total = +r.headers.get('content-length') || 0, got = 0;
@@ -93,6 +93,7 @@
               if (x.done) { onText(dec.decode()); return; }
               got += x.value.length; onProgress(got, total);
               onText(dec.decode(x.value, { stream: true }));
+              if (maxBytes && got > maxBytes) { try { rd.cancel(); } catch (e) { /* ignore */ } return; }          // a guide for the whole world: the first part is plenty
               return pump();
             });
           })();
@@ -218,7 +219,7 @@
       }
       return tryAll(job.tries, function (i) {
         out = {}; nprog = 0; carry = '';
-        return stream(pick(job.tries, i, job.url), job.id, feed, function (got, total) { S.postMessage({ id: job.id, t: 'progress', got: got, total: total }); }).then(function () {
+        return stream(pick(job.tries, i, job.url), job.id, feed, function (got, total) { S.postMessage({ id: job.id, t: 'progress', got: got, total: total }); }, job.maxBytes).then(function () {
           if (!nprog) throw new Error('The guide has no programmes for these channels');
         });
       }).then(function (x) {

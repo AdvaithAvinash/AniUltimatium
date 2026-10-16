@@ -1,24 +1,26 @@
-# Aniultimatium — English sub & dub anime app for Samsung Tizen smart TVs
+# Aniultimatium — free IPTV player (M3U & Xtream) and anime app for Samsung Tizen, Android TV and Fire TV
 
-> **Free, open-source anime streaming app built for Samsung Tizen TVs (2018 / Tizen 4.0 and newer)** — English subtitles, English dub, a remote-first interface,
-> automatic source switching and AniList sync. The same code also runs in any laptop or desktop browser.
-> Our goal: to be the best English sub and dub anime app for Samsung Tizen TVs.
+> **A free, open-source TV app with a fast IPTV player.** Add your own M3U playlist or Xtream login (from your phone, with a QR code), browse 50,000+ channels without the screen freezing,
+> use a TV guide, favorites and fast zapping, and also watch English sub & dub anime, movies and TV shows. Runs on **Samsung Tizen 4.0+ (2018 and newer)**, **Android TV**, **Fire TV** and in any browser.
+> It provides no channels: you bring your own playlist, or start with free public channel lists.
 
 This app combines all anime apis into one.
 
 [![Latest release](https://img.shields.io/github/v/release/AdvaithAvinash/AniUltimatium?label=release&color=ff3d7f)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Samsung%20Tizen%204.0%2B-1428a0)](#install-on-a-samsung-tv)
+[![Android TV and Fire TV](https://img.shields.io/badge/Android%20TV%20%7C%20Fire%20TV-APK-3ddc84)](#install-on-android-tv-and-fire-tv)
+[![IPTV](https://img.shields.io/badge/IPTV-M3U%20%7C%20Xtream%20%7C%20EPG-ff3d7f)](#live-tv-iptv)
 [![Subtitles](https://img.shields.io/badge/English-sub%20%26%20dub-00b8d4)](#faq)
 [![AniList](https://img.shields.io/badge/AniList-sync-02a9ff)](#anilist)
 [![Last commit](https://img.shields.io/github/last-commit/AdvaithAvinash/AniUltimatium?color=555)](https://github.com/AdvaithAvinash/AniUltimatium/commits/main)
 
-[Download the latest `app.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Install guide](#install-on-a-samsung-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/about)
+[Download `app.wgt` (Samsung) or `app.apk` (Android TV / Fire TV)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/)
 
 ## Quick facts
 | | |
 |---|---|
-| **What it is** | Anime streaming client for Samsung smart TVs (Tizen web app, `.wgt`) and web browsers |
-| **TV support** | Samsung Tizen 4.0 (2018) and newer. Layout and scrolling are checked against a Chromium 56 engine, the browser inside Tizen 4 TVs |
+| **What it is** | An IPTV player for your own playlist (M3U / Xtream) plus an anime, movie and TV-show client. Samsung Tizen web app (`.wgt`), Android TV / Fire TV app (`.apk`) and web browsers |
+| **TV support** | Samsung Tizen 4.0 (2018) and newer (layout and scrolling checked against a Chromium 56 engine, the browser inside Tizen 4 TVs); Android TV / Google TV and Amazon Fire TV (Android 5+ / Fire OS 5+) |
 | **Languages** | English subtitles (OpenSubtitles auto-picked, 15+ other languages) and English dub where a source has one; Japanese audio by default |
 | **Control** | Built for the 10-key remote: arrows, OK, Return, media keys. Mouse and keyboard work on a laptop |
 | **Sources** | AnimeX (default), AniKoto, AnimeYubi, AniWaves, ranked automatically from real playback results on *your* TV (SourceIQ) |
@@ -26,7 +28,35 @@ This app combines all anime apis into one.
 | **Live TV (IPTV)** | Bring your own M3U playlist or Xtream login (or pick free public channels): fast channel browser for 50,000+ channels, TV guide, zapping, favorites. No channels are included |
 | **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
-| **Install** | Sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no Samsung store account needed) |
+| **Install** | Samsung: sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `app.apk` ([steps](docs/ANDROID.md)) |
+
+## IPTV player at a glance
+Aniultimatium's **Live TV** is built for people who already have an IPTV provider (or want free public channels) and want it to feel quick on a TV remote.
+
+- **Fast with huge lists.** A 30,000-channel Xtream list shows its first rows after about 0.1 s and is ready in about 0.6 s; reopening a saved list needs no download. Parsing runs in a background thread, the lists only draw what is on screen, and holding Down never exceeded 41 ms per frame in a test with the CPU slowed 4×. [Measured numbers](#live-tv-iptv).
+- **Add a playlist from your phone** with a code or QR scan, or type an Xtream login / M3U link, or pick free public channels by country, category or language.
+- **TV guide:** now / next with progress and descriptions (XMLTV including `.xml.gz`, or the Xtream short guide), a time-shift setting for guides in another time zone, 12/24-hour clock.
+- **Fast zapping:** ▲▼, channel number entry, previous channel, channel list over the video, favorites, recently watched, search across every channel.
+- **Control:** groups, sort, parental PIN and hidden adult groups, quality / audio / picture / sleep timer / buffering, a stream-stats overlay, a User-Agent choice for providers that need one.
+- **Where it runs:** Samsung Tizen 4.0+, Android TV, Fire TV, and any browser. One codebase, tested down to a Chromium 56 engine.
+- **Free and open source,** no account, no ads in the player. Details: [docs/IPTV.md](docs/IPTV.md).
+
+### Choosing an IPTV player for a TV: what to check
+Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi's PVR clients all play your provider's playlist; they differ in cost, platforms, speed and features. Aniultimatium has not been compared feature-by-feature with them here, so check what matters to you against these facts about Aniultimatium:
+
+| You want | Aniultimatium |
+|---|---|
+| Free, no subscription or account | Yes, free and open source |
+| Samsung Tizen TV support, including 2018 models | Yes (Tizen 4.0+), installed as a `.wgt` by sideloading |
+| Android TV / Fire TV | Yes, `app.apk` (sideloaded; not on a store) |
+| Your own M3U link or Xtream login | Yes |
+| Typing nothing on the remote | Yes: code or QR scan from a phone |
+| Large playlists without freezing | Measured: 30,000 channels ready in about 0.6 s, saved lists reopen in about 0.1 s to first rows |
+| TV guide with time-zone fix | Yes (XMLTV, `.gz`, Xtream short guide, ±6 h shift) |
+| Parental control | Adult groups hidden by default, 4-digit PIN to show them |
+| Works in a laptop browser | Yes (HLS streams) |
+
+**Choose something else if you need:** Xtream movies and series (VOD), catch-up or recording, DRM-protected channels, LG webOS or Apple TV apps, a store-listed app with official support, or a built-in channel subscription. Aniultimatium does not include any.
 
 ## Screenshots
 | Home | Search |
@@ -52,6 +82,9 @@ This app combines all anime apis into one.
 - **What's new each week.** "Popular This Week" and "New Releases" rows built from the episodes that actually aired in the last 7 days.
 - **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
 
+## Install on Android TV and Fire TV
+Download `app.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) and install it with Downloader (Fire TV), a USB stick / "Send files to TV" (Android TV) or `adb install app.apk`. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
+
 ## Install on a Samsung TV
 1. Download `app.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest).
 2. Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
@@ -60,6 +93,18 @@ This app combines all anime apis into one.
 Samsung TVs need Developer Mode for sideloading (Apps screen, type 12345, Developer mode ON, enter your computer's IP, reboot). Apps2Samsung walks through it.
 
 ## FAQ
+**What is a good free IPTV player for a Samsung Tizen TV?**
+Aniultimatium is a free, open-source IPTV player that runs on Samsung Tizen 4.0+ (2018 and newer) as well as Android TV, Fire TV and browsers. Add your own M3U playlist or Xtream login (from a phone with a code or QR), and it handles lists of 50,000+ channels without freezing. See [IPTV player at a glance](#iptv-player-at-a-glance) and the [checklist](#choosing-an-iptv-player-for-a-tv-what-to-check) for how to compare it with other players.
+
+**Is Aniultimatium an alternative to AquaPlay IPTV?**
+It does the same core job (plays your own IPTV provider's M3U or Xtream playlist on a TV) and is free and open source. Compare on the [checklist above](#choosing-an-iptv-player-for-a-tv-what-to-check): Aniultimatium adds phone/QR setup, a worker-based loader measured at about 0.6 s for 30,000 channels, a TV guide with time shift, a parental PIN, and Tizen, Android TV and Fire TV builds from one codebase. It does not include Xtream movies/series, catch-up or recording, and it ships no channels.
+
+**Does it come with channels?** No. You add your provider's playlist, or choose free public channels (community lists; what plays depends on your region).
+
+**How do I add an Xtream or M3U playlist without typing on the remote?** Live TV → Add a playlist → **Add with your phone**. Scan the QR code (or open the address shown), enter the details on the phone, and the playlist appears on the TV. The server forgets it as soon as the TV has it.
+
+**Does it work on Android TV and Fire TV?** Yes: install `app.apk` ([steps](docs/ANDROID.md)). It blocks popup ads from movie players and works with the remote's media and colour keys. It has been built and checked statically but not yet run on a physical device here, so please report any problem with your device model.
+
 **What is the best anime app for Samsung smart TVs?**
 It depends on what you need. For *licensed* catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others). If you want a **free, open-source anime app
 built specifically for Samsung Tizen TVs, with English sub and dub, remote-first controls, automatic source fallback and AniList sync**, Aniultimatium is made for exactly that,
@@ -107,7 +152,7 @@ when the first source is already fast there is little left to save. Time to firs
 - `public/` is the front-end and the TV app. `public/iq.js` is SourceIQ, `public/main.js` the app.
 - `api/index.js` is the backend (AniList metadata, stream lookup, relay); it runs on Cloudflare Workers (`worker/index.js`), Vercel or Node (`server/local.js`).
 - `lib/turbo.js` is TurboScrape (cache, de-duplication, hedged race, cancellation).
-- `tools/build_wgt.py` zips `public/` into `app.wgt`; `tools/check_compat.py` is the old-TV compatibility check; `tools/gen_compat_css.py` generates the CSS fallbacks;
+- `tools/build_wgt.py` zips `public/` into `app.wgt`; `tools/build_apk.py` builds the Android TV / Fire TV `app.apk` from the same files plus `android/` ([docs/ANDROID.md](docs/ANDROID.md)); `tools/probe_ads.js` checks which movie players run popup ads; `tools/check_compat.py` is the old-TV compatibility check; `tools/gen_compat_css.py` generates the CSS fallbacks;
   `tools/bench_sources.js` is the latency benchmark. Tests: `npm test`.
 
 Set `VERCEL_API_URL` at the top of `public/main.js` (any backend URL), then run `python3 tools/build_wgt.py`.
@@ -196,6 +241,8 @@ A fast IPTV section for your **own** playlist. Aniultimatium does not provide, h
 
 **Features:** groups, Favorites, Recently watched, search across every channel, sort (provider order / A-Z / number), now and next with progress bars and descriptions (XMLTV guide, or the Xtream short guide per channel), several playlists with separate favorites, adult groups hidden by default, quality / audio / picture (fit, fill, stretch, zoom) / sleep timer / connection choice, channel number entry, previous channel, channel list over the video (Left, with Left/Right switching group), automatic fallback (direct, then through your server, HLS then TS) and a clear message for channels that are offline.
 
+**Settings:** stream format, sort, which group opens first, open the last channel on start, guide on/off, **guide time shift**, 12/24-hour clock, adult groups + **parental PIN**, picture, buffering mode, banner time, logos on/off, **stream stats overlay**, playlist update interval, request User-Agent. More: [docs/IPTV.md](docs/IPTV.md).
+
 **Remote:** Up/Down zap, Left channel list, Right options, 0-9 channel number, OK show/hide the banner, Green previous channel, Yellow favorite, Blue sleep timer, Back leaves. In the list: OK watch, Right favorite, Left groups, Up search, CH+/- page.
 
 **Measured** (mock provider, 30,000 channels, headless Chromium; the old-engine numbers use Chromium 60 with the CPU slowed 4x as a stand-in for a 2018 TV, not a real TV):
@@ -210,11 +257,12 @@ A fast IPTV section for your **own** playlist. Aniultimatium does not provide, h
 | Longest stall while loading and parsing 30,000 channels (4x slower CPU) | about 70-150 ms (it was 300 ms before the work was split into slices) |
 | Parsing 100,000 channels (14 MB playlist) in Node | 0.9 s |
 
-**Limits:** streams must be HTTP/HTTPS (RTMP/UDP/RTSP are skipped). HLS (`.m3u8`) works everywhere; raw MPEG-TS plays on TVs but not in desktop browsers. Compressed `.gz` guides are not supported on TVs. Live TV on the website goes through the server for providers without CORS, which costs bandwidth; the TV app connects directly first. Movies/series (Xtream VOD) are not included yet.
+**Limits:** streams must be HTTP/HTTPS (RTMP/UDP/RTSP are skipped). HLS (`.m3u8`) works everywhere; raw MPEG-TS plays on TVs but not in desktop browsers. Compressed `.xml.gz` guides are unpacked by the server while relaying (guides over 80 MB are read in part). Live TV on the website goes through the server for providers without CORS, which costs bandwidth; the TV app connects directly first. Movies/series (Xtream VOD) are not included yet.
 
 ## Movies, accounts, history
 - **Movies** and **TV Shows** tabs: catalogue/metadata from Cinemeta (free, no key); TV shows list seasons and episodes (`/api?action=tv_meta&id=tt…`). Playback: public-domain films from the Internet Archive play in our
   own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player in an iframe: **CineSrc** (default), **VidFast**, **VidCore** or **Videasy**.
+  Sources known (from reading their scripts) or seen to open popup ads are tagged **⚠ Ads**; the Android app blocks those popups. Settings can hide the tag, try ad-free sources first, or add a **custom player** address. Findings and method: [docs/SOURCE_ADS.md](docs/SOURCE_ADS.md).
   On a movie's page, the **Source** dropdown picks Auto / CineSrc / VidFast / VidCore / Videasy / Public domain before you press Play (remembered).
   Embedded players run their own controls, so resume/skip aren't available there. In the menu (Up / Q) choose Source: Auto / Embedded / Public domain.
 - **Accounts**: Account tab -> create account / sign in. Continue Watching, My List and History sync between devices.

@@ -1,4 +1,4 @@
-# Builds app.wgt (tools/build_wgt.py) and attaches it to a DRAFT GitHub release.
+# Builds app.wgt (tools/build_wgt.py) and app.apk (tools/build_apk.py) and attaches them to a DRAFT GitHub release.
 # Runs when a tag like "stable-v1.03", "beta-v1.06" or "v1.03" is pushed, or by hand from the Actions tab. beta-* releases are marked "pre-release".
 name: Release app.wgt
 
@@ -36,6 +36,12 @@ jobs:
           unzip -l app.wgt
           head -1 public/main.js
 
+      - name: Build app.apk (Android TV / Fire TV)
+        continue-on-error: true            # a Gradle or SDK hiccup must not block the Samsung release
+        run: |
+          python3 tools/build_apk.py
+          ls -l app.apk
+
       - name: Release name
         id: meta
         run: |
@@ -53,5 +59,7 @@ jobs:
           name: ${{ steps.meta.outputs.name }}
           draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
           prerelease: ${{ steps.meta.outputs.pre == 'true' }}
-          files: app.wgt
+          files: |
+            app.wgt
+            app.apk
           body_path: RELEASE_NOTES.md
