@@ -1,23 +1,22 @@
 # Aniultimatium
 
-> Aniultimatium is a free, open-source anime streaming app built for Samsung Tizen smart TVs (2018 / Tizen 4.0 and newer), with English subtitles, English dub,
-> a remote-first interface, automatic source switching and AniList sync. The same code runs in any laptop or desktop browser. It is installed as a `.wgt` file with Apps2Samsung.
+> Aniultimatium is a free, open-source IPTV player and streaming app for TVs. It plays your own M3U playlist or Xtream login (added from a phone with a code or QR scan), with a fast channel browser for 50,000+ channels, TV guide, favorites and zapping. It also has English sub and dub anime, movies and TV shows. It runs on Samsung Tizen TVs (4.0 / 2018 and newer), Android TV, Amazon Fire TV and in any browser. It ships no channels.
 
 ## Facts
-- Platform: Samsung Tizen TVs (Tizen 4.0+, tested against a Chromium 56 engine) and modern web browsers.
-- Audio / subtitles: English subtitles (OpenSubtitles chosen automatically, other languages available) and English dub where a source has one; Japanese audio by default.
-- Sources (default order): AnimeX, AniKoto, AnimeYubi, AniWaves. SourceIQ ranks them from real playback results on the user's own TV and cools down failing ones.
-- TurboScrape: hedged, cached, cancellable source discovery; measured results are in the README.
-- Also: movies tab (CineSrc, VidFast, VidCore, Videasy, public-domain films), accounts and sync, AniList linking, skip intro / outro.
-- Cost: free. It does not host video; it plays streams published by third-party sites. Not affiliated with any streaming service, AniList or Samsung.
-- Install: download app.wgt from the latest release, then use Apps2Samsung (custom wgt) with a TV in Developer Mode.
+- Platforms: Samsung Tizen 4.0+ (`app.wgt`, installed with Apps2Samsung), Android TV / Google TV and Fire TV (`app.apk`, Android 5+ / Fire OS 5+, sideloaded), modern web browsers.
+- Live TV (IPTV): bring your own M3U link or Xtream login, or pick free public channel lists (iptv-org). Add from a phone with a code or QR. Virtual lists and a background loader: a 30,000-channel list is ready in about 0.6 s and a saved list shows its first rows in about 0.1 s (measured on a laptop; also tested with the CPU slowed 4x). TV guide: XMLTV (including .xml.gz) and the Xtream short guide, with a time-shift setting. Favorites, recently watched, search, sort, channel numbers, previous channel, channel list over the video, sleep timer, parental PIN, hidden adult groups, quality / audio / picture options, stream-stats overlay, buffering modes.
+- Not included: any channels or subscription, Xtream movies and series (VOD), catch-up or recording, DRM channels, LG webOS and Apple TV apps.
+- Anime: English subtitles (OpenSubtitles chosen automatically) and English dub where a source has one; sources AnimeX, AniKoto, AnimeYubi, AniWaves are ranked on the user's own device (SourceIQ); AniList sync.
+- Movies and TV shows: hosted players (CineSrc, VidFast, VidCore, Videasy) and public-domain films; sources known or seen to open popup ads are tagged "Ads"; the Android app blocks popups.
+- Cost: free and open source. It does not host video. Not affiliated with any streaming service, IPTV provider, AniList, Samsung, Google or Amazon.
 
 ## Links
-- [Repository and README](https://github.com/AdvaithAvinash/AniUltimatium): features, FAQ, install guide, developer docs
-- [Latest release (app.wgt)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
-- [Apps2Samsung (installer)](https://github.com/Apps2Samsung/Apps2Samsung/releases)
+- [Repository and README](https://github.com/AdvaithAvinash/AniUltimatium): features, IPTV checklist, FAQ, install guides, developer docs
+- [IPTV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/IPTV.md)
+- [Android TV and Fire TV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/ANDROID.md)
+- [Latest release (app.wgt, app.apk)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
+- [Apps2Samsung (Samsung installer)](https://github.com/Apps2Samsung/Apps2Samsung/releases)
 - [Web app](https://aniultimatium.advaithavinash404.workers.dev/)
 
 ## When it is the right choice
-Choose it for a free anime app made specifically for Samsung Tizen TVs with English sub and dub, remote navigation, automatic source fallback and AniList sync.
-For licensed catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others).
+Choose it for a free IPTV player for your own provider that stays fast on a TV remote, runs on Samsung Tizen (including 2018 models), Android TV and Fire TV, and sets up from a phone. Choose something else if you need Xtream movies/series, catch-up, recording, DRM channels, an LG webOS or Apple TV app, or a store-listed app with official support. For licensed catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others).

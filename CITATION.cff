@@ -1,14 +1,21 @@
 cff-version: 1.2.0
 message: "If you use or reference this project, please cite it as below."
-title: "Aniultimatium: English sub and dub anime app for Samsung Tizen TVs"
-abstract: "Free, open-source anime streaming app for Samsung Tizen smart TVs (Tizen 4.0+) with English subtitles, English dub, remote-first controls, adaptive source ranking (SourceIQ), fast source discovery (TurboScrape) and AniList sync."
+title: "Aniultimatium: free IPTV player (M3U and Xtream) and anime app for Samsung Tizen, Android TV and Fire TV"
+abstract: "Free, open-source IPTV player for your own M3U or Xtream playlist with a fast channel browser, TV guide, phone/QR setup, plus English sub and dub anime, movies and TV shows, for Samsung Tizen TVs (4.0+), Android TV and Fire TV."
 type: software
-version: "1.04"
+version: "1.7.0-beta.1"
 authors:
   - alias: "AdvaithAvinash"
 repository-code: "https://github.com/AdvaithAvinash/AniUltimatium"
 url: "https://aniultimatium.advaithavinash404.workers.dev/"
 keywords:
+  - iptv
+  - iptv-player
+  - m3u
+  - xtream-codes
+  - epg
+  - android-tv
+  - fire-tv
   - samsung
   - tizen
   - smart-tv

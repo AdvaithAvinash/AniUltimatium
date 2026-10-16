@@ -633,6 +633,15 @@ async function proxy(req, res, q, origin) {
     return res.status(200).send(toVtt(await r.text(), target));
   }
   const type = r.headers.get('content-type') || '';
+  if (q.gunzip === '1') {                                              // .xml.gz guides: unpacked here because a TV browser cannot (Workers: native DecompressionStream, Node: zlib)
+    if (!r.ok || !r.body) return send(res, r.ok ? 502 : r.status, { error: 'upstream unavailable (' + r.status + ')' }, 'no-store');
+    res.setHeader('Content-Type', 'text/xml; charset=utf-8'); res.setHeader('Cache-Control', 'no-store');
+    if (typeof res.sendWebStream === 'function' && typeof DecompressionStream === 'function') return res.sendWebStream(r.body.pipeThrough(new DecompressionStream('gzip')));
+    const zlib = require('zlib'), { Readable } = require('stream'), gz = zlib.createGunzip(), src = Readable.fromWeb(r.body);
+    res.statusCode = 200; res.on('close', () => { src.destroy(); gz.destroy(); });
+    src.on('error', () => res.end()); gz.on('error', () => res.end());
+    return src.pipe(gz).pipe(res);
+  }
   if (q.raw !== '1' && (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target))) {
     const text = await r.text();
     if (!r.ok || text.indexOf('#EXTM3U') < 0) return send(res, r.ok ? 502 : r.status, { error: 'upstream playlist unavailable (' + r.status + ')' }, 'no-store');
@@ -692,7 +701,7 @@ async function handle(req, res) {
         const r = await movies.sources(q);
         // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)
         const base = r.direct ? finish(r.direct, origin) : {};
-        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds }, 'no-store');
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds, tmdb: r.tmdb }, 'no-store');
       }
       case 'subs':
         return send(res, 200, { subtitles: await subsFor(q, origin).catch(() => []) }, 's-maxage=3600');

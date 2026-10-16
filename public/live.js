@@ -15,7 +15,16 @@
 
   function prof(name, t0) { if (window.__prof) window.__prof.push([name, Math.round((performance.now() - t0) * 10) / 10, Math.round(t0)]); }       // tests only: window.__prof = []
   // ====================================================================== settings, playlists, per-playlist data
-  var SET = (function () { var s = store.get('ea_live_set', {}) || {}; return { ext: s.ext === 'ts' ? 'ts' : 'm3u8', adult: !!s.adult, autoplay: !!s.autoplay, guide: s.guide !== false, sort: /^(az|num)$/.test(s.sort) ? s.sort : 'provider', aspect: /^(fit|fill|stretch|zoom)$/.test(s.aspect) ? s.aspect : 'fit' }; })();
+  var UAS = { '': '', vlc: 'VLC/3.0.20 LibVLC/3.0.20', okhttp: 'okhttp/4.12.0', chrome: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' };
+  var SDEF = { ext: 'm3u8', adult: false, autoplay: false, guide: true, sort: 'provider', aspect: 'fit', shift: 0, clock12: false, banner: 5, buffer: 'balanced', logos: true, start: 'all', auto: 'daily', ua: '', stats: false, pin: '' };
+  var SENUM = { ext: ['m3u8', 'ts'], sort: ['provider', 'az', 'num'], aspect: ['fit', 'fill', 'stretch', 'zoom'], banner: [3, 5, 8, 12], buffer: ['fast', 'balanced', 'stable'], start: ['all', 'fav', 'last'], auto: ['daily', 'weekly', 'manual'] };
+  var SET = (function () {                                                         // saved settings, each checked against what is allowed so an old or damaged value can never break the screen
+    var s = store.get('ea_live_set', {}) || {}, o = {}, k;
+    for (k in SDEF) o[k] = s[k] !== undefined && typeof s[k] === typeof SDEF[k] ? s[k] : SDEF[k];
+    for (k in SENUM) if (SENUM[k].indexOf(o[k]) < 0) o[k] = SDEF[k];
+    if (UAS[o.ua] === undefined) o.ua = ''; o.shift = Math.max(-12, Math.min(12, Math.round(o.shift))); if (!/^\d{4}$/.test(o.pin)) o.pin = '';
+    return o;
+  })();
   function saveSet() { store.set('ea_live_set', SET); }
   function loadPls() { var a = store.get('ea_live_pl', []); return a instanceof Array ? a : []; }
   function savePls() { store.set('ea_live_pl', PLS); }
@@ -30,7 +39,13 @@
     return s < 90 ? 'just now' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 129600 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago';
   }
   function num(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-  function hhmm(sec) { var d = new Date(sec * 1000), h = d.getHours(), m = d.getMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; }
+  function hhmm(sec) {
+    var d = new Date(sec * 1000), h = d.getHours(), m = d.getMinutes(), mm = (m < 10 ? '0' : '') + m;
+    if (SET.clock12) { var ap = h >= 12 ? ' PM' : ' AM'; h = h % 12 || 12; return h + ':' + mm + ap; }
+    return (h < 10 ? '0' : '') + h + ':' + mm;
+  }
+  function gt(sec) { return hhmm(sec + SET.shift * 3600); }                          // programme time as shown (Settings: guide time shift for providers whose guide is in another time zone)
+  function autoMs() { return SET.auto === 'weekly' ? 7 * 864e5 : SET.auto === 'manual' ? 1e15 : 864e5; }
   function nowSec() { return Math.floor(Date.now() / 1000); }
   function tick(fn, ms) { var t = null; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
 
@@ -142,7 +157,7 @@
   function progOf(ci) {
     if (!D) return null;
     var e = D.e[ci], l = (e && D.epg[e]) || D.epgShort['#' + D.u[ci]];
-    return l ? IPTV.nowNext(l, T.now) : null;
+    return l ? IPTV.nowNext(l, T.now - SET.shift * 3600) : null;
   }
   function guideUrl(pl) {
     if (pl.type === 'xtream') return pl.server.replace(/\/+$/, '') + '/xmltv.php?username=' + encodeURIComponent(pl.user) + '&password=' + encodeURIComponent(pl.pass);
@@ -152,7 +167,7 @@
     var pl = D && D.pl, tk = loadTk; if (!pl || !SET.guide) return;
     var url = guideUrl(pl);
     if (!url) { D.epgState = pl.type === 'xtream' ? '' : 'no-guide'; return; }
-    if (/\.gz(\?|$)/i.test(url)) { D.epgState = 'gz'; return; }
+    var gz = /\.gz(\?|$)/i.test(url);                                                // a TV cannot unpack .gz: the server does it while relaying
     var key = pid(pl), list = pl.type === 'xtream' ? null : D.e.filter(Boolean);       // a provider's own guide only lists its channels; a shared guide is filtered to ours
     if (list && !list.length) { D.epgState = 'no-ids'; return; }
     var fresh = pl.epgAt && Date.now() - pl.epgAt < 6 * 3600000;
@@ -174,7 +189,7 @@
     fetchGuide(false);
     function fetchGuide() {
       D.epgState = 'loading'; paintStatus();
-      var job = { kind: 'xmltv', url: url, ids: list ? list.join('\n') : null, tries: tries(pl, url, true) };      // one string: cloning 30,000 small strings blocks a slow TV
+      var job = { kind: 'xmltv', url: url, ids: list ? list.join('\n') : null, maxBytes: 80 * 1048576, tries: gz ? [{ via: 'proxy', pre: EA.apiBase() + '/api?action=proxy&raw=1&gunzip=1&url=' }] : tries(pl, url, true) };      // one string: cloning 30,000 small strings blocks a slow TV
       getClient().run(job, null, function (got, total) { D.epgProg = total ? Math.round(got / total * 100) : Math.round(got / 1048576) + ' MB'; }).then(function (res) {
         if (tk !== loadTk) return;
         pl.epgAt = Date.now(); savePls();
@@ -205,7 +220,7 @@
   }
 
   // route list for a URL: direct first, then through our server (needed for CORS / mixed content / User-Agent)
-  function proxyPre(pl, live) { return EA.apiBase() + '/api?action=proxy' + (live ? '&live=1' : '&raw=1') + (pl && pl.ua ? '&ua=' + encodeURIComponent(pl.ua) : '') + '&url='; }
+  function proxyPre(pl, live) { return EA.apiBase() + '/api?action=proxy' + (live ? '&live=1' : '&raw=1') + ((pl && pl.ua) || UAS[SET.ua] ? '&ua=' + encodeURIComponent((pl && pl.ua) || UAS[SET.ua]) : '') + '&url='; }
   function tries(pl, url, raw) {
     var d = { via: 'direct', pre: '' }, p = { via: 'proxy', pre: proxyPre(pl, false) };
     var mixed = location.protocol === 'https:' && /^http:/i.test(url);
@@ -265,7 +280,8 @@
   var logoOk = {}, logoBad = {}, settleT = null, pendingRows = [];
   function hue(s) { var h = 0, i; for (i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
   function initials(s) { var w = String(s).replace(/[^A-Za-z0-9À-￿ ]/g, ' ').trim().split(/\s+/); return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : (w[0] || '').charAt(1) || '')).toUpperCase(); }
-  function setLogo(r, url) {                                                       // cached logos appear at once; the rest after scrolling settles
+  function setLogo(r, url) {
+    if (!SET.logos) url = '';                                                       // Settings: logos off (saves data on a slow connection)                                                       // cached logos appear at once; the rest after scrolling settles
     r.img.className = ''; r.url = url || '';
     if (!url || logoBad[url]) { if (r.img.src !== TRANSPARENT) r.img.src = TRANSPARENT; return; }
     if (logoOk[url]) { r.img.src = url; r.img.className = 'ld'; return; }
@@ -342,9 +358,14 @@
     items.forEach(function (it) { it.cur = it.k === C.kind && (it.k !== 'g' || it.g === C.g); });
   }
   function railIndexOfCur() { var i; for (i = 0; i < RAIL.length; i++) if (RAIL[i].cur) return i; return 2; }
+  function initialCat() {                                                          // Settings: which group opens first
+    if (C.q || !D) return;
+    if (SET.start === 'fav' && D.favList.length) C = { kind: 'fav', g: 0, q: '' };
+    else if (SET.start === 'last') { var lc = store.get(userKey('lastcat', D.pl), null); if (lc && (lc.kind === 'all' || lc.kind === 'fav' || lc.kind === 'recent' || (lc.kind === 'g' && D.gc[lc.g] > 0))) C = { kind: lc.kind, g: lc.g || 0, q: '' }; }
+  }
   function railApply(i) {
     var it = RAIL[i]; if (!it) return;
-    C.kind = it.k; C.g = it.g || 0; RAIL.forEach(function (x) { x.cur = x === it; }); RL.paintAll();
+    C.kind = it.k; C.g = it.g || 0; if (D && it.k !== 'recent') store.set(userKey('lastcat', D.pl), { kind: it.k, g: it.g || 0 }); RAIL.forEach(function (x) { x.cur = x === it; }); RL.paintAll();
     clearSearch(); rebuildView(0);
   }
   var railApplyDeb = tick(function () { if (RL && Z === 'rail') railApply(RL.sel); }, 180);
@@ -388,20 +409,23 @@
     var h = $('liveHint'); if (!h) return;
     h.innerHTML = Z === 'rail' ? '<b>OK</b> open group · <b>▶</b> channels · <b>▲▼</b> browse' : '<b>OK</b> watch · <b>▶</b> favorite · <b>◀</b> groups · <b>▲</b> search · <b>CH▲▼</b> page';
   }
+  function progList(ci) { var e = D.e[ci]; return (e && D.epg[e]) || D.epgShort['#' + D.u[ci]] || null; }
   function paintInfo(force) {
     var ci = curCi(), box = $('liveInfo'); if (!D || ci < 0) { box.className = 'empty'; $('liInfName').textContent = ''; $('liInfLogo').innerHTML = ''; $('liInfMeta').textContent = ''; $('liInfNow').innerHTML = ''; $('liInfNext').innerHTML = ''; return; }
     box.className = '';
     if (box.__ci !== ci || force) {
       box.__ci = ci;
       var u = D.l[ci];
-      $('liInfLogo').innerHTML = '<b style="color:hsl(' + hue(D.n[ci]) + ',70%,72%)">' + esc(initials(D.n[ci])) + '</b>' + (u && !logoBad[u] ? '<img alt="" src="' + esc(u) + '">' : '');
+      $('liInfLogo').innerHTML = '<b style="color:hsl(' + hue(D.n[ci]) + ',70%,72%)">' + esc(initials(D.n[ci])) + '</b>' + (SET.logos && u && !logoBad[u] ? '<img alt="" src="' + esc(u) + '">' : '');
       var im = $('liInfLogo').querySelector('img'); if (im) { im.onerror = function () { logoBad[u] = 1; im.style.display = 'none'; }; }
       $('liInfName').textContent = splitName(D.n[ci]).t;
       $('liInfMeta').innerHTML = '<span>CH ' + esc(D.o[ci]) + '</span><span>' + esc(D.groups[D.g[ci]] || '') + '</span>' + (isFav(ci) ? '<span class="fv">' + EA.ic('heart') + 'Favorite</span>' : '');
       var nn = progOf(ci);
-      $('liInfNow').innerHTML = nn && nn.now ? '<label>NOW · ' + hhmm(nn.now[0]) + '–' + hhmm(nn.now[1]) + '</label><div class="tt">' + esc(nn.now[2]) + '</div><div class="pb"><i style="width:' + nn.pct + '%"></i></div>' + (nn.now[3] ? '<p>' + esc(nn.now[3]) + '</p>' : '')
+      $('liInfNow').innerHTML = nn && nn.now ? '<label>NOW · ' + gt(nn.now[0]) + '–' + gt(nn.now[1]) + '</label><div class="tt">' + esc(nn.now[2]) + '</div><div class="pb"><i style="width:' + nn.pct + '%"></i></div>' + (nn.now[3] ? '<p>' + esc(nn.now[3]) + '</p>' : '')
         : '<label>NOW</label><div class="tt mu">' + (D.epgState === 'loading' ? 'Loading the TV guide…' : 'No programme information') + '</div>';
-      $('liInfNext').innerHTML = nn && nn.next ? '<label>NEXT · ' + hhmm(nn.next[0]) + '</label><div class="tt">' + esc(nn.next[2]) + '</div>' : '';
+      var more = '', pl2 = progList(ci), t2 = T.now - SET.shift * 3600, n2 = 0, k2;
+      if (nn && nn.next && pl2) for (k2 = 0; k2 < pl2.length && n2 < 3; k2++) if (pl2[k2][0] > nn.next[0]) { more += '<div class="upl"><b>' + gt(pl2[k2][0]) + '</b><span>' + esc(pl2[k2][2]) + '</span></div>'; n2++; }
+      $('liInfNext').innerHTML = nn && nn.next ? '<label>NEXT · ' + gt(nn.next[0]) + '</label><div class="tt">' + esc(nn.next[2]) + '</div>' + (more ? '<div class="upc"><label>LATER</label>' + more + '</div>' : '') : '';
     }
   }
 
@@ -435,12 +459,12 @@
       if (!chunks.length) { if (offline) { LOAD.busy = false; paintStatus(); return; } refresh(pl, focus, tk); return; }
       appendSliced(chunks, tk, function () {                                       // saved chunks go in without blocking the remote
         finalize(pl.groups, tk, function () {
-          buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur());
+          initialCat(); buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur());
           LOAD.busy = false; rebuildView(0); paintHeader();
           var last = store.get(userKey('last', pl), null);
           if (focus) { enterList(); if (SET.autoplay && last !== null) { var ci = keyMap()['$' + last]; if (ci !== undefined) playChannel(ci, V.idx, findIn(V.idx, ci)); } }
           loadGuide(false);
-          if (!pl.updated || Date.now() - pl.updated > 24 * 3600000) refresh(pl, false, tk, true);        // stale: update quietly in the background
+          if (!pl.updated || Date.now() - pl.updated > autoMs()) refresh(pl, false, tk, true);        // stale: update quietly in the background
         });
       }, function (first) { showPartial(first, focus); });
     });
@@ -471,7 +495,7 @@
         var cc = curCi(), curKey = (D && cc >= 0) ? D.u[cc] : null;
         function swap() {
           finalize(res.groups, tk, function () {
-            buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur());
+            if (!quiet) initialCat(); buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur());
             LOAD.busy = false; rebuildView(0); paintHeader();
             if (quiet && curKey !== null) { var ni = keyMap()['$' + curKey]; if (ni !== undefined) { var pos = findIn(V.idx, ni); if (pos >= 0) LL.select(pos); } }
             if (!quiet && focus) enterList();
@@ -547,15 +571,16 @@
   function isHls(u) { return /\.m3u8?(\?|#|$)/i.test(u) || /[?&]type=m3u8/i.test(u) || /m3u8/i.test(u); }
   function pxUrl(pl, u) { return proxyPre(pl, true) + encodeURIComponent(u); }
   function makeRoutes(ci) {
-    var pl = D.pl, urls = [chUrl(ci)], out = [], mixed = location.protocol === 'https:';
-    if (pl.type === 'xtream') urls.push(chUrl(ci, SET.ext === 'ts' ? 'm3u8' : 'ts'));
+    var pl = D.pl, first0 = pl.extLearned || SET.ext, urls = [{ u: chUrl(ci, first0), ext: first0, alt: false }], out = [], mixed = location.protocol === 'https:';
+    if (pl.type === 'xtream') { var other = first0 === 'ts' ? 'm3u8' : 'ts'; urls.push({ u: chUrl(ci, other), ext: other, alt: true }); }
     var canHls = !!(window.Hls && Hls.isSupported());
-    function add(u, via) {
+    function add(uo, via) {
+      var u = uo.u;
       if (via === 'direct' && mixed && /^http:/i.test(u)) return;
-      var url = via === 'proxy' ? pxUrl(pl, u) : u, hl = isHls(u);
-      if (hl && canHls) out.push({ url: url, kind: 'hls', via: via });
-      else if (hl) out.push({ url: url, kind: 'native', via: via });
-      else { out.push({ url: url, kind: 'native', via: via }); if (canHls) out.push({ url: url, kind: 'hls', via: via }); }
+      var url = via === 'proxy' ? pxUrl(pl, u) : u, hl = isHls(u), mk = function (kind) { return { url: url, kind: kind, via: via, ext: uo.ext, alt: uo.alt }; };
+      if (hl && canHls) out.push(mk('hls'));
+      else if (hl) out.push(mk('native'));
+      else { out.push(mk('native')); if (canHls) out.push(mk('hls')); }
     }
     var first = pl.via === 'proxy' ? ['proxy', 'direct'] : ['direct', 'proxy'];
     if (P.forceVia) first = [P.forceVia];
@@ -578,7 +603,7 @@
     try { video.playbackRate = 1; } catch (e) { /* ignore */ }
     state.src = null; state.pPlay = null;                                          // the anime player's bookkeeping must not react to live video events
     P.ci = ci; P.hud = true; pushRecent(ci); buildRailCounts();
-    paintHud(); showHud(5000); startStream(true);
+    paintHud(); showHud(); startStream(true);
   }
   function startStream(immediate) {
     var tk = ++P.token; P.started = false; P.retries = 0;
@@ -594,11 +619,12 @@
     if (P.route >= P.routes.length) { failStream(); return; }
     var r = P.routes[P.route]; P.cur = r;
     if (P.route > 0) setMsg('Trying another route…', 'attempt ' + (P.route + 1) + ' of ' + P.routes.length, true);
-    clearTimeout(P.timer); P.timer = setTimeout(function () { if (tk === P.token && !P.started) nextRoute(tk); }, P.route === 0 ? 14000 : 18000);
+    clearTimeout(P.timer); P.timer = setTimeout(function () { if (tk === P.token && !P.started) nextRoute(tk); }, P.route === 0 ? 9000 : 12000);
     try {
       if (r.kind === 'hls') {
-        var h = new Hls({ enableWorker: true, lowLatencyMode: false, liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 12, maxBufferLength: 20, maxMaxBufferLength: 40, backBufferLength: 20,
-          manifestLoadingMaxRetry: 1, manifestLoadingTimeOut: 9000, levelLoadingMaxRetry: 2, levelLoadingTimeOut: 9000, fragLoadingMaxRetry: 3, fragLoadingTimeOut: 12000, startLevel: -1, abrEwmaDefaultEstimate: 4000000, capLevelToPlayerSize: false });
+        var bm = { fast: [2, 6, 12], balanced: [3, 20, 40], stable: [5, 40, 80] }[SET.buffer] || [3, 20, 40];            // Settings: buffering
+        var h = new Hls({ enableWorker: true, lowLatencyMode: false, liveSyncDurationCount: bm[0], liveMaxLatencyDurationCount: bm[0] + 9, maxBufferLength: bm[1], maxMaxBufferLength: bm[2], backBufferLength: 20,
+          manifestLoadingMaxRetry: 1, manifestLoadingTimeOut: 6000, levelLoadingMaxRetry: 2, levelLoadingTimeOut: 6000, fragLoadingMaxRetry: 3, fragLoadingTimeOut: 12000, startLevel: -1, abrEwmaDefaultEstimate: 4000000, capLevelToPlayerSize: false });
         P.hls = h;
         h.on(Hls.Events.MANIFEST_PARSED, function () { applyQuality(); var pr = video.play(); if (pr && pr.catch) pr.catch(function () {}); });
         h.on(Hls.Events.LEVEL_SWITCHED, function () { paintQuality(); });
@@ -625,6 +651,7 @@
     if (!P.on) return;
     clearTimeout(P.timer); clearTimeout(P.stallT); P.started = true; P.retries = 0; setMsg('');
     var r = P.cur; if (r && D && r.via !== D.pl.via) { D.pl.via = r.via; savePls(); }
+    if (r && D && r.alt && D.pl.type === 'xtream' && D.pl.extLearned !== r.ext) { D.pl.extLearned = r.ext; savePls(); }          // this provider only plays the other format: start with it next time
     paintQuality();
   });
   video.addEventListener('waiting', function () {
@@ -641,7 +668,7 @@
     m.className = busy ? 'busy' : 'err'; m.innerHTML = (busy ? '<div class="sp"></div>' : '') + '<h3>' + esc(a) + '</h3>' + (b ? '<p>' + esc(b) + '</p>' : '');
   }
   function leavePlayer() {
-    P.on = false; P.token++; clearTimeout(P.startT); stopMedia(); clearTimeout(P.hudT); clearTimeout(P.numT); closeMenu(); closeSide(); setSleep(0);
+    P.on = false; paintStats(); P.token++; clearTimeout(P.startT); stopMedia(); clearTimeout(P.hudT); clearTimeout(P.numT); closeMenu(); closeSide(); setSleep(0);
     state.liveOn = false; state.view = 'live';
     $('player').className = 'hidden'; $('player').removeAttribute('data-kind'); $('liveHud').className = 'hidden'; setMsg(''); $('liveNum').className = 'hidden';
     video.style.objectFit = ''; video.style.webkitTransform = video.style.transform = '';
@@ -652,21 +679,34 @@
   // ---- banner ----
   function showHud(ms) {
     var h = $('liveHud'); h.className = P.side ? 'side' : P.menu ? 'menu' : ''; P.hud = true; clearTimeout(P.hudT);
-    P.hudT = setTimeout(function () { if (!P.menu && !P.side) { h.className = 'idle'; P.hud = false; } }, ms || 5000);
+    P.hudT = setTimeout(function () { if (!P.menu && !P.side) { h.className = 'idle'; P.hud = false; } }, ms || SET.banner * 1000);
   }
   function paintHud() {
     if (!P.on || !D || P.ci < 0) return;
     var ci = P.ci, u = D.l[ci], nn = progOf(ci);
     var sn = splitName(D.n[ci]);
     $('lhNum').textContent = D.o[ci]; $('lhName').textContent = sn.t; $('lhGroup').textContent = D.groups[D.g[ci]] || '';
-    var lg = $('lhLogo'); if (lg.__ci !== ci) { lg.__ci = ci; lg.innerHTML = '<b style="color:hsl(' + hue(D.n[ci]) + ',70%,72%)">' + esc(initials(D.n[ci])) + '</b>' + (u && !logoBad[u] ? '<img alt="" src="' + esc(u) + '">' : ''); var im = lg.querySelector('img'); if (im) im.onerror = function () { logoBad[u] = 1; im.style.display = 'none'; }; }
+    var lg = $('lhLogo'); if (lg.__ci !== ci) { lg.__ci = ci; lg.innerHTML = '<b style="color:hsl(' + hue(D.n[ci]) + ',70%,72%)">' + esc(initials(D.n[ci])) + '</b>' + (SET.logos && u && !logoBad[u] ? '<img alt="" src="' + esc(u) + '">' : ''); var im = lg.querySelector('img'); if (im) im.onerror = function () { logoBad[u] = 1; im.style.display = 'none'; }; }
     $('lhFav').innerHTML = isFav(ci) ? EA.ic('heart') : '';
-    $('lhNow').textContent = nn && nn.now ? nn.now[2] : (D.epgState === 'loading' ? 'Loading guide…' : 'No programme information'); $('lhNowT').textContent = nn && nn.now ? hhmm(nn.now[0]) + '–' + hhmm(nn.now[1]) : '';
+    $('lhNow').textContent = nn && nn.now ? nn.now[2] : (D.epgState === 'loading' ? 'Loading guide…' : 'No programme information'); $('lhNowT').textContent = nn && nn.now ? gt(nn.now[0]) + '–' + gt(nn.now[1]) : '';
     $('lhBar').style.width = (nn && nn.now ? nn.pct : 0) + '%';
-    $('lhNext').textContent = nn && nn.next ? nn.next[2] : ''; $('lhNextT').textContent = nn && nn.next ? hhmm(nn.next[0]) : '';
-    var c = new Date(), m = c.getMinutes(); $('lhClock').textContent = c.getHours() + ':' + (m < 10 ? '0' : '') + m;
+    $('lhNext').textContent = nn && nn.next ? nn.next[2] : ''; $('lhNextT').textContent = nn && nn.next ? gt(nn.next[0]) : '';
+    var c = new Date(); $('lhClock').textContent = hhmm(nowSec());
     fetchShort(ci); paintQuality();
   }
+  function paintStats() {
+    var el0 = $('lhStats'); if (!el0) return;
+    if (!P.on || !SET.stats) { el0.className = 'hidden'; return; }
+    var parts = [], h = P.hls, lv = h && h.levels && h.currentLevel >= 0 ? h.levels[h.currentLevel] : null, q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
+    if (video.videoHeight) parts.push(video.videoWidth + '×' + video.videoHeight);
+    if (lv && lv.bitrate) parts.push((lv.bitrate / 1e6).toFixed(1) + ' Mbps stream');
+    if (h && h.bandwidthEstimate) parts.push((h.bandwidthEstimate / 1e6).toFixed(1) + ' Mbps link');
+    if (video.buffered && video.buffered.length) parts.push('buffer ' + Math.max(0, video.buffered.end(video.buffered.length - 1) - video.currentTime).toFixed(0) + ' s');
+    if (q) parts.push(q.droppedVideoFrames + ' dropped');
+    if (P.cur) parts.push((P.cur.via === 'proxy' ? 'via server' : 'direct') + ' · ' + P.cur.kind + (P.cur.ext ? ' · ' + P.cur.ext : ''));
+    el0.className = ''; el0.textContent = parts.join('   ·   ');
+  }
+  setInterval(function () { if (P.on && SET.stats) paintStats(); }, 1000);
   function paintQuality() {
     var q = $('lhQ'), t = '';
     if (P.hls && P.hls.levels && P.hls.levels.length) { var lv = P.hls.levels[P.hls.currentLevel >= 0 ? P.hls.currentLevel : (P.hls.loadLevel >= 0 ? P.hls.loadLevel : 0)]; if (lv && lv.height) t = lv.height + 'p'; }
@@ -681,12 +721,12 @@
     P.pos = (P.pos + dir + P.list.length) % P.list.length;
     var ci = P.list[P.pos]; if (ci === P.ci) return;
     P.prev = P.ci; P.ci = ci; P.token++; clearTimeout(P.startT); stopMedia(); pushRecent(ci);
-    setMsg('Tuning…', '', true); paintHud(); showHud(5000); zapStart();
+    setMsg('Tuning…', '', true); paintHud(); showHud(); zapStart();
   }
   function goChannel(ci) {                                                         // jump to a channel that may not be in the zap list
     var p = findIn(P.list || [], ci);
     if (p < 0) { P.list = V.idx.length && findIn(V.idx, ci) >= 0 ? V.idx : viewOf({ kind: 'all' }, ''); p = findIn(P.list, ci); }
-    P.pos = p; P.prev = P.ci; P.ci = ci; pushRecent(ci); paintHud(); showHud(5000); startStream(true);
+    P.pos = p; P.prev = P.ci; P.ci = ci; pushRecent(ci); paintHud(); showHud(); startStream(true);
   }
   function numberKey(d) {
     P.numBuf = (P.numBuf + d).slice(0, 5);
@@ -742,6 +782,7 @@
     rows.push({ l: 'Sleep timer', v: sv ? sv + ' min' : 'Off', ch: function (d) { var i = Math.max(0, SLP.indexOf(sv)); setSleep(SLP[(i + d + SLP.length) % SLP.length]); } });
     rows.push({ l: 'Connection', v: P.forceVia === 'proxy' ? 'Via server' : P.forceVia === 'direct' ? 'Direct' : 'Automatic', ch: function (d) { var o = ['', 'direct', 'proxy'], i = o.indexOf(P.forceVia || ''); P.forceVia = o[(i + d + 3) % 3]; startStream(true); } });
     rows.push({ l: 'Favorite', v: isFav(ci) ? '♥ In Favorites' : 'Add to Favorites', ch: function () { toggleFav(ci); paintHud(); buildRailCounts(); } });
+    rows.push({ l: 'Stream stats', v: SET.stats ? 'On' : 'Off', ch: function () { SET.stats = !SET.stats; saveSet(); paintStats(); } });
     return rows;
   }
   function renderMenu() {
@@ -754,7 +795,7 @@
     });
     var nn = progOf(P.ci), up = '';
     var l = (D.e[P.ci] && D.epg[D.e[P.ci]]) || D.epgShort['#' + D.u[P.ci]] || [], n = 0, i2;
-    for (i2 = 0; i2 < l.length && n < 5; i2++) if (l[i2][1] > T.now) { up += '<div class="gl"><b>' + hhmm(l[i2][0]) + '</b><span>' + esc(l[i2][2]) + '</span></div>'; n++; }
+    for (i2 = 0; i2 < l.length && n < 5; i2++) if (l[i2][1] > T.now) { up += '<div class="gl"><b>' + gt(l[i2][0]) + '</b><span>' + esc(l[i2][2]) + '</span></div>'; n++; }
     if (up) box.appendChild(el('div', 'mguide', '<div class="mg">Coming up</div>' + up));
   }
   function openMenu() { P.menu = true; P.menuIdx = 0; $('liveMenu').className = ''; renderMenu(); showHud(60000); }
@@ -809,7 +850,7 @@
     if (!P.on) return; e.stopPropagation();
     if (EA.up(e.target, 'mrow') || EA.up(e.target, 'vrow')) return;
     if (P.menu) { closeMenu(); return; } if (P.side) { closeSide(); return; }
-    if (P.hud) { $('liveHud').className = 'idle'; P.hud = false; } else { paintHud(); showHud(5000); }
+    if (P.hud) { $('liveHud').className = 'idle'; P.hud = false; } else { paintHud(); showHud(); }
   }, true);
   $('player').addEventListener('mousemove', function () { if (P.on && !P.hud && !P.menu && !P.side) showHud(3000); });
   document.addEventListener('visibilitychange', function () {
@@ -923,18 +964,35 @@
       box.appendChild(el('p', 'mmsg', '')).id = 'liveFMsg';
     },
     settings: function (box) {
-      head(box, 'Live TV settings');
-      var g = el('div', 'msets');
+      head(box, 'Live TV settings', 'OK changes a setting. Saved on this device.');
+      var sc = el('div', 'mscroll msets'), g = sc;
       function row(label, val, act) { var b = mkBtn('<span>' + esc(label) + '</span><b>' + esc(val) + '</b>', act, 'setr'); g.appendChild(b); }
-      row('Stream format (Xtream)', SET.ext === 'ts' ? 'TS (MPEG-TS)' : 'HLS (m3u8)', 'set-ext');
+      var onoff = function (v) { return v ? 'On' : 'Off'; };
+      row('Stream format (Xtream)', (SET.ext === 'ts' ? 'TS (MPEG-TS)' : 'HLS (m3u8)') + (curPl() && curPl().extLearned ? ' · this provider uses ' + curPl().extLearned : ''), 'set-ext');
       row('Sort channels', SET.sort === 'az' ? 'A–Z' : SET.sort === 'num' ? 'By number' : 'Provider order', 'set-sort');
-      row('TV guide (now / next)', SET.guide ? 'On' : 'Off', 'set-guide');
+      row('Open on', { all: 'All channels', fav: 'Favorites', last: 'Last group used' }[SET.start], 'set-start');
+      row('Open the last channel on start', onoff(SET.autoplay), 'set-auto');
+      row('TV guide (now / next)', onoff(SET.guide), 'set-guide');
+      row('Guide time shift', (SET.shift > 0 ? '+' : '') + SET.shift + ' h', 'set-shift');
+      row('Clock', SET.clock12 ? '12-hour' : '24-hour', 'set-clock');
       row('Adult groups', SET.adult ? 'Shown' : 'Hidden', 'set-adult');
-      row('Open the last channel on start', SET.autoplay ? 'On' : 'Off', 'set-auto');
+      row('Parental PIN', SET.pin ? 'On' : 'Off', 'set-pin');
       row('Picture', { fit: 'Fit', fill: 'Fill (crop)', stretch: 'Stretch', zoom: 'Zoom' }[SET.aspect], 'set-aspect');
-      var pl = curPl(); if (pl) { row('Guide address (XMLTV)', pl.type === 'xtream' ? 'Automatic' : (pl.epgUrl ? 'From playlist' : 'None'), 'set-guideurl'); }
-      box.appendChild(g);
+      row('Buffering', { fast: 'Fast start', balanced: 'Balanced', stable: 'Stable (weak connection)' }[SET.buffer], 'set-buffer');
+      row('Channel banner stays', SET.banner + ' s', 'set-banner');
+      row('Channel logos', onoff(SET.logos), 'set-logos');
+      row('Stream stats overlay', onoff(SET.stats), 'set-stats');
+      row('Playlist update', { daily: 'Daily', weekly: 'Weekly', manual: 'Only when I press Refresh' }[SET.auto], 'set-autoup');
+      row('Request User-Agent (through the server)', { '': 'Default', vlc: 'VLC', okhttp: 'OkHttp', chrome: 'Chrome' }[SET.ua], 'set-ua');
+      var pl = curPl(); if (pl) row('Guide address (XMLTV)', pl.type === 'xtream' ? 'Automatic' : (pl.epgUrl ? 'From playlist' : 'None'), 'set-guideurl');
+      box.appendChild(sc);
       var r = el('div', 'mrow2'); r.appendChild(mkBtn('Playlists', 'go-manage', '')); r.appendChild(mkBtn('Clear saved data', 'clear-data', 'bad')); r.appendChild(mkBtn('Close', 'close', 'ghost')); box.appendChild(r);
+      box.appendChild(el('p', 'mmsg', '')).id = 'liveFMsg';
+    },
+    pin: function (box, c) {
+      head(box, c.mode === 'set' ? 'Set a parental PIN' : c.mode === 'unlock' ? 'Enter the PIN to show adult groups' : 'Enter the PIN to turn it off', c.mode === 'set' ? 'Four digits. Needed to show adult groups. This is a household lock, not strong security.' : '');
+      var f = mkField(box, 'PIN (4 digits)', 'liveFPin', '••••', '', 'password'); f.maxLength = 4; f.setAttribute('inputmode', 'numeric');
+      var r = el('div', 'mrow2'); r.appendChild(mkBtn('OK', 'do-pin', 'primary', c.mode)); r.appendChild(mkBtn('Cancel', 'go-settings', 'ghost')); box.appendChild(r);
       box.appendChild(el('p', 'mmsg', '')).id = 'liveFMsg';
     },
     info: function (box, c) {
@@ -978,6 +1036,13 @@
     if (act === id) { act = PLS[0] ? PLS[0].id : ''; store.set('ea_live_act', act); D = null; if (LL) { LL.setN(0); RL.setN(0); } }
   }
 
+  function nextOf(list, v) { return list[(list.indexOf(v) + 1) % list.length]; }
+  function again() {                                                               // redraw the settings list but keep the focus on the row that was just changed
+    var rows = [].slice.call(document.querySelectorAll('#liveModalBox .setr')), at = rows.indexOf(state.focusEl), sc = document.querySelector('#liveModalBox .mscroll'), top = sc ? sc.scrollTop : 0;
+    modal('settings');
+    var nr = document.querySelectorAll('#liveModalBox .setr'), sc2 = document.querySelector('#liveModalBox .mscroll');
+    if (sc2) sc2.scrollTop = top; if (at >= 0 && nr[at]) EA.setFocus(nr[at]);
+  }
   function activate(e) {
     var a = e.__live ? e.__live.act : e.id, d = e.__live ? e.__live.d : null, pl, tk;
     switch (a) {
@@ -1017,12 +1082,33 @@
           var l = document.querySelector('#liveModalBox .minfo'); if (l) l.innerHTML = '<div class="kv"><span>Status</span><b>' + esc(i.status || 'unknown') + '</b></div><div class="kv"><span>Expires</span><b>' + (i.exp ? new Date(i.exp * 1000).toLocaleDateString() : 'never / unknown') + '</b></div><div class="kv"><span>Connections</span><b>' + i.active + ' of ' + (i.max || '?') + ' in use</b></div>' + (i.trial ? '<div class="kv"><span>Type</span><b>Trial</b></div>' : '');
         }, function (err) { var l = document.querySelector('#liveModalBox .minfo'); if (l) l.innerHTML = '<p class="bad">' + esc(err.message) + '</p>'; });
       } break;
-      case 'set-ext': SET.ext = SET.ext === 'ts' ? 'm3u8' : 'ts'; saveSet(); modal('settings'); break;
-      case 'set-sort': SET.sort = SET.sort === 'provider' ? 'az' : SET.sort === 'az' ? 'num' : 'provider'; saveSet(); if (D && D.ready) { var cc = curCi(); rebuildView(0, cc >= 0 ? cc : null); } paintHeader(); modal('settings'); break;
-      case 'set-guide': SET.guide = !SET.guide; saveSet(); if (SET.guide && D) loadGuide(false); modal('settings'); break;
-      case 'set-adult': SET.adult = !SET.adult; saveSet(); if (D && D.ready) { finalize(undefined, undefined, function () { buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur()); rebuildView(0); }); } modal('settings'); break;
-      case 'set-auto': SET.autoplay = !SET.autoplay; saveSet(); modal('settings'); break;
-      case 'set-aspect': { var o = ['fit', 'fill', 'stretch', 'zoom']; SET.aspect = o[(o.indexOf(SET.aspect) + 1) % 4]; saveSet(); modal('settings'); break; }
+      case 'set-ext': SET.ext = SET.ext === 'ts' ? 'm3u8' : 'ts'; PLS.forEach(function (x) { delete x.extLearned; }); savePls(); saveSet(); again(); break;
+      case 'set-start': SET.start = nextOf(SENUM.start, SET.start); saveSet(); again(); break;
+      case 'set-shift': { var SH = [0, 1, 2, 3, 4, 5, 6, -6, -5, -4, -3, -2, -1]; SET.shift = SH[(SH.indexOf(SET.shift) + 1) % SH.length]; saveSet(); if (LL) LL.paintAll(); paintInfo(true); again(); break; }
+      case 'set-clock': SET.clock12 = !SET.clock12; saveSet(); if (LL) LL.paintAll(); paintInfo(true); again(); break;
+      case 'set-buffer': SET.buffer = nextOf(SENUM.buffer, SET.buffer); saveSet(); again(); break;
+      case 'set-banner': SET.banner = nextOf(SENUM.banner, SET.banner); saveSet(); again(); break;
+      case 'set-logos': SET.logos = !SET.logos; saveSet(); resetRows(); if (LL) LL.paintAll(); paintInfo(true); again(); break;
+      case 'set-stats': SET.stats = !SET.stats; saveSet(); again(); break;
+      case 'set-autoup': SET.auto = nextOf(SENUM.auto, SET.auto); saveSet(); again(); break;
+      case 'set-ua': { var UK = ['', 'vlc', 'okhttp', 'chrome']; SET.ua = UK[(UK.indexOf(SET.ua) + 1) % UK.length]; saveSet(); again(); break; }
+      case 'set-pin': modal('pin', { mode: SET.pin ? 'clear' : 'set' }); break;
+      case 'do-pin': {
+        var pv = val('liveFPin'); if (!/^\d{4}$/.test(pv)) { fmsg('Enter exactly 4 digits', true); break; }
+        if (d === 'set') { SET.pin = pv; saveSet(); modal('settings'); toast('PIN set'); break; }
+        if (pv !== SET.pin) { fmsg('Wrong PIN', true); break; }
+        if (d === 'clear') { SET.pin = ''; saveSet(); modal('settings'); toast('PIN removed'); break; }
+        SET.adult = true; saveSet(); modal('settings');
+        if (D && D.ready) finalize(undefined, undefined, function () { buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur()); rebuildView(0); });
+        break;
+      }
+      case 'set-sort': SET.sort = SET.sort === 'provider' ? 'az' : SET.sort === 'az' ? 'num' : 'provider'; saveSet(); if (D && D.ready) { var cc = curCi(); rebuildView(0, cc >= 0 ? cc : null); } paintHeader(); again(); break;
+      case 'set-guide': SET.guide = !SET.guide; saveSet(); if (SET.guide && D) loadGuide(false); again(); break;
+      case 'set-adult':
+        if (!SET.adult && SET.pin) { modal('pin', { mode: 'unlock' }); break; }                      // showing adult groups needs the PIN
+        SET.adult = !SET.adult; saveSet(); if (D && D.ready) { finalize(undefined, undefined, function () { buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur()); rebuildView(0); }); } again(); break;
+      case 'set-auto': SET.autoplay = !SET.autoplay; saveSet(); again(); break;
+      case 'set-aspect': { var o = ['fit', 'fill', 'stretch', 'zoom']; SET.aspect = o[(o.indexOf(SET.aspect) + 1) % 4]; saveSet(); again(); break; }
       case 'set-guideurl': pl = curPl(); if (pl && pl.type !== 'xtream') modal('guideurl', { url: pl.epgUrl || '' }); else toast('Xtream playlists find their guide automatically'); break;
       case 'do-guideurl': pl = curPl(); if (pl) { pl.epgUrl = val('liveFGuide'); pl.epgAt = 0; savePls(); closeModal(); if (D) { D.epgState = ''; loadGuide(true); } } break;
       case 'clear-data': ['fav', 'rec', 'last'].forEach(function (w) { PLS.forEach(function (p) { try { localStorage.removeItem(userKey(w, p)); } catch (x) { /* ignore */ } }); }); PLS.forEach(function (p) { p.epgAt = 0; db.dropEpg(pid(p)); }); savePls(); if (D) { loadUserData(); buildRailItems(); RL.setN(RAIL.length); RL.select(railIndexOfCur()); rebuildView(0); } fmsg('Favorites, recent channels and saved guides cleared'); break;
@@ -1036,7 +1122,7 @@
     if (EA.isBackKey(k)) {
       e.preventDefault();
       if (M.name === 'xtream' || M.name === 'm3u' || M.name === 'free' || M.name === 'pair') { if (PLS.length) modal(M.name === 'free' || M.name === 'pair' || M.name === 'xtream' || M.name === 'm3u' ? 'add' : 'manage'); else modal('add'); }
-      else if (M.name === 'info' || M.name === 'guideurl') modal(M.name === 'info' ? 'manage' : 'settings');
+      else if (M.name === 'info' || M.name === 'guideurl' || M.name === 'pin') modal(M.name === 'info' ? 'manage' : 'settings');
       else closeModal();
       return true;
     }
@@ -1076,5 +1162,5 @@
     return fetch(EA.apiBase() + '/api?' + qs).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; }); });
   };
   EA.live = { show: show, key: key, onFocus: onFocus, activate: activate, closeModal: closeModal, back: back, playing: function () { return P.on; },
-    _debug: function () { return { D: D, V: V, P: P, C: C, SET: SET, LL: LL, RL: RL }; } };
+    _debug: function () { return { D: D, V: V, P: P, C: C, SET: SET, LL: LL, RL: RL, fmt: { hhmm: hhmm, gt: gt } }; } };
 })();

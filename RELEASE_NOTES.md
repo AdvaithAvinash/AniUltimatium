@@ -1,32 +1,29 @@
-# Aniultimatium — Beta v1.06 (beta 2)
+# Aniultimatium — Beta v1.07
 
-**Beta:** new Live TV (IPTV) section. Please report problems with your TV model and year. Free English **sub & dub** anime app for **Samsung Tizen smart TVs** (Tizen 4.0 / 2018 and newer) and browsers.
-Install `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (custom wgt). Widget version 2.7.0.
-Backend: Cloudflare Worker (`https://aniultimatium.advaithavinash404.workers.dev`) or `npm start` at home. **Redeploy the Worker** to use "Add with your phone" and the new proxy options.
+**Beta.** Adds Android TV / Fire TV, a faster and more configurable Live TV, ad tags for movie sources, and many more settings. Files: `app.wgt` (Samsung Tizen 4.0+, widget 2.8.0) and `app.apk` (Android TV / Fire TV, Android 5+). Samsung install: Apps2Samsung (custom wgt). Android: [docs/ANDROID.md](docs/ANDROID.md).
+**Redeploy the Cloudflare Worker** for the guide `.gz` support and the custom-player id.
 
-## Fixed — "KV limit" error when linking AniList or adding a playlist from the phone
-Cause: the temporary codes were saved in Cloudflare KV, whose free plan allows only **1,000 writes a day for the whole app**. Every TV's AniList link, phone pairing and account sync spent from that one shared budget, so after a while they all failed with a KV limit error.
-- Storage now lives in a **Durable Object** (free plan: 100,000 writes a day) and KV is no longer written to. Old KV data (accounts, sync) is still read and carried over automatically. **Redeploy the Worker** (`wrangler deploy`); the Durable Object is created by the migration in `wrangler.jsonc`.
-- "Add with your phone" now shows a **QR code**: scan it and the phone page opens with the code already filled in (same for the AniList link). It works like AquaPlay-style pairing: code on the TV, details on the phone, playlist arrives on the TV, and the server forgets it.
-- If a storage limit is ever hit, the message now says what happened and to use Xtream login / M3U link instead, rather than a raw KV error.
-- Verified on Cloudflare's own runtime (wrangler dev): pairing, one-time hand-off, wrong-code refusal, AniList code, and account registration; and with a test that fails if anything is written to KV.
+## New — Android TV and Fire TV (`app.apk`)
+The same app in a small native shell (one WebView, about 0.3 MB, no extra libraries): TV launcher entry with a banner, D-pad and OK, Back that follows the app's own menus and closes it at the top, media / colour / channel / Menu keys mapped (Yellow favorite, Green previous channel, Blue sleep timer), screen kept awake, **popup ads and ad redirects blocked**, and no CORS limit for the bundled page so IPTV providers load directly. Updates install over each other (project signing key).
+**Honest status:** built, signed and statically verified; the web app was tested under the shell's conditions (file origin, no CORS, TV user-agent, injected remote keys). It has not been run on a physical TV or an emulator (none available here), so please report problems with your device and Android / Fire OS version.
 
-## New — Live TV (IPTV)
-A fast, remote-friendly IPTV section for **your own** playlist (M3U link or Xtream login; free public channel lists are offered as a starting point). No channels are included.
-- **Built not to freeze.** Download and parsing run in a Web Worker, channels show up while they stream in, lists are virtual (about 22 row elements for any list size), logos load only when scrolling settles, saved playlists open from the device without downloading again.
-- **Measured** (mock provider with 30,000 channels; the old-engine figures use Chromium 60 with the CPU slowed 4x, not a real TV): first rows in 92 ms and the full list in 0.57 s; 1.3 s on the slowed old engine; reopening a saved list shows rows after 101 ms; holding Down in the list never exceeded 41 ms per frame; the longest stall while loading was about 70-150 ms (it was 300 ms before the work was split up).
-- **Browse:** groups, Favorites, Recently watched, search across all channels, sort, several playlists (favorites kept per playlist), adult groups hidden by default, "now / next" with progress and descriptions from the TV guide.
-- **Watch:** Up/Down zapping (a fast burst of presses starts one stream, not many), channel number entry, previous channel, channel list over the video, quality / audio / picture / sleep timer / connection options, automatic fallback between routes and a clear message for offline channels.
-- **Add playlists without typing on the remote:** the TV shows a code, you enter it with your provider's details on your phone.
-- Checked against real public lists (11,346 channels parsed in 134 ms): multi-genre groups are tidied ("News;Public" becomes "News"), `(720p)` and `[Geo-blocked]` become badges, RTMP-only entries are skipped, the adult filter no longer flags "Adult Swim".
+## Faster, better Live TV
+- hls.js is now **bundled** (no CDN) and loaded without blocking startup, so the app starts sooner and works with a poor connection to the CDN.
+- **Tuning:** a silent route is abandoned after 9 s instead of 14 s; the stream format your provider really plays (HLS or TS) is remembered per playlist; manifest and level timeouts shortened. Buffering mode (fast start / balanced / stable).
+- **TV guide:** `.xml.gz` guides now work (unpacked by the server; a TV browser cannot), very large guides are read in part, a **coming-up list** in the info pane, **guide time shift** (±6 h) and 12/24-hour clock.
+- **Stream stats overlay** (resolution, stream and link bitrate, buffer, dropped frames, route), channel **banner time**, **logos on/off**, **parental PIN** for adult groups, **open on** all / favorites / last group, playlist **update interval**, a **User-Agent** choice for providers that need one.
+- Everything from beta 1.06 measured again: 30,000 channels ready in about 0.6 s, saved lists reopen in about 0.1 s to first rows, no frame over 41 ms while holding Down with the CPU slowed 4× (stand-in for a 2018 TV).
 
-## Also in this release
-- Hovering the mouse no longer steals focus from the remote when a screen changes under a still cursor.
-- The top bar fits nine tabs at every window size.
-- Release workflow: `beta-v*` tags create a pre-release.
+## Ads tags on movie sources
+Reading each player's own scripts (reproducible: `node tools/probe_ads.js static`, details in [docs/SOURCE_ADS.md](docs/SOURCE_ADS.md)):
+**CineSrc** contains a popunder ad configuration and **VidFast** replaces `window.open` to get around popup blockers, so both are tagged **⚠ Ads** ("may open popup ads"). **VidCore** and **Videasy**: no ad or popup code found. This is static evidence: a live test was not possible from the research machine, and a player can change at any time. On Android the shell blocks popups and counts each one, so the tag also appears from real experience. Settings: hide the tag, or "try ad-free sources first" (off by default).
 
-## Limits (beta)
-HTTP/HTTPS streams only; HLS everywhere, raw MPEG-TS on TVs only; compressed `.gz` guides are not supported on TVs; no Xtream movies/series yet. Playback on real TVs could not be tested here.
+## More settings
+Settings now has an **Interface & playback** section: start on (Anime / Movies / TV Shows / Live TV), accent colour (pink, cyan, violet, green, orange), play next episode automatically, skip intro and outro automatically, default audio, default quality (anime and movies/TV), rotate the home banner, Ads tag, ad-free first, a **custom movie player** address (`{imdb} {tmdb} {s} {e}`), and Reset all settings (keeps playlists, favorites and progress).
+
+## Not added, and why
+- **Embedwave** and **CinePro Core** were requested. Embedwave has no documentation I could find and its site could not be reached from here, so its embed address and behaviour could not be verified, and a source I cannot test cannot be promised to play "perfectly". CinePro Core is not a player: it is a self-hosted scraping backend for unlicensed streams, and this project does not add new scraper integrations. If you know a player's embed address, add it yourself under **Settings → Custom movie player**.
+- Xtream movies and series (VOD), catch-up and recording are still not included.
 
 ## Tests
-`npm test`: 39 unit tests (TurboScrape, SourceIQ, the IPTV engine with 100,000 channels) and the Tizen-4 compatibility check, now covering every script. End-to-end browser tests for Live TV (keyboard flow, zapping, dead channels, side list, options, search, pairing, playlists, settings, persistence) and the earlier suites (anime, movies, TV shows, AniList, quality switching).
+`npm test`: 42 unit tests (IPTV engine at 100,000 channels, storage with a fake Durable Object and a no-KV-writes assertion, Android shell consistency, TurboScrape, SourceIQ) and the Tizen-4 compatibility check, now covering every script. End-to-end browser tests: Live TV keyboard flow, playlists and pairing, settings, guide `.gz`, ad tags, custom player, the app under Android-like conditions, and the earlier anime / movie / TV suites.

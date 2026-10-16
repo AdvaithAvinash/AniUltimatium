@@ -1,6 +1,6 @@
 {
   "name": "aniultimatium",
-  "version": "1.6.0-beta.2",
+  "version": "1.7.0-beta.1",
   "private": true,
   "engines": {
     "node": ">=18"
@@ -17,7 +17,7 @@
   "devDependencies": {
     "wrangler": "^4.148.0"
   },
-  "description": "English sub & dub anime app for Samsung Tizen smart TVs (and browsers): remote-first, adaptive source ranking, fast source discovery, AniList sync.",
+  "description": "Free IPTV player (M3U and Xtream) and English sub & dub anime app for Samsung Tizen, Android TV and Fire TV (and browsers): fast channel browser, TV guide, phone/QR setup, adaptive source ranking, AniList sync.",
   "homepage": "https://github.com/AdvaithAvinash/AniUltimatium#readme",
   "repository": {
     "type": "git",
@@ -27,6 +27,13 @@
     "url": "https://github.com/AdvaithAvinash/AniUltimatium/issues"
   },
   "keywords": [
+    "iptv",
+    "iptv-player",
+    "m3u",
+    "xtream-codes",
+    "epg",
+    "android-tv",
+    "fire-tv",
     "samsung",
     "tizen",
     "smart-tv",

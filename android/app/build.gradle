@@ -1,0 +1,35 @@
+plugins { id 'com.android.application' }
+
+// Version comes from package.json through tools/build_apk.py (-PappVersionName / -PappVersionCode)
+def vName = project.findProperty('appVersionName') ?: '1.7.0-beta.1'
+def vCode = (project.findProperty('appVersionCode') ?: '10701') as int
+
+android {
+    namespace 'com.aniultimatium.tv'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.aniultimatium.tv'
+        minSdk 21            // Android 5 / Fire OS 5 and newer
+        targetSdk 34
+        versionCode vCode
+        versionName vName
+    }
+    signingConfigs {
+        // A project signing key so sideloaded updates install over each other. It is NOT a secret and not for the Play Store.
+        release {
+            storeFile file('../aniultimatium.keystore')
+            storePassword 'aniultimatium'
+            keyAlias 'aniultimatium'
+            keyPassword 'aniultimatium'
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+    lint { abortOnError false; checkReleaseBuilds false }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+}

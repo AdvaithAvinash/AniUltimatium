@@ -6,22 +6,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b0b12">
-<title>Aniultimatium — English sub &amp; dub anime app for Samsung Tizen TVs</title>
-<meta name="description" content="Aniultimatium is a free, open-source anime streaming app built for Samsung Tizen smart TVs (2018 and newer) with English subtitles, English dub, remote-first controls, automatic source switching and AniList sync. Also runs in any browser.">
+<title>Aniultimatium — free IPTV player (M3U &amp; Xtream) and anime app for Samsung Tizen, Android TV &amp; Fire TV</title>
+<meta name="description" content="Aniultimatium is a free, open-source IPTV player for your own M3U or Xtream playlist (add it from your phone with a QR code): fast with 50,000+ channels, TV guide, favorites and zapping. Also English sub and dub anime, movies and TV shows. Runs on Samsung Tizen 4.0+, Android TV, Fire TV and in any browser.">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
-<meta name="keywords" content="Samsung Tizen anime app, anime on Samsung smart TV, English dub anime, English subtitles anime, free anime streaming, AniList, Tizen wgt, Apps2Samsung, anime app Samsung TV remote">
+<meta name="keywords" content="free IPTV player, IPTV player Samsung Tizen, IPTV player Android TV, IPTV player Fire TV, M3U player, Xtream Codes player, IPTV EPG, AquaPlay IPTV alternative, anime app Samsung TV, English dub anime, Tizen wgt, Apps2Samsung, sideload IPTV app">
 <link rel="canonical" href="https://aniultimatium.advaithavinash404.workers.dev/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aniultimatium">
-<meta property="og:title" content="Aniultimatium — English sub &amp; dub anime app for Samsung Tizen TVs">
-<meta property="og:description" content="Free, open-source anime app built for Samsung Tizen smart TVs: English sub and dub, remote-first controls, automatic source fallback, AniList sync. Also runs in any browser.">
+<meta property="og:title" content="Aniultimatium — free IPTV player (M3U &amp; Xtream) and anime app for Samsung Tizen, Android TV &amp; Fire TV">
+<meta property="og:description" content="Free, open-source IPTV player for your own M3U or Xtream playlist: fast with 50,000+ channels, phone and QR setup, TV guide. Plus anime, movies and TV shows. Samsung Tizen, Android TV, Fire TV and browsers.">
 <meta property="og:url" content="https://aniultimatium.advaithavinash404.workers.dev/">
 <meta property="og:image" content="https://aniultimatium.advaithavinash404.workers.dev/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Aniultimatium — English sub &amp; dub anime app for Samsung Tizen TVs">
-<meta name="twitter:description" content="Free, open-source anime app built for Samsung Tizen smart TVs: English sub and dub, remote-first controls, AniList sync.">
+<meta name="twitter:description" content="Free, open-source IPTV player (M3U and Xtream) plus anime, movies and TV shows for Samsung Tizen, Android TV and Fire TV.">
 <meta name="twitter:image" content="https://aniultimatium.advaithavinash404.workers.dev/og.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Aniultimatium","alternateName":"AniUltimatium","applicationCategory":"MultimediaApplication","operatingSystem":"Samsung Tizen 4.0 and newer, Web browser","description":"Free, open-source anime streaming app built for Samsung Tizen smart TVs with English subtitles, English dub, remote-first controls, automatic source switching and AniList sync.","inLanguage":"en","softwareVersion":"1.04","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://aniultimatium.advaithavinash404.workers.dev/","downloadUrl":"https://github.com/AdvaithAvinash/AniUltimatium/releases/latest","codeRepository":"https://github.com/AdvaithAvinash/AniUltimatium","sameAs":["https://github.com/AdvaithAvinash/AniUltimatium"],"isAccessibleForFree":true}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Aniultimatium","alternateName":"AniUltimatium","applicationCategory":"MultimediaApplication","operatingSystem":"Samsung Tizen 4.0 and newer, Android TV, Amazon Fire TV (Fire OS 5+), Web browser","description":"Free, open-source IPTV player for your own M3U or Xtream playlist with a fast channel browser, TV guide, favorites and phone/QR setup, plus English sub and dub anime, movies and TV shows, for Samsung Tizen TVs, Android TV and Fire TV.","inLanguage":"en","softwareVersion":"1.7.0-beta.1","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://aniultimatium.advaithavinash404.workers.dev/","downloadUrl":"https://github.com/AdvaithAvinash/AniUltimatium/releases/latest","codeRepository":"https://github.com/AdvaithAvinash/AniUltimatium","sameAs":["https://github.com/AdvaithAvinash/AniUltimatium"],"isAccessibleForFree":true,"featureList":["IPTV player for M3U and Xtream playlists","Add a playlist from a phone with a code or QR","TV guide (XMLTV) with time shift","Handles 50,000+ channels with virtual lists and a background loader","Favorites, search, zapping, channel numbers, sleep timer","Parental PIN and hidden adult groups","English sub and dub anime","Movies and TV shows","Samsung Tizen 4.0+, Android TV, Fire TV and browsers"]}</script>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="alternate icon" href="icon.png">
 <link rel="stylesheet" href="styles.css">
@@ -182,7 +182,16 @@
   <main id="viewSettings" class="view hidden">
     <div class="pagehead"><h2>Settings</h2></div>
     <div id="setPanel">
-      <h3>Stream server</h3>
+      <h3>Interface &amp; playback</h3>
+      <p class="hint">OK changes a setting. Everything here is saved on this device.</p>
+      <div id="setApp" class="msets"></div>
+      <p class="hint" id="setCustomHelp"></p>
+      <div id="setCustomBox" class="hidden">
+        <input id="setCustomName" class="focusable" type="text" placeholder="Name (for example: My player)" autocomplete="off" spellcheck="false">
+        <input id="setCustomUrl" class="focusable" type="text" placeholder="https://player.example/movie/{tmdb}" autocomplete="off" spellcheck="false">
+        <div class="setrow"><button id="setCustomSave" class="btn primary focusable">Save</button><button id="setCustomCancel" class="btn focusable">Cancel</button></div>
+      </div>
+      <h3 style="margin-top:1.6rem">Stream server</h3>
       <p class="hint">Streaming sites block most cloud servers. If playback fails, run <b>npm start</b> on your computer
         (it prints a TV address) and enter it here, e.g. <b>http://192.168.1.20:3000</b>. Leave empty to use the cloud backend.</p>
       <input id="serverInput" class="focusable" type="text" placeholder="http://192.168.1.20:3000" autocomplete="off" spellcheck="false">
@@ -199,7 +208,7 @@
       <p class="hint">Lite mode turns off animations and the rotating banner and loads smaller pictures. It is switched on automatically on 2018 (Tizen 4) TVs.</p>
       <div class="setrow"><button id="setLite" class="btn focusable"></button></div>
       <h3 style="margin-top:1.6rem">Tips</h3>
-      <div class="setrow"><button id="setTips" class="btn focusable"></button></div>
+      <div class="setrow"><button id="setTips" class="btn focusable"></button><button id="setResetAll" class="btn focusable">Reset all settings</button></div>
       <pre id="setOut"></pre>
     </div>
   </main>
@@ -239,6 +248,7 @@
     <iframe id="embedFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="origin" allowfullscreen></iframe>
     <div id="liveHud" class="hidden">
       <div id="lhTop"><span id="lhClock"></span><span id="lhSleep"></span></div>
+      <div id="lhStats" class="hidden"></div>
       <div id="lhBanner">
         <div id="lhLogo"></div>
         <div id="lhBody">
@@ -324,7 +334,7 @@
   </div>
   <div id="toast"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+<script async src="hls.min.js"></script>   <!-- hls.js 1.5.15 (Apache-2.0), bundled: no CDN needed, and async so the UI never waits for it -->
 <script src="iq.js"></script>
 <script src="qr.js"></script>
 <script src="iptv.js"></script>
