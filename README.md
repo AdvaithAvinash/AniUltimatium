@@ -132,7 +132,7 @@ Set `VERCEL_API_URL` at the top of `public/main.js` (any backend URL), then run 
 ## Deploy on Cloudflare Workers (works while Vercel is paused)
 The same `api/index.js` backend runs as a Cloudflare Worker (`worker/index.js` + `wrangler.jsonc`); the Worker also serves `public/`, so one URL covers laptop + TV.
 1. Cloudflare dashboard → Workers & Pages → Create → connect this GitHub repo. Build command `npm install`, deploy command `npx wrangler deploy`. The Worker name must be `aniultimatium`.
-2. Optional: a KV namespace bound as `STORE` keeps accounts/sync permanently (wrangler creates it on deploy; delete the `kv_namespaces` line in `wrangler.jsonc` if the deploy complains). Without it accounts live in memory only.
+2. Storage for accounts, sync, phone pairing (Live TV) and AniList linking is a **Durable Object** (`PairBox`, SQLite-backed, free plan: 100,000 writes a day). `wrangler deploy` creates it from the `migrations` entry in `wrangler.jsonc`; nothing else to set up. The older KV namespace `STORE` is no longer written to (its free plan allows only 1,000 writes a day for the whole app, which caused "KV limit" errors); it is only read, so accounts created before keep working. Without any of these, accounts live in memory only.
 3. Put your `https://<name>.<you>.workers.dev` URL in `VERCEL_API_URL` (first line of `public/main.js`) and rebuild the `.wgt`.
 Notes: the free plan has a small CPU limit per request, and streaming sites sometimes block Cloudflare IPs; open `/api?action=debug&title=Solo%20Leveling&ep=1` to see what works. `npm start` on a home PC stays the most reliable.
 
@@ -181,8 +181,7 @@ Link your AniList account in **Account → AniList**. On the TV press *Link AniL
 
 One-time setup (AniList requires an API client): go to https://anilist.co/settings/developer → *Create new client*, name it
 Aniultimatium, Redirect URL `https://<your worker>.workers.dev/link.html`, save, and put the client **ID** into
-`wrangler.jsonc` → `"vars": { "ANILIST_CLIENT_ID": "<id>" }` (or the env var for `npm start`). Linking codes are kept in the
-Worker's KV namespace `STORE`.
+`wrangler.jsonc` → `"vars": { "ANILIST_CLIENT_ID": "<id>" }` (or the env var for `npm start`). Linking codes are kept in the Worker's Durable Object storage (see Deploy).
 
 ## Live TV (IPTV)
 A fast IPTV section for your **own** playlist. Aniultimatium does not provide, host or link to any paid channels: you add what your provider gave you, or start with the free public channel lists (community-maintained, availability varies by region).

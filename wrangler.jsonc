@@ -10,7 +10,10 @@
   "alias": {
     "wreq-js": "./worker/stub.js"
   },
-  // Optional: persistent accounts + sync. Wrangler creates the KV namespace automatically on deploy.
+  // Storage for accounts, sync, phone pairing and AniList linking: a Durable Object (free plan, 100k writes/day). Created by the migration below on deploy.
+  // KV (free plan: only 1,000 writes/day for the whole app) is no longer written to; it is only read once to carry old data over.
+  "durable_objects": { "bindings": [{ "name": "PAIR", "class_name": "PairBox" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairBox"] }],
   "kv_namespaces": [{ "binding": "STORE" }],
   // "VERCEL" only tells the bundled Anivexa API to skip its local-disk cache (Workers have no disk)
   // ANILIST_CLIENT_ID: id of your AniList API client (https://anilist.co/settings/developer, redirect URL = <site>/link.html)

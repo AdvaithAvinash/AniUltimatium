@@ -869,12 +869,13 @@
       var r = el('div', 'mrow2'); r.appendChild(mkBtn('Try again', 'retry', 'primary')); r.appendChild(mkBtn('Playlists', 'go-manage', '')); r.appendChild(mkBtn('Close', 'close', 'ghost')); box.appendChild(r);
     },
     pair: function (box) {
-      head(box, 'Add with your phone', 'On your phone open the address below and enter the code. Nothing is saved on the server afterwards.');
-      var info = el('div', 'pairbox', '<div class="pu">…</div><div class="pc">······</div><div class="pw">Getting a code…</div>'); box.appendChild(info);
+      head(box, 'Add with your phone', 'Scan the QR code, or type the address on your phone. Enter your provider’s details there and they arrive here. The server forgets them as soon as the TV has them.');
+      var info = el('div', 'pairbox', '<div class="pairtxt"><div class="pl">Open on your phone</div><div class="pu">…</div><div class="pl">and enter the code</div><div class="pc">······</div><div class="pw">Getting a code…</div></div><div class="pqr"></div>'); box.appendChild(info);
       var r = el('div', 'mrow2'); r.appendChild(mkBtn('Cancel', 'go-add', 'ghost')); box.appendChild(r);
       EA.api({ action: 'pair_start' }).then(function (p) {
         if (M.name !== 'pair') return;
         info.querySelector('.pu').textContent = p.url.replace(/^https?:\/\//, ''); info.querySelector('.pc').textContent = p.code;
+        qr(info.querySelector('.pqr'), p.url + '?code=' + p.code);                      // scan instead of typing the address
         info.querySelector('.pw').textContent = p.persistent ? 'Waiting for your phone…' : 'Waiting… (this server stores codes in memory only: if it never completes, use Xtream or M3U instead)';
         var until = Date.now() + p.expiresIn * 1000;
         M.pairT = setInterval(function () {
@@ -945,6 +946,10 @@
       var r = el('div', 'mrow2'); r.appendChild(mkBtn('Save', 'do-guideurl', 'primary')); r.appendChild(mkBtn('Back', 'go-settings', 'ghost')); box.appendChild(r);
     }
   };
+  function qr(box, text) {                                                         // QR code as an image (vendored qr.js); silently nothing if it cannot be made
+    try { if (!window.qrcode || !box) return; var q = window.qrcode(0, 'M'); q.addData(text); q.make(); box.innerHTML = '<img alt="QR code" src="' + q.createDataURL(6, 2) + '">'; } catch (e) { if (box) box.innerHTML = ''; }
+  }
+  EA.qr = qr;
   function fmsg(t, bad) { var m = $('liveFMsg'); if (m) { m.textContent = t || ''; m.className = 'mmsg' + (bad ? ' bad' : ''); } }
   function val(id) { var e = $(id); return e ? e.value.trim() : ''; }
 

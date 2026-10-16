@@ -604,6 +604,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     accMsg('');
     api({ action: 'al_start' }).then(function (r) {
       $('alUrl').textContent = r.url.replace(/^https?:\/\//, ''); $('alCode').textContent = r.code;
+      if (EA.qr) EA.qr($('alQr'), r.url + '?code=' + r.code);                       // phone: scan instead of typing the address
       $('alWait').textContent = r.persistent ? 'Waiting for you to sign in…' : 'Waiting… (tip: add a KV namespace named STORE to the Worker if linking never completes)';
       $('alLinkBox').className = '';
       clearInterval(state.alPoll);

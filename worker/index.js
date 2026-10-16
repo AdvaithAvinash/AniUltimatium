@@ -2,6 +2,7 @@
 // /api handler that used to live on Vercel, via a small Node-style req/res shim.
 import avWorker from 'all-api/index.js';
 import handler from '../api/index.js';
+export { PairBox } from './pairbox.mjs';                    // Durable Object class used as storage (see wrangler.jsonc)
 
 globalThis.__AV_WORKER = avWorker;                      // Anivexa aggregator (fetch handler) bundled in-process
 

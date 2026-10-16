@@ -526,7 +526,7 @@ function alCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; fo
 async function alStart(origin) {
   if (!alClientId()) { const e = new Error('AniList is not set up on this server yet (ANILIST_CLIENT_ID is empty).'); e.status = 501; throw e; }
   const code = alCode();
-  await accounts.store.set('al:' + code, { at: Date.now(), token: null });
+  await accounts.store.set('al:' + code, { at: Date.now(), token: null }, AL_TTL);
   return { code, url: origin + '/link.html', expiresIn: AL_TTL / 1000, persistent: accounts.store.persistent() };
 }
 async function alPoll(code) {
@@ -534,7 +534,7 @@ async function alPoll(code) {
   const v = code && await accounts.store.get('al:' + code);
   if (!v || Date.now() - v.at > AL_TTL) return { status: 'expired' };
   if (!v.token) return { status: 'waiting' };
-  await accounts.store.set('al:' + code, { at: 0, token: null });      // hand the token out once
+  await accounts.store.set('al:' + code, { at: 0, token: null }, 60000);      // hand the token out once
   return { status: 'ok', token: v.token, expiresIn: v.expiresIn || null };
 }
 // ---- Live TV: add a playlist from a phone (same code flow as AniList). The TV shows a code, the phone page /add.html posts the playlist ----
@@ -542,7 +542,7 @@ const IP_TTL = 10 * 60 * 1000;
 const cleanCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 async function pairStart(origin) {
   const code = alCode();
-  await accounts.store.set('ip:' + code, { at: Date.now(), data: null });
+  await accounts.store.set('ip:' + code, { at: Date.now(), data: null }, IP_TTL);
   return { code, url: origin + '/add.html', expiresIn: IP_TTL / 1000, persistent: accounts.store.persistent() };
 }
 async function pairPoll(code) {
@@ -550,7 +550,7 @@ async function pairPoll(code) {
   const v = code && await accounts.store.get('ip:' + code);
   if (!v || Date.now() - v.at > IP_TTL) return { status: 'expired' };
   if (!v.data) return { status: 'waiting' };
-  await accounts.store.set('ip:' + code, { at: 0, data: null });          // hand the playlist out once and forget it
+  await accounts.store.set('ip:' + code, { at: 0, data: null }, 60000);          // hand the playlist out once and forget it
   return { status: 'ok', playlist: v.data };
 }
 async function pairPut(b) {
@@ -570,7 +570,7 @@ async function pairPut(b) {
     if (!/^https?:\/\/[^\s]+$/i.test(url)) throw bad('Enter the playlist link (starting with http:// or https://)');
     data = { type: 'm3u', name, url };
   } else throw bad('Unknown playlist type');
-  await accounts.store.set('ip:' + code, { at: v.at, data });
+  await accounts.store.set('ip:' + code, { at: v.at, data }, IP_TTL);
   return { ok: true };
 }
 async function alPut(b) {
@@ -579,7 +579,7 @@ async function alPut(b) {
   if (!code || token.length < 20 || token.length > 4000) { const e = new Error('Missing code or token'); e.status = 400; throw e; }
   const v = await accounts.store.get('al:' + code);
   if (!v || Date.now() - v.at > AL_TTL) { const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
-  await accounts.store.set('al:' + code, { at: v.at, token, expiresIn: parseInt(b.expiresIn, 10) || null });
+  await accounts.store.set('al:' + code, { at: v.at, token, expiresIn: parseInt(b.expiresIn, 10) || null }, AL_TTL);
   return { ok: true };
 }
 
@@ -734,6 +734,10 @@ async function handle(req, res) {
         return send(res, 200, { results: await trending() });
     }
   } catch (e) {
+    // Cloudflare KV / Durable Object daily limits surface as raw platform errors: say what happened and what to do instead
+    if (/limit exceeded|KV (GET|PUT|DELETE)|quota|too many requests to storage|storage error 5/i.test(String(e.message))) {
+      return send(res, 503, { error: 'The server\'s storage is at its daily limit, so codes cannot be saved right now. Try again later, or add the playlist directly with Xtream login / M3U link on the TV.' }, 'no-store');
+    }
     return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace }, 'no-store');
   }
 }

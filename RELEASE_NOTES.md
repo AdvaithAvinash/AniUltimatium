@@ -1,8 +1,15 @@
-# Aniultimatium — Beta v1.06
+# Aniultimatium — Beta v1.06 (beta 2)
 
 **Beta:** new Live TV (IPTV) section. Please report problems with your TV model and year. Free English **sub & dub** anime app for **Samsung Tizen smart TVs** (Tizen 4.0 / 2018 and newer) and browsers.
 Install `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (custom wgt). Widget version 2.7.0.
 Backend: Cloudflare Worker (`https://aniultimatium.advaithavinash404.workers.dev`) or `npm start` at home. **Redeploy the Worker** to use "Add with your phone" and the new proxy options.
+
+## Fixed — "KV limit" error when linking AniList or adding a playlist from the phone
+Cause: the temporary codes were saved in Cloudflare KV, whose free plan allows only **1,000 writes a day for the whole app**. Every TV's AniList link, phone pairing and account sync spent from that one shared budget, so after a while they all failed with a KV limit error.
+- Storage now lives in a **Durable Object** (free plan: 100,000 writes a day) and KV is no longer written to. Old KV data (accounts, sync) is still read and carried over automatically. **Redeploy the Worker** (`wrangler deploy`); the Durable Object is created by the migration in `wrangler.jsonc`.
+- "Add with your phone" now shows a **QR code**: scan it and the phone page opens with the code already filled in (same for the AniList link). It works like AquaPlay-style pairing: code on the TV, details on the phone, playlist arrives on the TV, and the server forgets it.
+- If a storage limit is ever hit, the message now says what happened and to use Xtream login / M3U link instead, rather than a raw KV error.
+- Verified on Cloudflare's own runtime (wrangler dev): pairing, one-time hand-off, wrong-code refusal, AniList code, and account registration; and with a test that fails if anything is written to KV.
 
 ## New — Live TV (IPTV)
 A fast, remote-friendly IPTV section for **your own** playlist (M3U link or Xtream login; free public channel lists are offered as a starting point). No channels are included.
@@ -22,4 +29,4 @@ A fast, remote-friendly IPTV section for **your own** playlist (M3U link or Xtre
 HTTP/HTTPS streams only; HLS everywhere, raw MPEG-TS on TVs only; compressed `.gz` guides are not supported on TVs; no Xtream movies/series yet. Playback on real TVs could not be tested here.
 
 ## Tests
-`npm test`: 36 unit tests (TurboScrape, SourceIQ, the IPTV engine with 100,000 channels) and the Tizen-4 compatibility check, now covering every script. End-to-end browser tests for Live TV (keyboard flow, zapping, dead channels, side list, options, search, pairing, playlists, settings, persistence) and the earlier suites (anime, movies, TV shows, AniList, quality switching).
+`npm test`: 39 unit tests (TurboScrape, SourceIQ, the IPTV engine with 100,000 channels) and the Tizen-4 compatibility check, now covering every script. End-to-end browser tests for Live TV (keyboard flow, zapping, dead channels, side list, options, search, pairing, playlists, settings, persistence) and the earlier suites (anime, movies, TV shows, AniList, quality switching).
