@@ -26,7 +26,7 @@ const ANILIST = 'https://graphql.anilist.co';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
-  idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms`;
+  idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms popularity isAdult`;
 const FRAG = `fragment F on Media{${MEDIA_FIELDS}}`;
 
 function cors(res) {
@@ -76,6 +76,7 @@ function mapMedia(m) {
     title: m.title.english || m.title.romaji,          // strictly English-first
     titleRomaji: m.title.romaji,
     cover: m.coverImage.extraLarge || m.coverImage.large,
+    coverSm: m.coverImage.large || null,                // ~230px wide: enough for a card, a quarter of the bytes (old TVs decode it much faster)
     banner: m.bannerImage || null,
     color: m.coverImage.color || null,
     description: (m.description || '').replace(/<[^>]+>/g, '').trim(),
@@ -102,9 +103,22 @@ function currentSeason() {
   const m = new Date().getUTCMonth();
   return ['WINTER', 'SPRING', 'SUMMER', 'FALL'][Math.floor(m / 3)];
 }
+// Episodes that aired in the last 7 days -> "Popular This Week" (most popular shows with a new episode) and "New Releases" (latest first)
+function weekRows(d) {
+  const sched = [].concat((d.week && d.week.airingSchedules) || [], (d.week2 && d.week2.airingSchedules) || []);
+  const seen = new Set(), latest = [];
+  for (const x of sched) {
+    const m = x.media; if (!m || m.isAdult || seen.has(m.id)) continue;
+    seen.add(m.id); latest.push({ m, at: x.airingAt, pop: m.popularity || 0 });
+  }
+  const pop = latest.slice().sort((a, b) => b.pop - a.pop).slice(0, 20).map(x => mapMedia(x.m));
+  const fresh = latest.filter(x => x.pop >= 2000).sort((a, b) => b.at - a.at).slice(0, 20).map(x => mapMedia(x.m));
+  return { pop, fresh };
+}
 async function home() {
   const shelf = (alias, args) => `${alias}:Page(perPage:20){media(type:ANIME,isAdult:false,${args}){...F}}`;
-  const q = `query($season:MediaSeason,$year:Int){
+  const now = Math.floor(Date.now() / 1000), sch = (alias, page) => `${alias}:Page(page:${page},perPage:50){airingSchedules(airingAt_greater:$a,airingAt_lesser:$b,sort:TIME_DESC){airingAt media{...F}}}`;
+  const q = `query($season:MediaSeason,$year:Int,$a:Int,$b:Int){
     ${shelf('trending', 'sort:TRENDING_DESC')}
     ${shelf('season', 'season:$season,seasonYear:$year,sort:POPULARITY_DESC')}
     ${shelf('top', 'sort:SCORE_DESC')}
@@ -112,10 +126,11 @@ async function home() {
     ${shelf('romance', 'genre:"Romance",sort:POPULARITY_DESC')}
     ${shelf('comedy', 'genre:"Comedy",sort:POPULARITY_DESC')}
     ${shelf('fantasy', 'genre:"Fantasy",sort:POPULARITY_DESC')}
+    ${sch('week', 1)} ${sch('week2', 2)}
   } ${FRAG}`;
   let d;
   try {
-    d = await anilist(q, { season: currentSeason(), year: new Date().getUTCFullYear() });
+    d = await anilist(q, { season: currentSeason(), year: new Date().getUTCFullYear(), a: now - 7 * 86400, b: Math.floor(now / 600) * 600 });
   } catch (e) {
     console.error('home query failed, falling back to trending:', e.message);
     return { rows: [{ title: 'Trending Now', items: await trending() }] };
@@ -124,7 +139,10 @@ async function home() {
     ['trending', 'Trending Now'], ['season', 'Popular This Season'], ['top', 'Top Rated'],
     ['action', 'Action'], ['romance', 'Romance'], ['comedy', 'Comedy'], ['fantasy', 'Fantasy'],
   ];
-  return { rows: titles.map(([k, title]) => ({ title, items: ((d[k] && d[k].media) || []).map(mapMedia) })).filter(r => r.items.length) };
+  const rows = titles.map(([k, title]) => ({ title, items: ((d[k] && d[k].media) || []).map(mapMedia) }));
+  const w = weekRows(d);
+  rows.splice(1, 0, { title: 'Popular This Week', items: w.pop }, { title: 'New Releases', items: w.fresh });
+  return { rows: rows.filter(r => r.items.length) };
 }
 
 // ---------- Stream providers ----------
@@ -626,11 +644,14 @@ async function handle(req, res) {
       case 'debug':
         return send(res, 200, await debug(q), 'no-store');
       // ---- movies (Cinemeta metadata; Stremio addons + Internet Archive streams) ----
-      case 'movies_home':
-        return send(res, 200, await movies.home(), 's-maxage=1800');
+      case 'movies_home':                                  // type=series: TV shows
+        return send(res, 200, await turbo.cached('mh:' + (q.type || ''), 30 * 60 * 1000, () => movies.home(q.type)), 's-maxage=1800');
       case 'movies_search':
         if (!q.q) return send(res, 400, { error: 'q required' }, 'no-store');
-        return send(res, 200, { results: await movies.search(q.q) }, 's-maxage=600');
+        return send(res, 200, { results: await movies.search(q.q, q.type) }, 's-maxage=600');
+      case 'tv_meta':
+        if (!/^tt\d+$/.test(q.id || '')) return send(res, 400, { error: 'id required' }, 'no-store');
+        return send(res, 200, await turbo.cached('tvm:' + q.id, 6 * 3600 * 1000, () => movies.seriesMeta(q.id)), 's-maxage=21600');
       case 'movie_sources': {
         const r = await movies.sources(q);
         // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)

@@ -59,6 +59,7 @@
     <nav id="tabs">
       <button class="tab focusable" data-tab="home"></button>
       <button class="tab focusable" data-tab="movies"></button>
+      <button class="tab focusable" data-tab="tv"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
       <button class="tab focusable" data-tab="history"></button>
@@ -160,8 +161,14 @@
         <button id="setReset" class="btn focusable"></button>
       </div>
       <div id="setUsing"></div>
+      <h3 style="margin-top:1.6rem">Subtitles</h3>
+      <p class="hint">Where subtitles sit on the screen (also in the player: Up, then Subtitle position).</p>
+      <div class="setrow"><button id="setSubPos" class="btn focusable"></button><button id="setSubSize" class="btn focusable"></button></div>
+      <h3 style="margin-top:1.6rem">Performance</h3>
+      <p class="hint">Lite mode turns off animations and the rotating banner and loads smaller pictures. It is switched on automatically on 2018 (Tizen 4) TVs.</p>
+      <div class="setrow"><button id="setLite" class="btn focusable"></button></div>
       <h3 style="margin-top:1.6rem">Tips</h3>
-      <div id="setBtns"><button id="setTips" class="btn focusable"></button></div>
+      <div class="setrow"><button id="setTips" class="btn focusable"></button></div>
       <pre id="setOut"></pre>
     </div>
   </main>
@@ -201,6 +208,7 @@
     <iframe id="embedFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="origin" allowfullscreen></iframe>
     <button id="skipBtn" class="skipbtn hidden"></button>
     <div id="embedSubs"></div>
+    <div id="oldEng" class="hidden"></div>
     <div id="embedCtl" class="hidden">
       <div class="erow">
         <span id="eTime">0:00</span>
@@ -257,7 +265,7 @@
         <div><b>Seek &amp; skip</b><span>◄ ► jump 10s · <b>OK</b> pause · ▼ show controls · <b>Skip Intro</b> button appears automatically</span></div>
         <div><b>Colour keys</b><span><b>Red</b> settings (or remove a Continue Watching card) · <b>Green</b> subtitles on/off</span></div>
         <div><b>Laptop</b><span>Space pause · ←/→ 10s · <b>Q</b> or <b>S</b> settings · <b>C</b> subtitles · <b>F</b> fullscreen · <b>/</b> search</span></div>
-        <div><b>Movies</b><span>Pick <b>Source</b> and <b>Quality</b> on the movie page before pressing Play</span></div>
+        <div><b>Movies &amp; TV</b><span>Pick <b>Source</b> and <b>Quality</b> on the movie or show page before pressing Play</span></div>
       </div>
       <div class="nbtns">
         <button id="noticeOk" class="btn primary focusable">Got it</button>

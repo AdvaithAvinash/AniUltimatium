@@ -23,7 +23,7 @@ This app combines all anime apis into one.
 | **Control** | Built for the 10-key remote: arrows, OK, Return, media keys. Mouse and keyboard work on a laptop |
 | **Sources** | AnimeX (default), AniKoto, AnimeYubi, AniWaves, ranked automatically from real playback results on *your* TV (SourceIQ) |
 | **Accounts** | Optional sync of Continue Watching / My List / History, and optional [AniList](https://anilist.co) linking |
-| **Movies** | Movies tab with CineSrc, VidFast, VidCore, Videasy and public-domain films, with an on-screen control bar |
+| **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no Samsung store account needed) |
 
@@ -39,7 +39,7 @@ This app combines all anime apis into one.
 ## Why choose Aniultimatium on a Samsung TV
 - **Made for Tizen first.** Most anime apps target phones or PCs. This one is a Tizen web app: remote navigation, TV-safe layout, hardware Back key, and an
   old-engine compatibility layer so it also works on 2018 TVs (v1.04 fixed a "no video / no scrolling" bug on Tizen 4).
-- **English sub *and* dub.** Switch Japanese / English dub in the player (Up, then Audio), pick any subtitle language, and nudge subtitle timing by ±0.5 s.
+- **English sub *and* dub.** Switch Japanese / English dub in the player (Up, then Audio), pick any subtitle language, nudge subtitle timing by ±0.5 s, and move subtitles up or down (low by default) or change their size.
   The app falls back to Japanese audio automatically when a dub does not exist yet.
 - **Sources that fix themselves (SourceIQ).** The app records which source actually *plays* on your TV (resolution success, first-frame time, errors),
   ranks sources by that, cools down a failing source and brings it back automatically. The source menu shows *Recommended / Reliable / Untested / Temporarily unavailable*.
@@ -47,7 +47,8 @@ This app combines all anime apis into one.
 - **Fast source discovery (TurboScrape).** Sources are raced with per-source time limits, the next source starts early when the first is slow, lookups are cached and
   de-duplicated, abandoned lookups are cancelled, and the next episode is prepared while you watch. See [measured results](#performance-measured).
 - **AniList sync.** Link AniList with a code from your phone; finishing an episode updates your progress and your "Watching" list shows on the home page.
-- **Movies too.** A Movies tab with several players, OpenSubtitles, and a Down-key control bar for seeking.
+- **Movies and TV shows too.** Movies and TV Shows tabs with "Popular This Week" and "New Releases", several players, OpenSubtitles, and a Down-key control bar for seeking.
+- **What's new each week.** "Popular This Week" and "New Releases" rows built from the episodes that actually aired in the last 7 days.
 - **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
 
 ## Install on a Samsung TV
@@ -66,6 +67,8 @@ and that is the gap it is designed to be the best at. Phone/PC apps and website 
 **Does it work on older Samsung TVs (2018, Tizen 4.0)?**
 Yes, that is a design goal. Tizen 4 TVs use Chromium 56, which lacks CSS `inset`, flex `gap`, CSS grid and more; the app detects this and uses fallbacks, and
 `python3 tools/check_compat.py` fails the build if newer-only CSS/JS is added. If something still looks wrong, open an issue with your TV model and year.
+Anime plays normally. Movies and TV shows are the exception: they open other sites' players, whose code needs a 2020 or newer browser (Chromium 80+), so on Tizen 4 to 6 only public-domain films play;
+the app shows a message instead of hanging on "fetching media". Tizen 4 also gets Lite mode and lazy-loaded pictures automatically (home page download measured at 22 MB → 0.8 MB).
 
 **Does it have English dub?**
 Yes, where a source offers one: open the player menu (Up), then **Audio**, then English dub. In our latest tests 49 of 59 popular and current-season shows had an English dub on at least one source; the rest do not have a dub yet.
@@ -181,7 +184,7 @@ Aniultimatium, Redirect URL `https://<your worker>.workers.dev/link.html`, save,
 Worker's KV namespace `STORE`.
 
 ## Movies, accounts, history
-- **Movies** tab: catalogue/metadata from Cinemeta (free, no key). Playback: public-domain films from the Internet Archive play in our
+- **Movies** and **TV Shows** tabs: catalogue/metadata from Cinemeta (free, no key); TV shows list seasons and episodes (`/api?action=tv_meta&id=tt…`). Playback: public-domain films from the Internet Archive play in our
   own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player in an iframe: **CineSrc** (default), **VidFast**, **VidCore** or **Videasy**.
   On a movie's page, the **Source** dropdown picks Auto / CineSrc / VidFast / VidCore / Videasy / Public domain before you press Play (remembered).
   Embedded players run their own controls, so resume/skip aren't available there. In the menu (Up / Q) choose Source: Auto / Embedded / Public domain.
