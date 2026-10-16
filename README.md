@@ -129,19 +129,9 @@ Set `VERCEL_API_URL` at the top of `public/main.js` (any backend URL), then run 
 - The ranking is sent as `order=` with each lookup; the source menu shows *Recommended / Reliable / Untested / Temporarily unavailable*. No URLs, cookies or titles are stored.
 - If a backend call dies without any answer (for example Cloudflare's CPU limit, error 1102) the app drops the lead source and asks again.
 
-## Deploy on Cloudflare Workers (works while Vercel is paused)
-The same `api/index.js` backend runs as a Cloudflare Worker (`worker/index.js` + `wrangler.jsonc`); the Worker also serves `public/`, so one URL covers laptop + TV.
-1. Cloudflare dashboard → Workers & Pages → Create → connect this GitHub repo. Build command `npm install`, deploy command `npx wrangler deploy`. The Worker name must be `aniultimatium`.
-2. Storage for accounts, sync, phone pairing (Live TV) and AniList linking is a **Durable Object** (`PairBox`, SQLite-backed, free plan: 100,000 writes a day). `wrangler deploy` creates it from the `migrations` entry in `wrangler.jsonc`; nothing else to set up. The older KV namespace `STORE` is no longer written to (its free plan allows only 1,000 writes a day for the whole app, which caused "KV limit" errors); it is only read, so accounts created before keep working. Without any of these, accounts live in memory only.
-3. Put your `https://<name>.<you>.workers.dev` URL in `VERCEL_API_URL` (first line of `public/main.js`) and rebuild the `.wgt`.
-Notes: the free plan has a small CPU limit per request, and streaming sites sometimes block Cloudflare IPs; open `/api?action=debug&title=Solo%20Leveling&ep=1` to see what works. `npm start` on a home PC stays the most reliable.
-
 Controls – TV remote: arrows / Enter / Return, media keys. Laptop: mouse, or arrows / Enter / Esc,
 `/` search, Space play-pause, ←/→ seek 10s, `N`/`P` next/prev episode, `C` subtitles, `F` fullscreen, `M` mute.
 
-## Troubleshooting streams
-Open `https://<your-worker>/api?action=debug&id=154587&title=Frieren&ep=1` (use the show's AniList id): it runs every source (AnimeX, AniKoto, AnimeYubi, AniWaves)
-to completion and shows which one worked, how long it took, how many outgoing requests it used (`n`), or why it failed (`kind`: absent = not on that source, fail, timeout, budget).
 
 ## Run locally (recommended — streaming sites block cloud IPs)
 ```
