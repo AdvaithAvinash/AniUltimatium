@@ -60,6 +60,7 @@
       <button class="tab focusable" data-tab="home"></button>
       <button class="tab focusable" data-tab="movies"></button>
       <button class="tab focusable" data-tab="tv"></button>
+      <button class="tab focusable" data-tab="live"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
       <button class="tab focusable" data-tab="history"></button>
@@ -86,6 +87,35 @@
     </section>
     <div id="homeMsg"></div>
     <div id="rows"></div>
+  </main>
+
+  <main id="viewLive" class="view hidden">
+    <div id="liveWrap">
+      <aside id="liveRail">
+        <button id="livePlBtn" class="focusable" title="Playlists"><span class="plav" id="livePlAv">TV</span><span class="plt"><b id="livePlName">Live TV</b><i id="livePlSub"></i></span><span class="plc">&#9662;</span></button>
+        <div id="liveRailList" class="vl"></div>
+      </aside>
+      <section id="liveMain">
+        <div id="liveTools">
+          <div class="lsearch"><input id="liveSearch" class="focusable" type="text" placeholder="Search channels…" autocomplete="off" spellcheck="false"></div>
+          <button id="liveSort" class="btn sm focusable"></button>
+          <button id="liveRefresh" class="btn sm focusable"></button>
+          <button id="liveSet" class="btn sm focusable"></button>
+        </div>
+        <div id="liveStatus"></div>
+        <div id="liveList" class="vl"></div>
+        <div id="liveHint"></div>
+      </section>
+      <aside id="liveInfo">
+        <div id="liInfLogo"></div>
+        <h3 id="liInfName"></h3>
+        <div id="liInfMeta"></div>
+        <div id="liInfNow"></div>
+        <div id="liInfNext"></div>
+        <div id="liInfKeys"></div>
+      </aside>
+    </div>
+    <div id="liveEmpty" class="hidden"></div>
   </main>
 
   <main id="viewSearch" class="view hidden">
@@ -206,6 +236,23 @@
   <section id="player" class="hidden">
     <video id="video" playsinline></video>
     <iframe id="embedFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="origin" allowfullscreen></iframe>
+    <div id="liveHud" class="hidden">
+      <div id="lhTop"><span id="lhClock"></span><span id="lhSleep"></span></div>
+      <div id="lhBanner">
+        <div id="lhLogo"></div>
+        <div id="lhBody">
+          <div class="lhrow"><span id="lhNum"></span><span id="lhName"></span><span id="lhQ"></span><span id="lhFav"></span></div>
+          <div id="lhGroup"></div>
+          <div class="lhprog"><span class="lhl">NOW</span><span id="lhNow"></span><span id="lhNowT"></span><div class="lhbar"><i id="lhBar"></i></div></div>
+          <div class="lhprog"><span class="lhl nx">NEXT</span><span id="lhNext"></span><span id="lhNextT"></span></div>
+        </div>
+      </div>
+      <div id="lhHint">&#9650;&#9660; zap · &#9664; channels · &#9654; options · 0-9 number · OK show/hide</div>
+    </div>
+    <div id="liveMsg" class="hidden"></div>
+    <div id="liveNum" class="hidden"></div>
+    <div id="liveSide" class="hidden"><div id="liveSideHead"></div><div id="liveSideList" class="vl"></div></div>
+    <div id="liveMenu" class="hidden"><div class="mhead">Channel options</div><div id="liveMenuRows"></div><div class="mhint">Up/Down select · Left/Right or OK change · Back close</div></div>
     <button id="skipBtn" class="skipbtn hidden"></button>
     <div id="embedSubs"></div>
     <div id="oldEng" class="hidden"></div>
@@ -255,6 +302,7 @@
       </div>
     </div>
   </section>
+  <div id="liveModal" class="hidden"><div id="liveModalBox"></div></div>
   <div id="notice" class="hidden">
     <div id="noticeBox">
       <h2>Welcome to Aniultimatium</h2>
@@ -277,6 +325,8 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
 <script src="iq.js"></script>
+<script src="iptv.js"></script>
 <script src="main.js"></script>
+<script src="live.js"></script>
 </body>
 </html>

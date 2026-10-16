@@ -25,6 +25,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     history: 'M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
     person: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
     tv: 'M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z',
+    live: 'M7.76 16.24C6.67 15.16 6 13.66 6 12s.67-3.16 1.76-4.24l1.42 1.42C8.45 9.9 8 10.9 8 12c0 1.1.45 2.1 1.17 2.83l-1.41 1.41zm8.48 0C17.33 15.16 18 13.66 18 12s-.67-3.16-1.76-4.24l-1.42 1.42C15.55 9.9 16 10.9 16 12c0 1.1-.45 2.1-1.17 2.83l1.41 1.41zM12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm8 2c0 2.21-.9 4.21-2.35 5.65l1.42 1.42C20.88 17.26 22 14.76 22 12s-1.12-5.26-2.93-7.07l-1.42 1.42C19.1 7.79 20 9.79 20 12zM6.35 6.35L4.93 4.93C3.12 6.74 2 9.24 2 12s1.12 5.26 2.93 7.07l1.42-1.42C4.9 16.21 4 14.21 4 12s.9-4.21 2.35-5.65z',
+    heart: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
     star: 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'
   };
   function ic(n) { return '<svg class="ic" viewBox="0 0 24 24"><path d="' + ICONS[n] + '"/></svg>'; }
@@ -481,10 +483,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
 
   // ======================= Tabs =======================
-  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
-  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
+  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
+  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
   function paintTabs() {
-    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', tv: 'TV Shows', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
+    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
       tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
@@ -499,10 +501,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'movies') state.mode = 'movies';
     if (t === 'tv') state.mode = 'tv';
     var shown = VIEW_OF[t];
-    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings'].forEach(function (id) {
+    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive'].forEach(function (id) {
       $(id).className = 'view' + (id === shown ? '' : ' hidden');
     });
-    $('nav').className = activeView().scrollTop > 40 ? 'solid' : '';
+    $('nav').className = t === 'live' || activeView().scrollTop > 40 ? 'solid' : '';
     paintTabs();
     if (isHomeTab(t)) {
       if (state.hero.length && state.cache[state.mode] && prev === state.tab) { renderContinue(); showHero(state.heroIdx, true); }
@@ -513,6 +515,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (!$('searchGrid').children.length && !$('searchMsg').textContent) runSearch();
       if (focusContent !== false) { setFocus($('searchInput')); if (!IS_TV) $('searchInput').focus(); }
     }
+    if (t === 'live' && EA.live) EA.live.show(focusContent);
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
     if (t === 'account') renderAccount();
@@ -1504,12 +1507,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     }, 25000);
   }
   video.addEventListener('playing', function () {
+    if (state.liveOn) return;
     clearTimeout(state.waitTimer); pmsg('', false); paintPlayBtn();
     var p = state.pPlay;
     if (p && !p.ok && p.key && state.anime && !isVid(state.anime)) { p.ok = true; iq.recordPlay(p.key, true, performance.now() - p.t0); }      // time to first frame
   });
-  video.addEventListener('pause', function () { paintPlayBtn(); hud(); });
+  video.addEventListener('pause', function () { if (state.liveOn) return; paintPlayBtn(); hud(); });
   video.addEventListener('waiting', function () {
+    if (state.liveOn) return;
     pmsg('', true);
     clearTimeout(state.waitTimer);                                           // stalled for 15s -> try the server relay once
     state.waitTimer = setTimeout(function () { if (state.view === 'player' && video.readyState < 3 && !video.paused) { if (fallbackToProxy()) toast('Slow connection — switching route'); } }, 15000);
@@ -1565,13 +1570,15 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     return true;
   }
   video.addEventListener('error', function () {
-    if (!video.getAttribute('src')) return;
+    if (state.liveOn || !video.getAttribute('src')) return;
     if (!fallbackToProxy() && !streamDead()) pmsg('Video error — the stream could not be played', false);
   });
   video.addEventListener('progress', function () {
+    if (state.liveOn) return;
     if (video.duration && video.buffered.length) $('seekBuf').style.width = video.buffered.end(video.buffered.length - 1) / video.duration * 100 + '%';
   });
   video.addEventListener('timeupdate', function () {
+    if (state.liveOn) return;                                                  // live TV: infinite duration, nothing to save
     var d = video.duration, t = video.currentTime;
     if (d) $('seekBar').style.width = t / d * 100 + '%';
     $('pTime').textContent = fmt(t) + ' / ' + fmt(d);
@@ -1589,6 +1596,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function doSkip() { if (state.skipTo) { video.currentTime = state.skipTo; $('skipBtn').className = 'skipbtn hidden'; hud(); } }
   video.addEventListener('ended', function () {
+    if (state.liveOn) return;
     var a = state.anime;
     if (isVid(a)) { embedEnded(); return; }
     if (a.episodes && state.ep >= a.episodes) { setProg(a, state.ep, 0, 0); closePlayer(); return; }
@@ -1672,6 +1680,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.focusEl = e;
     e.className += ' focused';
     if (hasCls(e, 'card')) warmNear(e);
+    if (EA.live) EA.live.onFocus(e);
     if (!noScroll) ensureVisible(e);
   }
   function scrollRoot(e) {
@@ -1689,7 +1698,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (er.top < topSafe || er.bottom > vr.bottom - rem) root.scrollTop += r.top - (topSafe + rem);
   }
   function candidates() {
-    var roots = state.view === 'notice' ? [$('notice')] : state.view === 'detail' ? [$('detail')] : [$('nav'), activeView()], out = [];
+    var roots = state.view === 'notice' ? [$('notice')] : state.view === 'modal' ? [$('liveModal')] : state.view === 'detail' ? [$('detail')] : [$('nav'), activeView()], out = [];
     roots.forEach(function (r) {
       var all = r.querySelectorAll('.focusable');
       for (var i = 0; i < all.length; i++) out.push(all[i]);
@@ -1723,6 +1732,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
 
   function activate(e) {
     if (e.tagName === 'INPUT') { e.focus(); return; }
+    if (e.__live && EA.live) { EA.live.activate(e); return; }
+    if (e.id && /^live[A-Z]/.test(e.id) && EA.live) { EA.live.activate(e); return; }
     if (e.__tab) { showTab(e.__tab, e.__tab !== 'search'); if (e.__tab === 'search') setFocus($('searchInput')); return; }
     if (e.__stype) { state.smode = e.__stype; paintTypeChips(); $('searchGrid').innerHTML = ''; runSearch(); return; }
     if (e.id === 'heroPlay') { var h = state.hero[state.heroIdx]; if (h) { state.returnFocus = e; var p = progOf(h); state.anime = h;
@@ -1802,7 +1813,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function paintTipsBtn() { var off = store.get('ea_notice_off', false); $('setTips').innerHTML = (off ? '✕ Startup tips: Off' : '✔ Startup tips: On'); }
   function goBack() {
+    if (state.liveOn && EA.live) { EA.live.back(); return; }                           // Live TV player: its own Back
     if (state.view === 'notice') { hideNotice(false); return; }
+    if (state.view === 'modal' && EA.live) { EA.live.closeModal(); return; }
     if (state.view === 'player' && state.oldEng) { hideOldEng(); closePlayer(); return; }
     if (state.view === 'player' && state.menuOpen) { closeMenu(); return; }          // Back closes the settings menu first
     if (state.view === 'player' && state.embed && state.ebar && state.ebar.open) { hideEbar(); return; }
@@ -1815,6 +1828,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
 
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode;
+    if (EA.live && EA.live.key(e)) return;                                            // Live TV: its own lists, zapping and player keys
     if (state.view === 'player') {
       e.preventDefault();
       if (state.oldEng) { oldEngKey(k); return; }
@@ -1875,8 +1889,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   });
 
   // Mouse / Magic Remote pointer support
+  var lastMouseMove = 0;                                                         // a still cursor under a screen that changed must not steal the remote's focus
+  document.addEventListener('mousemove', function () { lastMouseMove = Date.now(); }, true);
   document.addEventListener('mouseover', function (e) {
-    if (state.view === 'player') return;
+    if (state.view === 'player' || Date.now() - lastMouseMove > 350) return;
     var f = up(e.target, 'focusable');
     if (f && f !== state.focusEl && f.tagName !== 'INPUT') setFocus(f, true);
   });
@@ -1899,12 +1915,16 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings'].forEach(function (id) {
     $(id).addEventListener('scroll', function () { $('nav').className = this.scrollTop > 40 ? 'solid' : ''; });
   });
-  document.addEventListener('visibilitychange', function () { if (document.hidden && state.view === 'player') video.pause(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && state.view === 'player' && !(EA.live && EA.live.playing())) video.pause(); });
+
+  // ======================= Bridge for public/live.js (Live TV) =======================
+  var EA = window.EA = { state: state, $: $, el: el, esc: esc, ic: ic, fmt: fmt, store: store, toast: toast, setFocus: setFocus, KEY: KEY, isBackKey: isBackKey, apiBase: apiBase, video: video,
+    hasCls: hasCls, up: up, IS_TV: IS_TV, OLD_ENGINE: OLD_ENGINE, CHROME_V: CHROME_V, lite: function () { return LITE; }, showTab: showTab, paintTabs: paintTabs, live: null };
 
   // ======================= Init =======================
   try {
     if (window.tizen && tizen.tvinputdevice) {
-      ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind', 'ColorF0Red', 'ColorF1Green', 'Info'].forEach(function (n) {
+      ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind', 'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', 'Info', 'ChannelUp', 'ChannelDown', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].forEach(function (n) {
         try { tizen.tvinputdevice.registerKey(n); } catch (e) {}
       });
     }

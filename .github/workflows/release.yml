@@ -1,16 +1,16 @@
 # Builds app.wgt (tools/build_wgt.py) and attaches it to a DRAFT GitHub release.
-# Runs when a tag like "stable-v1.03" or "v1.03" is pushed, or by hand from the Actions tab.
+# Runs when a tag like "stable-v1.03", "beta-v1.06" or "v1.03" is pushed, or by hand from the Actions tab. beta-* releases are marked "pre-release".
 name: Release app.wgt
 
 on:
   push:
-    tags: ['stable-v*', 'v*']
+    tags: ['stable-v*', 'beta-v*', 'v*']
   workflow_dispatch:
     inputs:
       tag:
         description: 'Tag to release (created on the selected commit if it does not exist)'
         required: true
-        default: 'stable-v1.04'
+        default: 'beta-v1.06'
       draft:
         description: 'Create as a draft (unpublished) release'
         type: boolean
@@ -40,8 +40,9 @@ jobs:
         id: meta
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          NAME="${TAG#stable-}"
-          case "$TAG" in stable-*) NAME="Aniultimatium Stable ${NAME}";; *) NAME="Aniultimatium ${NAME}";; esac
+          NAME="${TAG#stable-}"; NAME="${NAME#beta-}"; PRE=false
+          case "$TAG" in stable-*) NAME="Aniultimatium Stable ${NAME}";; beta-*) NAME="Aniultimatium Beta ${NAME}"; PRE=true;; *) NAME="Aniultimatium ${NAME}";; esac
+          echo "pre=$PRE" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
@@ -51,5 +52,6 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.name }}
           draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
+          prerelease: ${{ steps.meta.outputs.pre == 'true' }}
           files: app.wgt
           body_path: RELEASE_NOTES.md

@@ -23,6 +23,7 @@ This app combines all anime apis into one.
 | **Control** | Built for the 10-key remote: arrows, OK, Return, media keys. Mouse and keyboard work on a laptop |
 | **Sources** | AnimeX (default), AniKoto, AnimeYubi, AniWaves, ranked automatically from real playback results on *your* TV (SourceIQ) |
 | **Accounts** | Optional sync of Continue Watching / My List / History, and optional [AniList](https://anilist.co) linking |
+| **Live TV (IPTV)** | Bring your own M3U playlist or Xtream login (or pick free public channels): fast channel browser for 50,000+ channels, TV guide, zapping, favorites. No channels are included |
 | **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no Samsung store account needed) |
@@ -182,6 +183,35 @@ One-time setup (AniList requires an API client): go to https://anilist.co/settin
 Aniultimatium, Redirect URL `https://<your worker>.workers.dev/link.html`, save, and put the client **ID** into
 `wrangler.jsonc` → `"vars": { "ANILIST_CLIENT_ID": "<id>" }` (or the env var for `npm start`). Linking codes are kept in the
 Worker's KV namespace `STORE`.
+
+## Live TV (IPTV)
+A fast IPTV section for your **own** playlist. Aniultimatium does not provide, host or link to any paid channels: you add what your provider gave you, or start with the free public channel lists (community-maintained, availability varies by region).
+
+**Adding a playlist** (Live TV tab):
+- **Add with your phone**: the TV shows a 6-character code; open `/add.html` on your phone, enter the code and your provider's details (no typing on the remote). The server keeps it for at most 10 minutes and forgets it once the TV has received it.
+- **Xtream login**: server, username, password. The login is checked first and the account page shows status, expiry date and connections in use.
+- **M3U link**: any `.m3u` / `.m3u8` playlist address (a `get.php?username=...` link is recognised as Xtream automatically).
+- **Free public channels**: by country, category or language (iptv-org lists).
+
+**Why it does not freeze** (measured, see below): downloading and parsing run in a Web Worker and channels appear while they stream in; the lists are virtual (about 22 row elements exist whatever the list size); logos load only when scrolling settles and a failed logo is never retried; saved playlists open from IndexedDB without downloading again; zapping updates the banner at once and starts the stream only when the remote pauses.
+
+**Features:** groups, Favorites, Recently watched, search across every channel, sort (provider order / A-Z / number), now and next with progress bars and descriptions (XMLTV guide, or the Xtream short guide per channel), several playlists with separate favorites, adult groups hidden by default, quality / audio / picture (fit, fill, stretch, zoom) / sleep timer / connection choice, channel number entry, previous channel, channel list over the video (Left, with Left/Right switching group), automatic fallback (direct, then through your server, HLS then TS) and a clear message for channels that are offline.
+
+**Remote:** Up/Down zap, Left channel list, Right options, 0-9 channel number, OK show/hide the banner, Green previous channel, Yellow favorite, Blue sleep timer, Back leaves. In the list: OK watch, Right favorite, Left groups, Up search, CH+/- page.
+
+**Measured** (mock provider, 30,000 channels, headless Chromium; the old-engine numbers use Chromium 60 with the CPU slowed 4x as a stand-in for a 2018 TV, not a real TV):
+
+| What | Result |
+|---|---|
+| Xtream list of 30,000 channels, first rows on screen | 92 ms (modern Chromium) |
+| Same list fully loaded and ready | 0.57 s (modern), 1.3 s (Chromium 60, 4x slower CPU) |
+| Reopening a saved list | first rows after 101 ms, ready after about 1 s (4x slower CPU), no download |
+| Frame time while holding Down in the list (4x slower CPU) | worst 41 ms, none over 100 ms |
+| Search 30,000 channels | 244 ms including the screen update (4x slower CPU); 100,000 names in 2 ms in Node |
+| Longest stall while loading and parsing 30,000 channels (4x slower CPU) | about 70-150 ms (it was 300 ms before the work was split into slices) |
+| Parsing 100,000 channels (14 MB playlist) in Node | 0.9 s |
+
+**Limits:** streams must be HTTP/HTTPS (RTMP/UDP/RTSP are skipped). HLS (`.m3u8`) works everywhere; raw MPEG-TS plays on TVs but not in desktop browsers. Compressed `.gz` guides are not supported on TVs. Live TV on the website goes through the server for providers without CORS, which costs bandwidth; the TV app connects directly first. Movies/series (Xtream VOD) are not included yet.
 
 ## Movies, accounts, history
 - **Movies** and **TV Shows** tabs: catalogue/metadata from Cinemeta (free, no key); TV shows list seasons and episodes (`/api?action=tv_meta&id=tt…`). Playback: public-domain films from the Internet Archive play in our

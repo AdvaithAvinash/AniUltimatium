@@ -4,8 +4,11 @@ import re, os, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 css = re.sub(r'/\*.*?\*/', '', open(os.path.join(root, 'public', 'styles.css')).read(), flags=re.S)   # comments out
 # Old-engine marker survives comment stripping through the generated selectors below it
-js_raw = open(os.path.join(root, 'public', 'main.js')).read()
-js = re.sub(r"'(?:\\.|[^'\\\n])*'|\"(?:\\.|[^\"\\\n])*\"", "''", js_raw)           # string literals out (e.g. GraphQL '{...F}')
+JS_FILES = ['main.js', 'iptv.js', 'live.js', 'iq.js']
+def strip_js(raw):
+    raw = re.sub(r'/\*.*?\*/', '', raw, flags=re.S)                                        # block comments out
+    raw = re.sub(r'(?m)(^|[^:\'"\\])//[^\n]*', r'\1', raw)                                  # line comments out (not http:// in strings)
+    return re.sub(r"'(?:\\.|[^'\\\n])*'|\"(?:\\.|[^\"\\\n])*\"", "''", raw)           # string literals out (e.g. GraphQL '{...F}')
 bad = []
 css_full = open(os.path.join(root, 'public', 'styles.css')).read()
 base = re.sub(r'/\*.*?\*/', '', css_full.split('Old-engine compatibility')[0], flags=re.S)                     # everything before the generated fallbacks
@@ -22,7 +25,9 @@ for sel in re.findall(r'([^{}]+)\{[^{}]*?display:\s*(?:inline-)?flex[^{}]*?;gap:
 for name, pat in [('?. optional chaining', r'\?\.[A-Za-z_\[(]'), ('?? nullish', r'\?\?[^?]'), ('.finally()', r'\.finally\('), ('padStart/padEnd', r'\.pad(Start|End)\('),
                   ('object spread', r'\{\s*\.\.\.[A-Za-z_]'), ('Object.fromEntries', r'fromEntries'), ('.flat()', r'\.flat(Map)?\('), ('replaceAll', r'replaceAll'),
                   ('element.scrollBy/scrollTo(options)', r'\.scroll(By|To)\(\{'), ('arrow function', r'=>'), ('template literal', r'`')]:
-    if re.search(pat, js): bad.append('main.js: ' + name)
+    for f in JS_FILES:
+        js = strip_js(open(os.path.join(root, 'public', f)).read())
+        if re.search(pat, js): bad.append(f + ': ' + name)
 if bad:
     print('\n'.join(bad)); sys.exit(1)
 print('compat check OK (no Chromium-56-incompatible CSS/JS)')

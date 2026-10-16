@@ -1,48 +1,25 @@
-# Aniultimatium — Stable v1.05
+# Aniultimatium — Beta v1.06
 
-Free English **sub & dub** anime app for **Samsung Tizen smart TVs** (Tizen 4.0 / 2018 and newer) and browsers.
-Install `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (custom wgt). Widget version 2.6.0.
-Backend: Cloudflare Worker (`https://aniultimatium.advaithavinash404.workers.dev`) or `npm start` at home.
+**Beta:** new Live TV (IPTV) section. Please report problems with your TV model and year. Free English **sub & dub** anime app for **Samsung Tizen smart TVs** (Tizen 4.0 / 2018 and newer) and browsers.
+Install `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (custom wgt). Widget version 2.7.0.
+Backend: Cloudflare Worker (`https://aniultimatium.advaithavinash404.workers.dev`) or `npm start` at home. **Redeploy the Worker** to use "Add with your phone" and the new proxy options.
 
-## Fixed — movies stuck on "fetching media" on Tizen 4
-Reported on Tizen 4.0 (v1.04): a movie never started, and the debug console showed `SyntaxError: Unexpected token .` / `?` from `cinesrc.st/_next/static/chunks/…js`.
-Cause: movies play inside other sites' players (CineSrc, VidFast, VidCore, Videasy). Their own code uses 2020+ JavaScript (`?.`, `??`, `globalThis`) that the browser in
-Tizen 4 (Chromium 56) cannot even read, so the player page never starts. This is not in our code and cannot be fixed from the app.
-What changed:
-- The app detects an old engine (Tizen 4/5/5.5/6) and says so instead of hanging: it explains why, and OK still lets you try the player.
-- A watchdog notices a player that never starts (20 s on old TVs) and offers the next player instead of leaving you stuck.
-- On old TVs, pressing OK no longer hands the remote to a dead player page (that was one way the controls got stuck).
-- Public-domain films still play in our own player on every TV (Source: Public domain), and all anime plays normally.
-Verified in a Chromium 60 engine (the closest available to Tizen 4): the notice appears, OK loads the player, the watchdog fires after 20 s, Back always exits.
+## New — Live TV (IPTV)
+A fast, remote-friendly IPTV section for **your own** playlist (M3U link or Xtream login; free public channel lists are offered as a starting point). No channels are included.
+- **Built not to freeze.** Download and parsing run in a Web Worker, channels show up while they stream in, lists are virtual (about 22 row elements for any list size), logos load only when scrolling settles, saved playlists open from the device without downloading again.
+- **Measured** (mock provider with 30,000 channels; the old-engine figures use Chromium 60 with the CPU slowed 4x, not a real TV): first rows in 92 ms and the full list in 0.57 s; 1.3 s on the slowed old engine; reopening a saved list shows rows after 101 ms; holding Down in the list never exceeded 41 ms per frame; the longest stall while loading was about 70-150 ms (it was 300 ms before the work was split up).
+- **Browse:** groups, Favorites, Recently watched, search across all channels, sort, several playlists (favorites kept per playlist), adult groups hidden by default, "now / next" with progress and descriptions from the TV guide.
+- **Watch:** Up/Down zapping (a fast burst of presses starts one stream, not many), channel number entry, previous channel, channel list over the video, quality / audio / picture / sleep timer / connection options, automatic fallback between routes and a clear message for offline channels.
+- **Add playlists without typing on the remote:** the TV shows a code, you enter it with your provider's details on your phone.
+- Checked against real public lists (11,346 channels parsed in 134 ms): multi-genre groups are tidied ("News;Public" becomes "News"), `(720p)` and `[Geo-blocked]` become badges, RTMP-only entries are skipped, the adult filter no longer flags "Adult Swim".
 
-## Fixed — quality control "stuck" in the player
-The Quality row read the level that was *playing*, which only changes after the next video segment, so each press seemed to do nothing or jump back.
-It now follows the level you picked. Tested with a 3-level stream: v1.04 showed 720p, 720p, 480p, 480p for four presses; v1.05 shows 720p, 480p, 360p, Auto, and the picture follows each step.
+## Also in this release
+- Hovering the mouse no longer steals focus from the remote when a screen changes under a still cursor.
+- The top bar fits nine tabs at every window size.
+- Release workflow: `beta-v*` tags create a pre-release.
 
-## New — subtitle position and size
-Subtitles now sit lower by default ("Low"), and you can move them: **Settings → Subtitles**, or in the player **Up → Subtitle position** (Right = lower).
-Six positions from *Lowest* to *Highest* (*Classic* is the v1.04 height) and four sizes. Works for anime and for movie/TV players. When the player controls are shown, low subtitles lift above them.
-
-## New — TV shows
-A **TV Shows** tab (popular this week, new releases, top rated, genres), search, seasons and episodes, resume, next episode at the end and with the Next button,
-and OpenSubtitles matched to the season and episode. They use the same players as movies (CineSrc, VidFast, VidCore, Videasy), so on Tizen 4 they have the same limit as movies.
-
-## New — "Popular This Week" and "New Releases"
-- Anime: from the episodes that actually aired in the last 7 days (AniList airing schedule), most popular first, and the newest episodes first.
-- Movies and TV: Cinemeta's current popularity list and this year's releases.
-
-## Fixed — AniList errors ("rate limit")
-AniList allows 30 requests a minute and answered extra requests with an error. The app now:
-- sends every AniList request through one queue, slows down when AniList says few requests are left, and on a "too many requests" answer waits the time AniList asks for and retries (twice);
-- keeps AniList data on the device (home page 15 min, show records up to 12 h), so reopening a show or the home page costs no request;
-- asks once instead of twice when you open a show while linked; refreshes the Watching row every 5 min instead of every 2.
-Tested with a simulated "too many requests": the home page still loads after the retry, a reload uses the saved page, and opening the same show twice makes one request.
-
-## Faster on Tizen 4
-Chromium 56 ignores `loading="lazy"`, so v1.04 downloaded every cover on the home page at start. v1.05 loads pictures only when they come near the screen
-(and the next few in a row when you move), uses smaller cover files for cards, and turns on **Lite mode** automatically on Tizen 4 (no animations, no rotating banner; switchable in Settings).
-Measured in Chromium 60, home page, first 8 seconds, 3 runs each: **114 → 10 pictures, 22.3 MB → 0.77 MB downloaded**. Time until the first row appears did not change (about 0.6–0.9 s in both).
+## Limits (beta)
+HTTP/HTTPS streams only; HLS everywhere, raw MPEG-TS on TVs only; compressed `.gz` guides are not supported on TVs; no Xtream movies/series yet. Playback on real TVs could not be tested here.
 
 ## Tests
-`npm test` (29 unit tests + Tizen-4 compatibility check), end-to-end browser tests (back key, control bar, source switching, SourceIQ, crash recovery, TV flow, subtitle position,
-AniList 429 handling, quality switching) and Chromium 60 runs. Limitation: playback on a real TV cannot be tested here.
+`npm test`: 36 unit tests (TurboScrape, SourceIQ, the IPTV engine with 100,000 channels) and the Tizen-4 compatibility check, now covering every script. End-to-end browser tests for Live TV (keyboard flow, zapping, dead channels, side list, options, search, pairing, playlists, settings, persistence) and the earlier suites (anime, movies, TV shows, AniList, quality switching).

@@ -537,6 +537,42 @@ async function alPoll(code) {
   await accounts.store.set('al:' + code, { at: 0, token: null });      // hand the token out once
   return { status: 'ok', token: v.token, expiresIn: v.expiresIn || null };
 }
+// ---- Live TV: add a playlist from a phone (same code flow as AniList). The TV shows a code, the phone page /add.html posts the playlist ----
+const IP_TTL = 10 * 60 * 1000;
+const cleanCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+async function pairStart(origin) {
+  const code = alCode();
+  await accounts.store.set('ip:' + code, { at: Date.now(), data: null });
+  return { code, url: origin + '/add.html', expiresIn: IP_TTL / 1000, persistent: accounts.store.persistent() };
+}
+async function pairPoll(code) {
+  code = cleanCode(code);
+  const v = code && await accounts.store.get('ip:' + code);
+  if (!v || Date.now() - v.at > IP_TTL) return { status: 'expired' };
+  if (!v.data) return { status: 'waiting' };
+  await accounts.store.set('ip:' + code, { at: 0, data: null });          // hand the playlist out once and forget it
+  return { status: 'ok', playlist: v.data };
+}
+async function pairPut(b) {
+  const code = cleanCode(b && b.code), bad = m => { const e = new Error(m); e.status = 400; return e; };
+  const str = (x, n) => String(x == null ? '' : x).trim().slice(0, n);
+  if (!code) throw bad('Missing code');
+  const v = await accounts.store.get('ip:' + code);
+  if (!v || Date.now() - v.at > IP_TTL) { const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
+  const name = str(b.name, 60);
+  let data;
+  if (b.kind === 'xtream') {
+    const server = str(b.server, 300), user = str(b.user, 120), pass = str(b.pass, 120);
+    if (!/^(https?:\/\/)?[^\s/]+\.[^\s/]+|^(https?:\/\/)?localhost|^(https?:\/\/)?\d+\.\d+\.\d+\.\d+/i.test(server) || !user || !pass) throw bad('Enter the server address, username and password');
+    data = { type: 'xtream', name, server, user, pass };
+  } else if (b.kind === 'm3u') {
+    const url = str(b.url, 2000);
+    if (!/^https?:\/\/[^\s]+$/i.test(url)) throw bad('Enter the playlist link (starting with http:// or https://)');
+    data = { type: 'm3u', name, url };
+  } else throw bad('Unknown playlist type');
+  await accounts.store.set('ip:' + code, { at: v.at, data });
+  return { ok: true };
+}
 async function alPut(b) {
   const code = String((b && b.code) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const token = String((b && b.token) || '');
@@ -586,7 +622,7 @@ async function proxy(req, res, q, origin) {
   const target = q.url;
   if (!/^https?:\/\//i.test(target || '')) return send(res, 400, { error: 'bad url' }, 'no-store');
   const ref = q.ref || '';
-  const headers = { 'User-Agent': UA };
+  const headers = { 'User-Agent': /^[\x20-\x7e]{3,120}$/.test(q.ua || '') ? q.ua : UA };       // IPTV providers often only answer a player-like User-Agent (ua=...)
   if (ref) { headers.Referer = ref; try { headers.Origin = new URL(ref).origin; } catch (e) { /* ignore */ } }
   if (req.headers.range) headers.Range = req.headers.range;
   const r = await fetch(target, { headers });
@@ -597,11 +633,11 @@ async function proxy(req, res, q, origin) {
     return res.status(200).send(toVtt(await r.text(), target));
   }
   const type = r.headers.get('content-type') || '';
-  if (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target)) {
+  if (q.raw !== '1' && (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target))) {
     const text = await r.text();
     if (!r.ok || text.indexOf('#EXTM3U') < 0) return send(res, r.ok ? 502 : r.status, { error: 'upstream playlist unavailable (' + r.status + ')' }, 'no-store');
     const abs = u => new URL(u, target).href;
-    const wrap = u => `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(abs(u))}`;
+    const wrap = u => `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}${q.ua ? '&ua=' + encodeURIComponent(q.ua) : ''}&url=${encodeURIComponent(abs(u))}`;
     const out = text.split('\n').map(line => {
       const t = line.trim();
       if (!t) return line;
@@ -615,7 +651,7 @@ async function proxy(req, res, q, origin) {
   // Stream everything else (mp4 etc.) straight through, honouring Range requests
   res.setHeader('Content-Type', type || 'application/octet-stream');
   ['content-range', 'content-length', 'accept-ranges'].forEach(h => { const v = r.headers.get(h); if (v) res.setHeader(h, v); });
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Cache-Control', q.live === '1' || q.raw === '1' ? 'no-store' : 'public, max-age=3600');        // live TV and playlists are never cached
   res.statusCode = r.status;
   if (!r.body) return res.end();
   if (typeof res.sendWebStream === 'function') return res.sendWebStream(r.body);   // Cloudflare Workers: pass the stream straight through
@@ -683,6 +719,9 @@ async function handle(req, res) {
       // ---- AniList account linking (TV shows a code; a phone/laptop signs in at /link.html) ----
       case 'config':
         return send(res, 200, { anilistClientId: alClientId(), persistentStore: accounts.store.persistent() }, 'no-store');
+      case 'pair_start': return send(res, 200, await pairStart(origin), 'no-store');
+      case 'pair_poll': return send(res, 200, await pairPoll(q.code), 'no-store');
+      case 'pair_put': return send(res, 200, await pairPut(await readBody(req)), 'no-store');
       case 'al_start': return send(res, 200, await alStart(origin), 'no-store');
       case 'al_poll': return send(res, 200, await alPoll(q.code), 'no-store');
       case 'al_put': return send(res, 200, await alPut(await readBody(req)), 'no-store');

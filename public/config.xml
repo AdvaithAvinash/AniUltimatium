@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://yourdomain/Aniultimatium"
-        version="2.6.0"
+        version="2.7.0"
         viewmodes="maximized">
   <tizen:application id="oXabc12345.EnglishAnime" package="oXabc12345" required_version="2.3"/>
   <content src="index.html"/>
