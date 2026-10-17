@@ -979,22 +979,34 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // ---- Old TV engines (Tizen 4/5/5.5/6): the hosted movie/TV players are written for 2020+ browsers and do not run there ----
   function showOldEng(failed) {
     pmsg('', false);
-    var b = $('oldEng');
+    var b = $('oldEng'), has = !!addonUrl(), tz = CHROME_V >= 76 ? '6' : CHROME_V >= 69 ? '5.5' : CHROME_V >= 63 ? '5' : '4';
     b.innerHTML = '<h3>' + (failed ? 'The player did not start on this TV' : 'This TV\'s browser is too old for these players') + '</h3>' +
-      '<p>Movies and TV shows play inside other sites\' players, and those players need a 2020 or newer browser. This TV has Chromium ' + (CHROME_V || '56') +
-      ' (Tizen ' + (CHROME_V >= 76 ? '6' : CHROME_V >= 69 ? '5.5' : CHROME_V >= 63 ? '5' : '4') + '), which cannot run them' + (failed ? '' : ' (you would see “fetching media” forever)') + '.</p>' +
-      '<p>' + (addonUrl() ? 'Your stream add-on did not give a stream for this title, so ' : 'To watch movies and shows on this TV, add a <b>stream add-on</b> (Settings → Stream add-on): it hands us a plain video file that plays in our own player, which this TV can run. Without one, ') + 'public-domain films still play (Source: Public domain) and every anime plays normally. A laptop or a 2021+ Samsung TV can open this ' + (isTv(state.anime) ? 'show' : 'movie') + '.</p>' +
-      '<p><b>OK</b> ' + (failed ? 'try the next player' : 'try the player anyway') + ' · <b>Back</b> return</p>';
-    b.className = ''; state.oldEng = { failed: failed };
+      '<p>The hosted movie and TV players need a 2020 or newer browser. This TV has Chromium ' + (CHROME_V || '56') + ' (Tizen ' + tz + '), which cannot run them.</p>' +
+      '<p>' + (has ? 'Your stream add-on had no stream for this title.' : 'You can still watch here: enter a <b>stream add-on</b> address below. It gives us a plain video file that plays in our own player, which this TV can run.') + '</p>' +
+      '<input id="oeUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" value="' + esc(addonUrl()) + '" autocomplete="off" spellcheck="false">' +
+      '<div class="setrow"><button id="oeSave" class="btn primary focusable">Save add-on and play</button><button id="oeTry" class="btn focusable">' + (failed ? 'Try the next player' : 'Try the player anyway') + '</button></div>' +
+      '<p class="hint">Up / Down to move · OK to type or press · Back to return. Public-domain films and all anime play normally.</p>';
+    b.className = ''; state.oldEng = { failed: failed }; setFocus($('oeUrl'));
   }
   function hideOldEng() { $('oldEng').className = 'hidden'; state.oldEng = null; }
-  function oldEngKey(k) {
-    if (isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); hideOldEng(); closePlayer(); return; }
-    if (k !== KEY.ENTER) return;
-    var list = state.embeds || [], i = state.oldEng && state.oldEng.failed ? (state.embedIdx || 0) + 1 : (state.embedIdx || 0);
+  function oldEngGo(useAddon) {
+    var failed = state.oldEng && state.oldEng.failed;
+    if (useAddon) {
+      var u = $('oeUrl').value.trim();
+      if (!/^(https?|stremio):\/\/\S+$/i.test(u)) { toast('Enter the add-on address first (it starts with https://)'); setFocus($('oeUrl')); return; }
+      store.set('ea_addon', u); state.mvia = 'addon'; store.set('ea_msrc', 'addon'); hideOldEng(); play(state.anime, state.ep, 0, true); return;
+    }
+    var list = state.embeds || [], i = failed ? (state.embedIdx || 0) + 1 : (state.embedIdx || 0);
     hideOldEng();
     if (!list[i]) { pmsg('None of the players started on this TV. Press Back to return.', false); return; }
     state.embedIdx = i; state.oldTry = true; startEmbed(list[i].url);
+  }
+  function oldEngKey(e) {
+    var k = e.keyCode, ids = ['oeUrl', 'oeSave', 'oeTry'], cur = state.focusEl ? ids.indexOf(state.focusEl.id) : -1;
+    if (isBackKey(k) || k === KEY.STOP) { e.preventDefault(); state.lastBack = Date.now(); hideOldEng(); closePlayer(); return; }
+    if (k === KEY.UP || k === KEY.DOWN) { e.preventDefault(); setFocus($(ids[Math.max(0, Math.min(2, (cur < 0 ? 0 : cur) + (k === KEY.DOWN ? 1 : -1)))])); return; }
+    if (cur === 0) { if (k === KEY.ENTER && !(document.activeElement && document.activeElement.tagName === 'INPUT')) { e.preventDefault(); $('oeUrl').focus(); } return; }   // OK opens the TV keyboard; while typing, keys go to it
+    if (k === KEY.ENTER) { e.preventDefault(); if (cur === 1) oldEngGo(true); else oldEngGo(false); }
   }
   // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
   function startEmbed(url, customName) {
@@ -1933,9 +1945,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode;
     if (EA.live && EA.live.key(e)) return;                                            // Live TV: its own lists, zapping and player keys
+    if (state.view === 'player' && state.oldEng) { oldEngKey(e); return; }
     if (state.view === 'player') {
       e.preventDefault();
-      if (state.oldEng) { oldEngKey(k); return; }
       if (state.embed && !state.menuOpen && state.ebar && state.ebar.open) {
         if (isBackKey(k)) { state.lastBack = Date.now(); hideEbar(); } else ebarKey(k);
         return;

@@ -287,6 +287,9 @@ video::cue{font-size:1.9rem;background:rgba(0,0,0,.6);color:#fff}
 #oldEng{position:absolute;left:50%;top:50%;width:62%;max-width:44rem;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);z-index:9;background:rgba(14,14,22,.96);border-radius:1rem;padding:1.8rem 2.2rem;text-align:center;box-shadow:0 1rem 3rem rgba(0,0,0,.7)}
 #oldEng.hidden{display:none}
 #oldEng h3{margin:0 0 .6rem;font-size:1.5rem}
+#oldEng input{display:block;width:100%;height:3.2rem;margin:.8rem 0;padding:0 1.2rem;font-size:1.15rem;color:#fff;background:var(--card);border:.15rem solid #33334a;border-radius:.8rem;outline:none;box-sizing:border-box}
+#oldEng input.focused{border-color:var(--glow)}
+#oldEng .setrow{margin:.6rem 0}
 #oldEng p{margin:.4rem 0;color:#cfcfe0;font-size:1.1rem;line-height:1.45}
 body.lite *,body.lite *:before,body.lite *:after{-webkit-transition:none!important;transition:none!important;-webkit-animation:none!important;animation:none!important}
 body.lite #heroBg,body.lite #dBg{-webkit-filter:none!important;filter:none!important}
