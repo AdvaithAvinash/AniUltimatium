@@ -701,7 +701,7 @@ async function handle(req, res) {
         const r = await movies.sources(q);
         // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)
         const base = r.direct ? finish(r.direct, origin) : {};
-        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds, tmdb: r.tmdb }, 'no-store');
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds, tmdb: r.tmdb, addonError: r.addonError || undefined }, 'no-store');
       }
       case 'subs':
         return send(res, 200, { subtitles: await subsFor(q, origin).catch(() => []) }, 's-maxage=3600');

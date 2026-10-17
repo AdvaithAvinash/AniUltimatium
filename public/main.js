@@ -779,6 +779,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   window.EA_key = function (code) {                                              // Android shell: remote keys that WebView does not deliver (media, colour, channel) arrive as the codes this app already knows
     var ev = document.createEvent('Event'); ev.initEvent('keydown', true, true); ev.keyCode = code; document.dispatchEvent(ev);
   };
+  function addonUrl() { var u = store.get('ea_addon', ''); return typeof u === 'string' && /^(https?|stremio):\/\/\S+$/i.test(u) ? u : ''; }
+  function addonName() { try { return addonUrl().replace(/^\w+:\/\//, '').split('/')[0]; } catch (e) { return ''; } }
   function customSrc() { var c = store.get('ea_custom_src', null); return c && /^https?:\/\//i.test(c.url || '') ? c : null; }
   function customUrl(d, a, ep) {                                                 // {imdb} {tmdb} {s} {e}: the address template of a player the user chose
     var c = customSrc(); if (!c) return null;
@@ -796,6 +798,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function srcOpts() {
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
     var c = customSrc(); if (c) base.push(['custom', 'Custom: ' + c.name, 'your own player address']);
+    if (addonUrl()) base.unshift(['addon', 'Stream add-on', addonName() + ' · plays in our own player · works on every TV']);
     return base.map(function (o) { return hasAds(o[0]) && adWarnOn() ? [o[0], o[1] + '  ⚠ Ads', 'may open popup ads' + (o[2] ? ' · ' + o[2] : '')] : o; });
   }
   var DROPS = {
@@ -936,13 +939,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
     var usedPre = false;
-    var req = movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '' },
+    var req = movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '', addon: addonUrl() },
         isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}))
       : (function () { var pre = takePrefetch(a, ep); if (pre) { usedPre = true; return pre; } return api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(','), order: iqOrder() }, { signal: state.srcCtl && state.srcCtl.signal }); })();
     req.then(function (d) {
       if (tk !== state.token) return;
       if (!movie && d.trace) iq.recordTrace(d.trace);                             // which sources answered / failed / timed out, as seen by the backend
       if (usedPre) d.pre = true;
+      if (movie && d.addonError) toast('Add-on: ' + d.addonError);
       if (movie && d.mode === 'embed' && d.embeds && d.embeds.length) {
         var elist = embedOrder(d.embeds);
         if (state.mvia === 'custom') { var cu = customUrl(d, a, ep); if (cu) elist = [{ key: 'custom', name: customSrc().name, url: cu }].concat(elist); else toast('The custom player needs a TMDB id this title does not have — using another source'); }
@@ -979,7 +983,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     b.innerHTML = '<h3>' + (failed ? 'The player did not start on this TV' : 'This TV\'s browser is too old for these players') + '</h3>' +
       '<p>Movies and TV shows play inside other sites\' players, and those players need a 2020 or newer browser. This TV has Chromium ' + (CHROME_V || '56') +
       ' (Tizen ' + (CHROME_V >= 76 ? '6' : CHROME_V >= 69 ? '5.5' : CHROME_V >= 63 ? '5' : '4') + '), which cannot run them' + (failed ? '' : ' (you would see “fetching media” forever)') + '.</p>' +
-      '<p>Public-domain films still play in our own player (Source: Public domain), and every anime plays normally. A laptop or a 2021+ Samsung TV can open this ' + (isTv(state.anime) ? 'show' : 'movie') + '.</p>' +
+      '<p>' + (addonUrl() ? 'Your stream add-on did not give a stream for this title, so ' : 'To watch movies and shows on this TV, add a <b>stream add-on</b> (Settings → Stream add-on): it hands us a plain video file that plays in our own player, which this TV can run. Without one, ') + 'public-domain films still play (Source: Public domain) and every anime plays normally. A laptop or a 2021+ Samsung TV can open this ' + (isTv(state.anime) ? 'show' : 'movie') + '.</p>' +
       '<p><b>OK</b> ' + (failed ? 'try the next player' : 'try the player anyway') + ' · <b>Back</b> return</p>';
     b.className = ''; state.oldEng = { failed: failed };
   }
@@ -1436,8 +1440,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function paintSettingsApp() {
     var box = $('setApp'); if (!box) return; box.innerHTML = '';
     APPSET.forEach(function (row, i) { var b = el('button', 'setr focusable', '<span>' + esc(row[1]) + '</span><b>' + esc(setLabel(row)) + '</b>'); b.__set = i; box.appendChild(b); });
+    var ab = el('button', 'setr focusable', '<span>Stream add-on (movies &amp; shows on any TV)</span><b>' + (addonUrl() ? esc(addonName()) : 'None') + '</b>'); ab.__set = 'addon'; box.appendChild(ab);
     var c = customSrc(), cb = el('button', 'setr focusable', '<span>Custom movie player</span><b>' + (c ? esc(c.name) : 'None') + '</b>'); cb.__set = 'custom'; box.appendChild(cb);
-    $('setCustomHelp').textContent = c ? c.url : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
+    $('setCustomHelp').textContent = c ? c.url : addonUrl() ? 'Add-on: ' + addonUrl() : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
   }
   function cycleAppSetting(i) {
     var row = APPSET[i], cur = store.get(row[0], row[2]), opts = row[3], at = 0, k;
@@ -1450,6 +1455,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var c = customSrc() || {};                                                              // the TV keyboard works on input fields: use the two fields in the settings page
     $('setCustomName').value = c.name || ''; $('setCustomUrl').value = c.url || ''; $('setCustomBox').className = ''; setFocus($('setCustomName'));
   }
+  function editAddon() { $('setAddonUrl').value = addonUrl(); $('setAddonBox').className = ''; setFocus($('setAddonUrl')); }
+  function saveAddon() {
+    var u = $('setAddonUrl').value.trim();
+    if (!u) { store.set('ea_addon', ''); if (state.mvia === 'addon') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } toast('Add-on removed'); }
+    else if (!/^(https?|stremio):\/\/\S+$/i.test(u)) { toast('Enter the add-on address, for example https://example.com/manifest.json'); return; }
+    else { store.set('ea_addon', u); toast('Add-on saved — movies and shows now play in our own player'); }
+    $('setAddonBox').className = 'hidden'; paintSettingsApp(); setFocus($('setApp').children[$('setApp').children.length - 2]);
+  }
   function saveCustomSource() {
     var n = $('setCustomName').value.trim(), u = $('setCustomUrl').value.trim();
     if (!u) { store.set('ea_custom_src', null); if (state.mvia === 'custom') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } toast('Custom player removed'); }
@@ -1459,7 +1472,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function resetAppSettings() {
     APPSET.forEach(function (row) { try { localStorage.removeItem(row[0]); } catch (e) { /* ignore */ } });
-    ['ea_custom_src', 'ea_adseen', 'ea_lite', 'ea_subpos', 'ea_subsize', 'ea_live_set'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
+    ['ea_custom_src', 'ea_addon', 'ea_adseen', 'ea_lite', 'ea_subpos', 'ea_subsize', 'ea_live_set'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
     state.audioPref = 'sub'; state.mq = 'auto'; applyAccent(); applySubStyle(); paintSettingsApp(); paintSetSubs(); toast('Settings reset (playlists, favorites and progress are kept)');
   }
   function paintSetSubs() {
@@ -1848,7 +1861,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.id === 'dList') { toggleList(state.anime); paintDetailButtons(); return; }
     if (e.__genre !== undefined) { state.genre = state.genre === e.__genre ? '' : e.__genre; paintChips(); runSearch(); return; }
     if (e.__season !== undefined) { state.tvSeason = e.__season; renderEpisodes(); setFocus($('dRanges').children[e.__season]); return; }
-    if (e.__set !== undefined) { if (e.__set === 'custom') editCustomSource(); else cycleAppSetting(e.__set); return; }
+    if (e.__set !== undefined) { if (e.__set === 'custom') editCustomSource(); else if (e.__set === 'addon') editAddon(); else cycleAppSetting(e.__set); return; }
+    if (e.id === 'setAddonSave') { saveAddon(); return; }
+    if (e.id === 'setAddonCancel') { $('setAddonBox').className = 'hidden'; setFocus($('setApp').children[$('setApp').children.length - 2]); return; }
     if (e.id === 'setCustomSave') { saveCustomSource(); return; }
     if (e.id === 'setCustomCancel') { $('setCustomBox').className = 'hidden'; setFocus($('setApp').lastChild); return; }
     if (e.id === 'setResetAll') { resetAppSettings(); return; }
