@@ -621,7 +621,7 @@
     if (P.route > 0) setMsg('Trying another route…', 'attempt ' + (P.route + 1) + ' of ' + P.routes.length, true);
     clearTimeout(P.timer); P.timer = setTimeout(function () { if (tk === P.token && !P.started) nextRoute(tk); }, P.route === 0 ? 9000 : 12000);
     try {
-      if (r.kind === 'hls') {
+      if (r.kind === 'hls' && !(window.AVP && AVP.use())) {            // Samsung AVPlay (avp.js) takes the address as it is
         var bm = { fast: [2, 6, 12], balanced: [3, 20, 40], stable: [5, 40, 80] }[SET.buffer] || [3, 20, 40];            // Settings: buffering
         var h = new Hls({ enableWorker: true, lowLatencyMode: false, liveSyncDurationCount: bm[0], liveMaxLatencyDurationCount: bm[0] + 9, maxBufferLength: bm[1], maxMaxBufferLength: bm[2], backBufferLength: 20,
           manifestLoadingMaxRetry: 1, manifestLoadingTimeOut: 6000, levelLoadingMaxRetry: 2, levelLoadingTimeOut: 6000, fragLoadingMaxRetry: 3, fragLoadingTimeOut: 12000, startLevel: -1, abrEwmaDefaultEstimate: 4000000, capLevelToPlayerSize: false });

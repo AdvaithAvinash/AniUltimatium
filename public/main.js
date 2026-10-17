@@ -1437,6 +1437,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   var QOPTS = [['auto', 'Auto'], ['1080', '1080p'], ['720', '720p'], ['480', '480p']];
   var APPSET = [
+    ['ea_engine', 'Player engine (Samsung TVs)', 'auto', [['auto', 'Auto (AVPlay on Tizen 4)'], ['avplay', 'Samsung AVPlay'], ['html5', 'Standard HTML5']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
     ['ea_accent', 'Accent colour', 'pink', [['pink', 'Pink'], ['cyan', 'Cyan'], ['violet', 'Violet'], ['green', 'Green'], ['orange', 'Orange']], applyAccent],
     ['ea_autonext', 'Play the next episode automatically', true, [[true, 'On'], [false, 'Off']]],
@@ -1588,7 +1589,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.hasSoftSubs = !!(d.subtitles && d.subtitles.length);
     if (state.hasSoftSubs) osFetchList(function () { subAuto(); });
     var isHls = d.type === 'hls' || /m3u8/i.test(d.url);
-    if (isHls && window.Hls && Hls.isSupported()) {
+    if (isHls && window.Hls && Hls.isSupported() && !(window.AVP && AVP.use())) {   // Samsung AVPlay (avp.js) plays HLS itself
       state.hls = newHls();
       state.hls.loadSource(d.url);
       state.hls.attachMedia(video);

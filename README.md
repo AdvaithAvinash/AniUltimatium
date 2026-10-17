@@ -26,6 +26,7 @@ This app combines all anime apis into one.
 | **Sources** | AnimeX (default), AniKoto, AnimeYubi, AniWaves, ranked automatically from real playback results on *your* TV (SourceIQ) |
 | **Accounts** | Optional sync of Continue Watching / My List / History, and optional [AniList](https://anilist.co) linking |
 | **Live TV (IPTV)** | Bring your own M3U playlist or Xtream login (or pick free public channels): fast channel browser for 50,000+ channels, TV guide, zapping, favorites. No channels are included |
+| **Player engine** | Samsung AVPlay (the TV's native player) is used by default on Tizen 4 and can be chosen on any Samsung TV in Settings; it plays HLS / MPEG-TS / MP4 natively and falls back to the standard player automatically |
 | **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play unless you add a **stream add-on** (Settings), whose plain video files play in our own player; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Samsung: sideload `app.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `app.apk` ([steps](docs/ANDROID.md)) |
