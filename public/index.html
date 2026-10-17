@@ -186,6 +186,10 @@
       <p class="hint">OK changes a setting. Everything here is saved on this device.</p>
       <div id="setApp" class="msets"></div>
       <p class="hint" id="setCustomHelp"></p>
+      <div id="setAddonBox" class="hidden">
+        <input id="setAddonUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" autocomplete="off" spellcheck="false">
+        <div class="setrow"><button id="setAddonSave" class="btn primary focusable">Save</button><button id="setAddonCancel" class="btn focusable">Cancel</button></div>
+      </div>
       <div id="setCustomBox" class="hidden">
         <input id="setCustomName" class="focusable" type="text" placeholder="Name (for example: My player)" autocomplete="off" spellcheck="false">
         <input id="setCustomUrl" class="focusable" type="text" placeholder="https://player.example/movie/{tmdb}" autocomplete="off" spellcheck="false">
