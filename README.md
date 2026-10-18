@@ -4,6 +4,8 @@
 > use a TV guide, favorites and fast zapping, and also watch English sub & dub anime, movies and TV shows. Runs on **Samsung Tizen 4.0+ (2018 and newer)**, **Android TV**, **Fire TV** and in any browser.
 > It provides no channels: you bring your own playlist, or start with free public channel lists.
 
+**Aniultimatium is an app for Samsung TVs, Android TV and Amazon Fire TV sticks (Fire Stick, Fire TV Cube and Fire TV TVs).** Samsung gets the `.wgt` (Tizen 4.0+, 2018 and newer) and Android TV / Fire TV gets the `.apk` (Android 5.0 / Fire OS 5 and newer).
+
 This app combines all anime apis into one.
 
 [![Latest release](https://img.shields.io/github/v/release/AdvaithAvinash/AniUltimatium?label=release&color=ff3d7f)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
