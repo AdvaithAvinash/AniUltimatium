@@ -581,7 +581,10 @@ body.avp-on #nav,body.avp-on .view,body.avp-on #liveModal{visibility:hidden}
 .mock.modern .m-row:nth-of-type(3){top:7.6rem}.mock.modern .m-row:nth-of-type(4){top:10.8rem}
 #tabs{flex:1 1 auto;min-width:0}
 #navProf{flex:none;width:2.8rem;height:2.8rem;margin-left:.2rem;border-radius:50%;overflow:hidden;background:#222}
-.tab{padding-left:.85rem;padding-right:.85rem}
+.tab{padding-left:.65rem;padding-right:.65rem;font-size:1rem}
+#tabs{gap:.3rem}
+.brand{font-size:1.3rem}
+#nav{gap:1.1rem}
 #navProf svg{display:block;width:100%;height:100%}
 .msets .pav{display:inline-block;width:2.2rem;height:2.2rem;margin-right:.8rem;border-radius:50%;overflow:hidden;vertical-align:middle;flex:none}
 .msets .pav svg{display:block;width:100%;height:100%}
@@ -643,6 +646,64 @@ body.ui-modern .setr.focused{background:#fff;color:#0c0c0f;box-shadow:none}
 body.ui-modern .setr.focused b{color:#44444c}
 body.ui-modern .view::-webkit-scrollbar-thumb{background:#2a2a32}
 body.ui-modern #liveWrap{left:2rem;right:2rem}
+
+/* ---------- Schedule, airing badges, library statuses, home rows (feed.js) ---------- */
+#schDays{display:flex;overflow-x:auto;padding:.5rem 3rem .9rem;scrollbar-width:none}
+#schDays::-webkit-scrollbar{display:none}
+.sch-day{flex:none;width:9.4rem;margin-right:.7rem;padding:.75rem 0;text-align:center;color:#cfcfdc;background:var(--card);border:.1rem solid #2a2a38;border-radius:1rem}
+.sch-day b{display:block;font-size:1.15rem}
+.sch-day span{display:block;margin-top:.15rem;font-size:.95rem;color:var(--muted)}
+.sch-day.on{color:#0b0b12;background:#fff;border-color:#fff}
+.sch-day.on span{color:#555}
+#schBar{display:flex;padding:0 3rem;margin-bottom:.5rem}
+#schBar .chip{margin-right:.7rem}
+#schList{position:relative;padding:.4rem 3rem 3rem 5.2rem}
+#schList:before{content:"";position:absolute;left:3.7rem;top:.8rem;bottom:2.4rem;width:.12rem;background:#2a2a38}
+.sch-time{position:relative;margin:1rem 0 .5rem;font-size:1.5rem;font-weight:700}
+.sch-time i{position:absolute;left:-1.9rem;top:.55rem;width:.9rem;height:.9rem;border-radius:50%;background:#fff;border:.2rem solid var(--bg)}
+.sch-row{display:flex;align-items:stretch;margin-bottom:.8rem}
+.sch-item{flex:1;display:flex;align-items:center;min-width:0;padding:.7rem 1rem;background:var(--card);border:.1rem solid #26263a;border-radius:1rem}
+.sch-item.past{opacity:.62}
+.si-img{flex:none;width:5rem;height:7.2rem;margin-right:1.2rem;overflow:hidden;background:#222;border-radius:.5rem}
+.si-img img{display:block;width:100%;height:100%;object-fit:cover}
+.si-main{flex:1;min-width:0}
+.si-main b{display:block;font-size:1.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.si-main em{display:block;margin-top:.2rem;font-style:normal;font-size:1.1rem;color:var(--muted)}
+.si-tags i{display:inline-block;margin:.5rem .5rem 0 0;padding:.15rem .6rem;font-style:normal;font-size:.85rem;color:#cfcfdc;background:rgba(255,255,255,.1);border-radius:.4rem}
+.si-side{flex:none;margin-left:1rem;text-align:right}
+.si-side b{display:block;font-size:1.3rem}
+.si-st{display:inline-block;margin-top:.3rem;font-size:.85rem;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.si-st.soon{color:var(--accent)}
+.si-st.aired{color:#6bd68c}
+.si-bell{flex:none;display:flex;align-items:center;justify-content:center;width:4.2rem;margin-left:.6rem;color:#8a8a98;background:var(--card);border:.1rem solid #26263a;border-radius:1rem}
+.si-bell svg{width:1.6rem;height:1.6rem}
+.si-bell.on{color:var(--accent)}
+.badge.air{top:auto;bottom:.5rem;left:.5rem;font-size:.8rem;color:#fff;background:rgba(var(--accent-rgb),.92)}
+.badge.st{left:auto;right:.5rem;top:.5rem;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:#fff}
+.badge.st-watching{background:rgba(40,160,90,.92)}
+.badge.st-completed{background:rgba(60,110,200,.92)}
+.badge.st-paused{background:rgba(190,140,30,.92)}
+.badge.st-dropped{background:rgba(170,60,60,.92)}
+.tag.air{color:#fff;background:rgba(var(--accent-rgb),.22);border:.08rem solid rgba(var(--accent-rgb),.7)}
+#listChips{padding:0 3rem .5rem}
+.chip i{margin-left:.3rem;font-style:normal;opacity:.6}
+.rrow{display:flex;align-items:center;margin:.35rem 0}
+.rrow .rt{flex:1;font-size:1.15rem}
+.rrow .rt i{font-style:normal;font-size:.95rem;color:var(--muted)}
+.rrow .btn{height:2.6rem;margin-left:.5rem;padding:0 1rem;font-size:1rem}
+#dMore{margin-top:1rem}
+#dMore .rowhead{padding:0}
+#dMore .track{padding-left:.4rem;padding-right:.4rem}
+body.pz-s{--cw:9.4rem}
+body.pz-l{--cw:13.8rem}
+body.ui-modern .sch-day{background:transparent;border-color:rgba(255,255,255,.18)}
+body.ui-modern .sch-day.on{background:#fff;border-color:#fff}
+body.ui-modern .sch-item,body.ui-modern .si-bell{background:#131317;border-color:transparent}
+body.ui-modern .si-bell.on{color:#fff}
+body.ui-modern .sch-time i{background:var(--accent)}
+body.ui-modern .badge.air{color:#fff;background:rgba(0,0,0,.74);border-left:.2rem solid var(--accent)}
+body.ui-modern .tag.air{background:transparent;border-color:var(--accent)}
+body.ui-modern .si-st.soon{color:#fff}
 /* ===== Old-engine compatibility (generated by tools/gen_compat_css.py) ===== */
 /* index.html adds html.nogap / .nogrid / .noar when the browser lacks flex gap, CSS grid or aspect-ratio */
 .nogap #nav>*+*{margin-left:1.6rem}
@@ -684,6 +745,8 @@ body.ui-modern #liveWrap{left:2rem;right:2rem}
 .nogap .erow2>*{margin:0 1rem 1rem 0}
 .nogap .mrow2>*{margin:0 .8rem .8rem 0}
 .nogap .plb>*+*{margin-left:.5rem}
+.nogap #tabs>*+*{margin-left:.3rem}
+.nogap #nav>*+*{margin-left:1.1rem}
 .nogap body.ui-modern #nav>*+*{margin-top:0}
 @media (max-width:820px){.nogap #nav>*+*{margin-left:1rem}}
 .noar .poster{height:0;padding-top:150%}

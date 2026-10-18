@@ -61,6 +61,7 @@
       <button class="tab focusable" data-tab="movies"></button>
       <button class="tab focusable" data-tab="tv"></button>
       <button class="tab focusable" data-tab="live"></button>
+      <button class="tab focusable" data-tab="schedule"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
       <button class="tab focusable" data-tab="history"></button>
@@ -129,8 +130,17 @@
     <div id="searchGrid" class="cards"></div>
   </main>
 
+  <main id="viewSchedule" class="view hidden">
+    <div class="pagehead"><h2>Schedule</h2></div>
+    <div id="schDays"></div>
+    <div id="schBar"></div>
+    <div id="schMsg" class="msg"></div>
+    <div id="schList"></div>
+  </main>
+
   <main id="viewList" class="view hidden">
     <div class="pagehead"><h2>My List</h2></div>
+    <div id="listChips" class="chips"></div>
     <div id="listMsg" class="msg"></div>
     <div id="listGrid" class="cards"></div>
   </main>
@@ -192,6 +202,9 @@
         <input id="setCustomUrl" class="focusable" type="text" placeholder="https://player.example/movie/{tmdb}" autocomplete="off" spellcheck="false">
         <div class="setrow"><button id="setCustomSave" class="btn primary focusable">Save</button><button id="setCustomCancel" class="btn focusable">Cancel</button></div>
       </div>
+      <h3 style="margin-top:1.6rem">Home page</h3>
+      <p class="hint">Titles, poster size, airing badges and alerts are in the list above. Here you choose which rows show and their order.</p>
+      <div class="msets"><button id="setRowsBtn" class="setr focusable"><span>Home rows</span><b>Show, hide, reorder</b></button></div>
       <h3 style="margin-top:1.6rem">Profile</h3>
       <p class="hint">Each profile has its own list, history, progress and AniList link.</p>
       <div id="setProf" class="msets"></div>
@@ -240,6 +253,7 @@
           <div id="dBtns">
             <button id="dPlay" class="btn primary focusable"></button>
             <button id="dList" class="btn focusable"></button>
+            <button id="dStatus" class="btn focusable"></button>
             <button id="dAL" class="btn focusable"></button>
             <button id="dRemove" class="btn focusable"></button>
           </div>
@@ -248,6 +262,7 @@
       <h3 class="sec">Episodes</h3>
       <div id="dRanges"></div>
       <div id="dEps"></div>
+      <div id="dMore"></div>
     </div>
   </section>
 

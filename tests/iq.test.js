@@ -128,3 +128,33 @@ test('survives corrupt or foreign stored data', () => {
   iq.recordPlay('animex', true, 1000);                                                          // set() throwing must not break playback
   assert.equal(iq.metrics('animex').n, 1);
 });
+
+test('quality: of two sources that both start fine, the one that plays smoothly and sharply ranks first (even against the default order)', () => {
+  const { iq, advance } = make();
+  for (let i = 0; i < 4; i++) {
+    iq.recordPlay('animex', true, 2000); iq.recordQuality('animex', { played: 600, stalls: 14, stallMs: 150000, height: 360 });          // starts fine, then buffers a quarter of the time at 360p
+    iq.recordPlay('aniwaves', true, 2200); iq.recordQuality('aniwaves', { played: 600, stalls: 0, stallMs: 0, height: 1080 });          // starts fine, plays smoothly in full HD
+    advance(10 * 60 * 1000);
+  }
+  const o = iq.order(KEYS);
+  assert.equal(o[0], 'aniwaves', 'smooth + sharp beats the default first place: ' + o.join(','));
+  assert.ok(iq.metrics('aniwaves').Q > 0.85 && iq.metrics('animex').Q < 0.5);
+  assert.match(iq.status('aniwaves', KEYS).short, /smooth/); assert.match(iq.status('animex', KEYS).short, /stutters/);
+  const sm = iq.summary(KEYS).find(x => x.key === 'animex'); assert.ok(sm.stallPct > 20 && sm.height === 360);
+});
+
+test('quality: very short playback says nothing; a stream that drops while playing counts against the source', () => {
+  const { iq } = make();
+  iq.recordQuality('animex', { played: 8, stalls: 3, stallMs: 6000, height: 360 });
+  assert.equal(iq.metrics('animex').qn, 0, 'under 20 s of playback is ignored');
+  assert.equal(iq.metrics('animex').Q, 0.5, 'no quality data is neutral, not invented');
+  iq.recordQuality('animex', { played: 12, dropped: true }); iq.recordQuality('animex', { played: 40, dropped: true });
+  assert.ok(iq.metrics('animex').down, 'two drops in a row cool the source down like two failed starts');
+});
+
+test('quality: stored compactly, no URLs, survives reload', () => {
+  const { iq, saved, reload } = make();
+  iq.recordQuality('anikoto', { played: 300, stallMs: 3000, height: 720 });
+  assert.ok(!/http/.test(JSON.stringify(saved())));
+  assert.equal(reload().metrics('anikoto').qn, 1);
+});

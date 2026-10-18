@@ -11,6 +11,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural'];
   var IS_TV = /Tizen|SMART-?TV|Web0S|NetCast|AniUltimatiumTV|AFT[A-Z]/i.test(navigator.userAgent);      // AniUltimatiumTV = the Android TV / Fire TV app
   var ICONS = {
+    cal: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z', bell: 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z',
     play: 'M8 5v14l11-7z', pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
     back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     info: 'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
@@ -64,7 +65,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var LITE = store.get('ea_lite', null); if (LITE === null) LITE = OLD_ENGINE && CHROME_V > 0 && CHROME_V < 63;
 
   var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';
-  function bodyCls() { return (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : '') + (UI_MODERN ? ' ui-modern' : ''); }
+  function bodyCls() { var pz = store.get('ea_pz', 'normal'); return (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : '') + (UI_MODERN ? ' ui-modern' : '') + (pz === 'small' ? ' pz-s' : pz === 'large' ? ' pz-l' : ''); }
   document.body.className = bodyCls();
   // One layout, scaled to any window: 1080p TV -> 20px root, 1366x768 laptop -> ~14px root
   function applyScale() {
@@ -82,6 +83,28 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   };
 
   // ======================= Persistence =======================
+  // Airing info: a.next = { ep: next episode number, at: when it airs (unix seconds) }. Shown as a small badge on cards and a tag in the hero / detail page.
+  function airIn(at) {                                                             // "in 40m" / "in 5h" / "in 2d 3h"
+    var m = Math.round((at * 1000 - Date.now()) / 60000);
+    if (m <= 0) return 'now';
+    if (m < 60) return 'in ' + m + 'm';
+    if (m < 1440) return 'in ' + Math.floor(m / 60) + 'h' + (m % 60 >= 10 && m < 360 ? ' ' + (m % 60) + 'm' : '');
+    return 'in ' + Math.floor(m / 1440) + 'd' + (Math.floor((m % 1440) / 60) ? ' ' + Math.floor((m % 1440) / 60) + 'h' : '');
+  }
+  function clock12() { return !!(store.get('ea_live_set', {}) || {}).clock12; }
+  function fmtTime(at) { var d = new Date(at * 1000), h = d.getHours(), m = d.getMinutes(); m = m < 10 ? '0' + m : '' + m; if (clock12()) return ((h % 12) || 12) + ':' + m + ' ' + (h < 12 ? 'AM' : 'PM'); return (h < 10 ? '0' + h : h) + ':' + m; }
+  function fmtDay(at) { var d = new Date(at * 1000), n = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]; return n + ' ' + fmtTime(at); }
+  function airBadgeOn() { return store.get('ea_airbadge', true) !== false; }
+  function airBadgeText(n) { return 'EP ' + n.ep + ' · ' + airIn(n.at); }
+  function paintAir(c) {                                                           // (re)draw the airing badge of one card
+    var a = c.__anime, p = c.querySelector('.poster'); if (!p) return;
+    var old = p.querySelector('.badge.air'); if (old) p.removeChild(old);
+    if (!a || !a.next || !airBadgeOn() || c.__cont || c.__hist || a.kind !== 'anime') return;
+    if (a.next.at * 1000 - Date.now() > 7 * 86400000) return;
+    p.appendChild(el('div', 'badge air', esc(airBadgeText(a.next))));
+  }
+  function paintAirBadges() { var cs = document.querySelectorAll('#rows .card, #listGrid .card, #searchGrid .card'); for (var i = 0; i < cs.length; i++) paintAir(cs[i]); }
+  function tname(a) { return store.get('ea_tlang', 'en') === 'romaji' && a.titleRomaji ? a.titleRomaji : a.title; }        // Settings: title language
   function keyOf(a) { return (a.kind === 'movie' ? 'm:' : a.kind === 'tv' ? 't:' : 'a:') + a.id; }
   function slim(a) {
     return { id: a.id, kind: isVid(a) ? a.kind : 'anime', mal: a.mal || null, title: a.title, titleRomaji: a.titleRomaji, cover: a.cover, coverSm: a.coverSm || null, banner: a.banner, color: a.color,
@@ -105,10 +128,28 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function toggleList(a) {
     var k = keyOf(a), l = store.get('ea_list', []), had = false;
     l = l.filter(function (x) { if ((x.key || keyOf(x)) === k) { had = true; return false; } return true; });
-    if (had) addDel('l:' + k); else { var it = slim(a); it.key = k; it.ts = nowTs(); l.unshift(it); }
+    if (had) addDel('l:' + k); else { var it = slim(a); it.key = k; it.ts = nowTs(); it.st = 'planning'; l.unshift(it); }
     store.set('ea_list', l); scheduleSync();
     toast(had ? 'Removed from My List' : 'Added to My List');
     return !had;
+  }
+  // ---- Library statuses (Watching / Planning / Completed / Paused / Dropped), kept with each list entry and synced with it ----
+  var ST_ORDER = ['watching', 'planning', 'completed', 'paused', 'dropped'];
+  var ST_CYCLE = ['planning', 'watching', 'completed', 'paused', 'dropped'];                // the detail-page button goes through these in turn
+  var ST_LABEL = { watching: 'Watching', planning: 'Planning', completed: 'Completed', paused: 'Paused', dropped: 'Dropped' };
+  function listItem(a) { var k = keyOf(a), l = store.get('ea_list', []); for (var i = 0; i < l.length; i++) if ((l[i].key || keyOf(l[i])) === k) return l[i]; return null; }
+  function statusOf(a) { var it = listItem(a); return it ? (it.st || 'planning') : ''; }
+  function setStatus(a, st) {
+    var k = keyOf(a), l = store.get('ea_list', []), hit = false;
+    l.forEach(function (x) { if ((x.key || keyOf(x)) === k && x.st !== st) { x.st = st; x.ts = nowTs(); hit = true; } });
+    if (hit) { store.set('ea_list', l); scheduleSync(); }
+    return hit;
+  }
+  function autoStatus(a, ep, finished) {                                           // watching an episode moves a Planning / Paused entry to Watching; the last episode completes it
+    if (!a || isVid(a)) return;
+    var cur = statusOf(a); if (!cur) return;
+    if (finished && a.episodes && ep >= a.episodes) { if (cur !== 'completed') setStatus(a, 'completed'); return; }
+    if (cur === 'planning' || cur === 'paused') setStatus(a, 'watching');
   }
   function getHist() { return store.get('ea_hist', []); }
   function addHist(a, ep) {
@@ -181,7 +222,16 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function iqOrder() { return iq.order(SRC_KEYS).join(','); }
   function playFailed() {                       // the stream of this source did not (or stopped) play: remember it once per attempt
     var p = state.pPlay;
-    if (p && !p.failed && p.key) { p.failed = true; iq.recordPlay(p.key, false); }
+    if (p && !p.failed && p.key) { p.failed = true; if (p.ok) flushQuality(true); else iq.recordPlay(p.key, false); }       // it had started: that is a drop (counted with its quality); else a failed start
+  }
+  // ---- Playback quality, measured while a stream plays (stalls, resolution, seconds watched) and given to SourceIQ when playback ends or drops ----
+  function qInit() { state.pq = { stalls: 0, stallMs: 0, waitAt: 0, played: 0, lastT: -1, h: 0 }; }
+  function qHeight() { var h = state.hls && state.hls.levels && state.hls.currentLevel >= 0 && state.hls.levels[state.hls.currentLevel] ? state.hls.levels[state.hls.currentLevel].height : 0; return h || video.videoHeight || 0; }
+  function flushQuality(dropped) {
+    var q = state.pq, p = state.pPlay; state.pq = null;
+    if (!q || !p || !p.key || !state.anime || isVid(state.anime)) return;
+    if (q.waitAt) q.stallMs += Date.now() - q.waitAt;
+    iq.recordQuality(p.key, { played: q.played, stalls: q.stalls, stallMs: q.stallMs, height: q.h, dropped: !!dropped });
   }
   function streamDead() {                       // route switch did not help: refresh a possibly stale prefetched link once, else try the next source
     var d = state.src;
@@ -278,7 +328,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     return (amInflight[id] = aniQuery('query($id:Int){Media(id:$id,type:ANIME){' + AM_FIELDS + '}}', { id: Number(id) })
       .then(function (d) { delete amInflight[id]; return amPut(id, d.Media); }, function () { delete amInflight[id]; return ''; }));
   }
-  var AL_F = 'id title{romaji english} coverImage{extraLarge large color} bannerImage description(asHtml:false) idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms popularity isAdult';
+  var AL_F = 'id title{romaji english} coverImage{extraLarge large color} bannerImage description(asHtml:false) idMal episodes nextAiringEpisode{episode airingAt} format seasonYear averageScore status genres synonyms popularity isAdult';
   // Episodes aired in the last 7 days -> "Popular This Week" (most popular shows with a new episode) and "New Releases" (newest first)
   function weekRows(d) {
     var sched = [].concat((d.week && d.week.airingSchedules) || [], (d.week2 && d.week2.airingSchedules) || []), seen = {}, latest = [];
@@ -292,7 +342,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       description: (m.description || '').replace(/<[^>]+>/g, '').trim(),
       episodes: m.episodes || (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null), format: m.format, year: m.seasonYear,
       status: m.status, genres: m.genres || [], synonyms: (m.synonyms || []).filter(function (x) { return /^[\x20-\x7e]+$/.test(x); }).slice(0, 4),
-      score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null };
+      score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+      next: m.nextAiringEpisode && m.nextAiringEpisode.airingAt ? { ep: m.nextAiringEpisode.episode, at: m.nextAiringEpisode.airingAt } : null };
   }
   // ---- AniList from the device: ONE queue for every request (AniList allows 30 requests a minute per IP and answers 429 above that) ----
   // Requests run one at a time, spaced out when AniList says few are left (X-RateLimit-Remaining), and a 429 waits Retry-After seconds and tries again (twice).
@@ -369,15 +420,19 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (extra && extra.cont) {
       p.appendChild(el('div', 'badge ep', movie ? 'RESUME' : epLabel(a, extra.ep)));
       if (extra.dur) p.appendChild(el('div', 'pbar', '<i style="width:' + Math.min(100, extra.time / extra.dur * 100) + '%"></i>'));
+    } else if (extra && extra.rel) {
+      p.appendChild(el('div', 'badge ep', esc(extra.rel)));
     } else if (extra && extra.al) {
       p.appendChild(el('div', 'badge ep al', 'EP ' + extra.ep));
     } else if (extra && extra.hist) {
       p.appendChild(el('div', 'badge ep', movie ? 'MOVIE' : epLabel(a, extra.ep)));
     } else if (a.score) p.appendChild(el('div', 'badge', '★ ' + esc(a.score)));
     if (extra && (extra.cont || extra.hist)) p.appendChild(el('button', 'cx', '✕'));
+    if (extra && extra.st) p.appendChild(el('div', 'badge st st-' + extra.st, esc(ST_LABEL[extra.st] || extra.st)));
     c.appendChild(p);
-    c.appendChild(el('div', 'ct', esc(a.title)));
+    c.appendChild(el('div', 'ct', esc(tname(a))));
     c.__anime = a;
+    if (!extra || extra.st) paintAir(c);
     if (extra && extra.cont) { c.__cont = extra; }
     if (extra && extra.hist) { c.__hist = extra; }
     return c;
@@ -406,6 +461,13 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       for (var i = 0; i < 9; i++) t.appendChild(el('div', 'card', '<div class="poster"></div><div class="ct">.</div>'));
       row.appendChild(t); rows.appendChild(row);
     }
+  }
+  function makeRow(title, items, cls, extraFn) {                                   // a row of cards that is not appended yet (feed.js builds its own rows with it)
+    var row = el('div', 'row' + (cls ? ' ' + cls : ''));
+    row.appendChild(el('div', 'rowhead', '<h3>' + esc(title) + '</h3><div class="rowbtns"><button class="rowbtn" data-dir="-1">&#8249;</button><button class="rowbtn" data-dir="1">&#8250;</button></div>'));
+    var track = el('div', 'track');
+    items.forEach(function (it) { track.appendChild(card(it, extraFn ? extraFn(it) : undefined)); });
+    row.appendChild(track); return row;
   }
   function addRow(title, items, contMode) {
     var row = el('div', 'row');
@@ -437,29 +499,39 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (isHomeTab(state.tab)) setFocus($('retryHome'));
     });
   }
+  // Settings -> Home rows: hide rows and put the rest in your own order. Row titles are the keys; unknown rows keep their place at the end.
+  function rowPrefs(rows) {
+    var pr = store.get('ea_rows', null); if (!pr) return rows;
+    var hide = pr.hide || {}, order = pr.order || [];
+    var out = rows.filter(function (r) { return !hide[r.title]; });
+    out.sort(function (a, b) { var x = order.indexOf(a.title), y = order.indexOf(b.title); return (x < 0 ? 999 : x) - (y < 0 ? 999 : y); });
+    return out;
+  }
   function renderHome(d) {
     $('rows').innerHTML = ''; $('homeMsg').innerHTML = '';
     var rows = d.rows || [];
     renderContinue();
+    rows = rowPrefs(rows);
     rows.forEach(function (r) { addRow(r.title, r.items); });
     var feat = [];
     (rows[0] ? rows[0].items : []).forEach(function (a) { if (a.banner && feat.length < 6) feat.push(a); });
     if (!feat.length && rows[0]) feat = rows[0].items.slice(0, 5);
     setHeroList(feat);
     if (isHomeTab(state.tab) && state.view === state.tab) setFocus($('heroPlay'));
+    if (EA.feed && state.mode === 'anime') EA.feed.enrichHome(rows);
   }
   function renderContinue() {
     var old = $('rows').querySelector('.row.cont');
     if (old) old.parentNode.removeChild(old);
-    var c = continueItems();
-    if (!c.length) return;
+    var c = continueItems(); var cpr = store.get('ea_rows', null);
+    if (!c.length || (cpr && cpr.hide && cpr.hide['Continue Watching'])) return;
     addRow('Continue Watching', c, true);
     var rows = $('rows'), last = rows.lastChild;
     last.className += ' cont';
     rows.insertBefore(last, rows.firstChild);
   }
   var renderContinue0 = renderContinue;
-  renderContinue = function () { renderContinue0(); renderAlRow(); };
+  renderContinue = function () { renderContinue0(); renderAlRow(); if (EA.feed && state.mode === 'anime') EA.feed.renderRows(); };
 
   function setHeroList(list) {
     state.hero = list; state.heroIdx = 0;
@@ -480,8 +552,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (!a.banner) bg.style.backgroundPosition = 'center 20%';
       var movie = isVid(a);
       $('heroTags').innerHTML = '<span class="tag hot">#' + (i + 1) + (movie ? ' Popular' : ' Trending') + '</span>' +
+        (a.next && airBadgeOn() && a.next.at * 1000 - Date.now() < 4 * 86400000 ? '<span class="tag air">New episode ' + a.next.ep + ' ' + airIn(a.next.at) + '</span>' : '') +
         (a.genres || []).slice(0, 3).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('');
-      $('heroTitle').textContent = a.title;
+      $('heroTitle').textContent = tname(a);
       $('heroMeta').innerHTML = (a.score ? '<span class="score">★ ' + esc(a.score) + '</span>' : '') +
         [a.format, a.year, movie ? a.runtime : (a.episodes ? a.episodes + ' eps' : '')].filter(Boolean).map(esc).map(function (x) { return '<span>' + x + '</span>'; }).join('') +
         (movie ? '' : '<span class="tag">ENG SUB</span>');
@@ -499,10 +572,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
 
   // ======================= Tabs =======================
-  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
-  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
+  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', schedule: 'viewSchedule', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
+  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', schedule: 'cal', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
   function paintTabs() {
-    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
+    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', schedule: 'Schedule', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
       tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
@@ -517,13 +590,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'movies') state.mode = 'movies';
     if (t === 'tv') state.mode = 'tv';
     var shown = VIEW_OF[t];
-    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive'].forEach(function (id) {
+    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive', 'viewSchedule'].forEach(function (id) {
       $(id).className = 'view' + (id === shown ? '' : ' hidden');
     });
     $('nav').className = t === 'live' || activeView().scrollTop > 40 ? 'solid' : '';
     paintTabs();
     if (isHomeTab(t)) {
-      if (state.hero.length && state.cache[state.mode] && prev === state.tab) { renderContinue(); showHero(state.heroIdx, true); }
+      if (state.rowsDirty && state.cache[state.mode]) { state.rowsDirty = false; renderHome(state.cache[state.mode]); }
+      else if (state.hero.length && state.cache[state.mode] && prev === state.tab) { renderContinue(); showHero(state.heroIdx, true); }
       else loadHome();
     }
     if (t === 'search') {
@@ -532,6 +606,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (focusContent !== false) { setFocus($('searchInput')); if (!IS_TV) $('searchInput').focus(); }
     }
     if (t === 'live' && EA.live) EA.live.show(focusContent);
+    if (t === 'schedule' && EA.feed) EA.feed.show(focusContent);
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
     if (t === 'account') renderAccount();
@@ -542,9 +617,16 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (focusContent && t === 'account') setFocus($(auth() ? 'accSync' : 'accUser'));
   }
   function renderList() {
-    var l = store.get('ea_list', []), g = $('listGrid'); g.innerHTML = '';
-    $('listMsg').textContent = l.length ? '' : 'Your list is empty. Open a title and choose “My List” to save it here.';
-    l.forEach(function (a) { g.appendChild(card(a)); });
+    var l = store.get('ea_list', []), g = $('listGrid'), f = state.lst || '', ch = $('listChips'), cnt = { '': l.length };
+    g.innerHTML = ''; ch.innerHTML = '';
+    l.forEach(function (x) { var k = x.st || 'planning'; cnt[k] = (cnt[k] || 0) + 1; });
+    [''].concat(ST_ORDER).forEach(function (k) {
+      if (k && !cnt[k] && k !== f) return;
+      var b = el('button', 'chip focusable' + (f === k ? ' on' : ''), (k ? ST_LABEL[k] : 'All') + ' <i>' + (cnt[k] || 0) + '</i>'); b.__lst = k; ch.appendChild(b);
+    });
+    var shown = l.filter(function (x) { return !f || (x.st || 'planning') === f; });
+    $('listMsg').textContent = !l.length ? 'Your list is empty. Open a title and choose “My List” to save it here.' : !shown.length ? 'Nothing here yet.' : '';
+    shown.forEach(function (a) { g.appendChild(card(a, { st: a.st || 'planning' })); });
   }
   function renderHistory() {
     var h = getHist(), g = $('histGrid'); g.innerHTML = '';
@@ -748,6 +830,12 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
 
   // ======================= Detail =======================
+  function paintGenres(a) {                                                        // genre tags (+ the next-episode tag when we know it)
+    var movie = isVid(a);
+    $('dGenres').innerHTML = (a.next && airBadgeOn() && !movie ? '<span class="tag air">Episode ' + a.next.ep + ' airs ' + fmtDay(a.next.at) + ' · ' + airIn(a.next.at) + '</span>' : '') + (a.genres || []).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('') +
+      (movie && a.cast && a.cast.length ? '<span class="tag cast">' + esc(a.cast.slice(0, 4).join(' · ')) + '</span>' : '');
+  }
+  function refreshDetailTags(a) { if (state.anime === a && state.view === 'detail') paintGenres(a); }
   function openDetail(a) {
     state.anime = a; state.view = 'detail'; state.epRange = 0;
     state.returnFocus = state.focusEl;
@@ -755,12 +843,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('detail').className = '';
     $('dBg').style.backgroundImage = 'url("' + (a.banner || a.cover) + '")';
     $('dCover').src = a.cover || '';
-    $('dTitle').textContent = a.title;
+    $('dTitle').textContent = tname(a);
     $('dMeta').innerHTML = (a.score ? '<span class="score">★ ' + esc(a.score) + '</span>' : '') +
       (movie ? [isTv(a) ? 'TV Show' : '', a.year, a.runtime] : [a.format, a.year, a.status ? a.status.replace(/_/g, ' ') : '', a.episodes ? a.episodes + ' episodes' : '']).filter(Boolean)
         .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + (movie ? '' : '<span class="tag">ENG SUB</span>');
-    $('dGenres').innerHTML = (a.genres || []).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('') +
-      (movie && a.cast && a.cast.length ? '<span class="tag cast">' + esc(a.cast.slice(0, 4).join(' · ')) + '</span>' : '');
+    paintGenres(a);
     $('dDesc').textContent = a.description || 'No description available.';
     $('dBack').innerHTML = ic('back') + 'Back';
     $('detail').setAttribute('data-kind', movie ? a.kind : 'anime');
@@ -776,6 +863,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!movie && !alAuth()) aniFull(a.id);                                        // warm the AniList record the backend needs, so Play does not wait for it (linked: alLoadEntry fetches both in one request)
     renderEpisodes();
     $('dScroll').scrollTop = 0;
+    if (EA.feed && !movie) EA.feed.detailMore(a);
     setFocus($('dPlay'));
   }
   // ----- movie dropdowns: Source and desired Quality (picked on the movie page, before Play) -----
@@ -860,6 +948,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       : movie ? (p ? 'Resume' + (p.time > 10 ? ' · ' + fmt(p.time) : '') : 'Play Movie')
       : (p ? 'Continue EP ' + p.ep + (p.time > 10 ? ' · ' + fmt(p.time) : '') : alNextEp(a) > 1 ? 'Continue EP ' + alNextEp(a) + ' (AniList)' : 'Play EP 1'));
     $('dList').innerHTML = ic(inList(a) ? 'check' : 'plus') + (inList(a) ? 'In My List' : 'My List');
+    var stb = $('dStatus'); if (stb) { var cs = statusOf(a); stb.style.display = cs && !isVid(a) ? '' : 'none'; stb.innerHTML = 'Status: ' + (ST_LABEL[cs] || ''); }
     $('dRemove').innerHTML = '✕ Remove from Continue Watching';
     $('dRemove').style.display = p ? '' : 'none';
   }
@@ -963,7 +1052,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     stopVideo();
     var pr = progOf(a);
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
-    if (!keepVia) addHist(a, ep);
+    if (!keepVia) { addHist(a, ep); autoStatus(a, ep, false); }
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
     var usedPre = false;
@@ -1001,7 +1090,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         state.dubFailed = true; state.audioPref = 'sub'; toast('No English dub for this episode — using Japanese audio');
         return play(a, ep, startAt, true);
       }
-      if (tk === state.token) { pmsg('Could not start playback: ' + e.message + '  (press Back to return)', false); }
+      if (tk === state.token) { state.playFail = true; state.failAt = startAt || 0; pmsg('Could not start playback: ' + e.message + '.   OK: try again   ·   Up: choose another source   ·   Back: leave', false); }
     });
   }
   // ---- Old TV engines (Tizen 4/5/5.5/6): the hosted movie/TV players are written for 2020+ browsers and do not run there ----
@@ -1058,6 +1147,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.embedDog = setTimeout(function () {
       if (etk !== state.token || !state.embed || state.embedHeard) return;
       if (OLD_ENGINE) { hideEmbed(); showOldEng(true); }
+      else if (/^(CineSrc|VidFast|VidCore|Videasy)$/.test(state.embedName) && state.embeds && state.embeds[(state.embedIdx || 0) + 1]) {         // these players always report back: silence means a dead player, so move on
+        state.embedIdx = (state.embedIdx || 0) + 1; var nx = state.embeds[state.embedIdx]; toast(state.embedName + ' did not start — trying ' + nx.name); startEmbed(nx.url);
+      }
       else toast('Player not responding? Press Up, then Source, to try another player');
     }, OLD_ENGINE ? 20000 : 30000);
     startSubLoop();                                  // OpenSubtitles overlay, locked to the player clock
@@ -1466,6 +1558,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var QOPTS = [['auto', 'Auto'], ['1080', '1080p'], ['720', '720p'], ['480', '480p']];
   var APPSET = [
     ['ea_engine', 'Player engine (Samsung TVs)', 'auto', [['auto', 'Auto (AVPlay on Tizen 4)'], ['avplay', 'Samsung AVPlay'], ['html5', 'Standard HTML5']]],
+    ['ea_tlang', 'Titles', 'en', [['en', 'English'], ['romaji', 'Romaji (Japanese)']]],
+    ['ea_pz', 'Poster size', 'normal', [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], function () { document.body.className = bodyCls(); }],
+    ['ea_airbadge', 'Airing badges (episode countdown)', true, [[true, 'On'], [false, 'Off']], function () { paintAirBadges(); }],
+    ['ea_alerts', 'New-episode alerts on the home page', true, [[true, 'On'], [false, 'Off']]],
+    ['ea_recs', 'Recommendations on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']], function (v) { UI_MODERN = v === 'modern'; document.body.className = bodyCls(); }],
     ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
@@ -1517,6 +1614,33 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       var go = function () { EA_PROF.remove(cur.id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); };
       if (cur.pin) EA_PROF.verify(go); else go();
     }
+  }
+  // ---- Settings -> Home rows ----
+  function homeRowTitles() {
+    var t = [], c = state.cache.anime; if (c && c.rows) c.rows.forEach(function (r) { t.push(r.title); });
+    ['Continue Watching', 'New episodes for you', 'Because you watched'].forEach(function (x) { if (t.indexOf(x) < 0) t.push(x); });
+    var pr = store.get('ea_rows', null), order = pr && pr.order || [];
+    t.sort(function (a, b) { var x = order.indexOf(a), y = order.indexOf(b); return (x < 0 ? 999 : x) - (y < 0 ? 999 : y); });
+    return t;
+  }
+  function openRows(keep) {
+    var box = $('setXBox'); state.xk = 'rows'; clearInterval(state.xPoll);
+    var pr = store.get('ea_rows', null) || { hide: {}, order: [] }, titles = homeRowTitles();
+    pr.order = titles; store.set('ea_rows', pr);
+    var h = '<p class="hint">Choose which rows appear on the Anime home page and in what order. Hidden rows are not loaded or drawn.</p>';
+    var SPECIAL = { 'Continue Watching': 1, 'New episodes for you': 1, 'Because you watched': 1 };
+    titles.forEach(function (t, i) { h += '<div class="rrow"><span class="rt">' + esc(t) + (SPECIAL[t] ? ' <i>(always at the top)</i>' : '') + '</span><button class="btn focusable" data-i="' + i + '" data-a="tog">' + (pr.hide[t] ? 'Hidden' : 'Shown') + '</button>' + (SPECIAL[t] ? '' : '<button class="btn focusable" data-i="' + i + '" data-a="up">Up</button><button class="btn focusable" data-i="' + i + '" data-a="dn">Down</button>') + '</div>'; });
+    h += '<div class="setrow"><button id="xClose" class="btn primary focusable">Done</button></div>';
+    box.innerHTML = h; box.className = '';
+    var bs = box.querySelectorAll('button[data-a]'); for (var i = 0; i < bs.length; i++) bs[i].__rows = { i: +bs[i].getAttribute('data-i'), a: bs[i].getAttribute('data-a') };
+    var f = keep ? box.querySelector('button[data-i="' + keep.i + '"][data-a="' + keep.a + '"]') : box.querySelector('button[data-a]'); setFocus(f || $('xClose'));
+  }
+  function rowsAct(r) {
+    var pr = store.get('ea_rows', null) || { hide: {}, order: [] }, t = pr.order, i = r.i;
+    if (r.a === 'tog') pr.hide[t[i]] = !pr.hide[t[i]] ? 1 : 0;
+    else if (r.a === 'up' && i > 0) { var x = t[i]; t[i] = t[i - 1]; t[i - 1] = x; i--; }
+    else if (r.a === 'dn' && i < t.length - 1) { var y = t[i]; t[i] = t[i + 1]; t[i + 1] = y; i++; }
+    store.set('ea_rows', pr); state.rowsDirty = true; openRows({ i: i, a: r.a });
   }
   function addAddon(url, name) {
     var l = addonList().filter(function (x) { return x.url !== url; }); l.unshift({ url: url, name: name || hostOf(url) }); store.set('ea_addons', l.slice(0, 8));
@@ -1711,7 +1835,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function startVideo(d, startAt, tk) {
     clearTracks();
-    state.src = d; state.pPlay = { key: d.key, t0: performance.now(), ok: false, failed: false }; state.triedProxy = false; state.startAt = startAt; state.qIdx = 0; state.menuOpen = false; $('pmenu').className = 'hidden';
+    state.src = d; state.pPlay = { key: d.key, t0: performance.now(), ok: false, failed: false }; qInit(); state.playFail = false; guardStart(); state.triedProxy = false; state.startAt = startAt; state.qIdx = 0; state.menuOpen = false; $('pmenu').className = 'hidden';
     // Subtitle tracks from the stream are fetched through the API (CORS-open) and drawn by our overlay (exact sync)
     state.srcAudio = d.audio || 'sub';
     subSetStream(d.subtitles || []);
@@ -1729,7 +1853,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         if (!e.fatal) return;
         if (e.type === Hls.ErrorTypes.NETWORK_ERROR && state.netRetry++ < 3) { state.hls.startLoad(); return; }
         if (e.type === Hls.ErrorTypes.MEDIA_ERROR && state.mediaRetry++ < 3) { state.hls.recoverMediaError(); return; }
-        if (!fallbackToProxy() && !streamDead()) pmsg('Playback error: ' + e.details, false);
+        if (!fallbackToProxy() && !streamDead()) showPlayFail(e.details || 'playback error', video.currentTime);
       });
     } else {
       video.src = d.url; // native HLS (Tizen/Safari) or mp4
@@ -1748,6 +1872,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   video.addEventListener('playing', function () {
     if (state.liveOn) return;
     clearTimeout(state.waitTimer); pmsg('', false); paintPlayBtn();
+    if (state.pq && state.pq.waitAt) { state.pq.stallMs += Date.now() - state.pq.waitAt; state.pq.waitAt = 0; }
     var p = state.pPlay;
     if (p && !p.ok && p.key && state.anime && !isVid(state.anime)) { p.ok = true; iq.recordPlay(p.key, true, performance.now() - p.t0); }      // time to first frame
   });
@@ -1755,6 +1880,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   video.addEventListener('waiting', function () {
     if (state.liveOn) return;
     pmsg('', true);
+    if (state.pq && state.pPlay && state.pPlay.ok && !state.pq.waitAt && !video.seeking) { state.pq.stalls++; state.pq.waitAt = Date.now(); }       // a stall (not a seek)
     clearTimeout(state.waitTimer);                                           // stalled for 15s -> try the server relay once
     state.waitTimer = setTimeout(function () { if (state.view === 'player' && video.readyState < 3 && !video.paused) { if (fallbackToProxy()) toast('Slow connection — switching route'); } }, 15000);
   });
@@ -1808,9 +1934,51 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
     return true;
   }
+  // ---- Playback guard: a stream that stalls, freezes or shows no picture is noticed within seconds and recovered step by step, and a final failure always leaves a visible message and choices ----
+  //   1) re-fetch / recover in place   2) switch route (server relay)   3) next source (SourceIQ marks this one)   4) a clear panel: OK = retry, Up = choose another source, Back = leave
+  var guard = { timer: null, last: -1, moveAt: 0, rung: 0, calm: 0, startAt: 0 };
+  function guardStart() { clearInterval(guard.timer); guard.last = -1; guard.moveAt = Date.now(); guard.rung = 0; guard.calm = 0; guard.startAt = Date.now(); guard.timer = setInterval(guardTick, 2000); }
+  function guardStop() { clearInterval(guard.timer); guard.timer = null; }
+  function guardTick() {
+    if (state.view !== 'player' || state.liveOn || state.embed || !state.src || state.oldEng || state.playFail) return;
+    var now = Date.now(), t = video.currentTime;
+    if (video.paused || video.seeking || state.menuOpen) { guard.moveAt = now; guard.last = t; return; }       // the viewer paused or is seeking
+    if (Math.abs(t - guard.last) > 0.05) {                                                                      // the picture is moving
+      guard.last = t; guard.moveAt = now; guard.calm += 2000;
+      if (guard.calm > 20000) guard.rung = 0;                                                                   // healthy for 20 s: the next problem starts again at step 1
+      var blind = !(window.AVP && AVP.active()) && state.pPlay && state.pPlay.ok && video.videoWidth === 0 && video.videoHeight === 0 && now - guard.startAt > 9000;   // sound but no picture
+      if (blind && !guard.blindAt) guard.blindAt = now;
+      if (blind && now - guard.blindAt > 8000) { guard.blindAt = 0; guardEscalate('no picture'); }
+      if (!blind) guard.blindAt = 0;
+      return;
+    }
+    guard.last = t; guard.calm = 0;
+    var limit = state.pPlay && state.pPlay.ok ? 12000 : 30000;                                                   // frozen while playing / never started
+    if (now - guard.moveAt > limit) { guard.moveAt = now; guardEscalate(state.pPlay && state.pPlay.ok ? 'stalled' : 'did not start'); }
+  }
+  function guardEscalate(why) {
+    var r = guard.rung++, at = video.currentTime > 5 ? video.currentTime : state.startAt;
+    if (r === 0 && state.hls) {                                              // 1) in place
+      toast('Reconnecting…');
+      try { if (why === 'no picture') state.hls.recoverMediaError(); else state.hls.startLoad(); } catch (e) { /* ignore */ }
+      var pr = video.play(); if (pr && pr.catch) pr.catch(function () {}); return;
+    }
+    if (r <= 1 && fallbackToProxy()) { toast('Trying another route…'); return; }                               // 2) route
+    if (r <= 2 && streamDead()) return;                                                                         // 3) next source (Auto), SourceIQ remembers
+    showPlayFail(why, at);                                                                                      // 4) never a silent black screen
+  }
+  function showPlayFail(why, at) {
+    guardStop(); playFailed(); state.playFail = true; state.failAt = at || 0; $('spinner').className = '';
+    pmsg('Playback stopped (' + why + ').   OK: try again   ·   Up: choose another source   ·   Back: leave', false); hud();
+  }
+  function retryPlay() {
+    state.playFail = false; var a = state.anime; if (!a) return;
+    pmsg('Trying again…', true); state.srcSkip = []; state.triedProxy = false;
+    play(a, state.ep, state.failAt || 0, true, []);
+  }
   video.addEventListener('error', function () {
     if (state.liveOn || !video.getAttribute('src')) return;
-    if (!fallbackToProxy() && !streamDead()) pmsg('Video error — the stream could not be played', false);
+    if (!fallbackToProxy() && !streamDead()) showPlayFail('the stream could not be played', video.currentTime);
   });
   video.addEventListener('progress', function () {
     if (state.liveOn) return;
@@ -1819,6 +1987,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   video.addEventListener('timeupdate', function () {
     if (state.liveOn) return;                                                  // live TV: infinite duration, nothing to save
     var d = video.duration, t = video.currentTime;
+    if (state.pq) { var dt = t - state.pq.lastT; if (state.pq.lastT >= 0 && dt > 0 && dt < 2.5) state.pq.played += dt; state.pq.lastT = t; var qh = qHeight(); if (qh) state.pq.h = qh; }
     if (d) $('seekBar').style.width = t / d * 100 + '%';
     $('pTime').textContent = fmt(t) + ' / ' + fmt(d);
     if (Date.now() - state.lastSave > 5000 && t > 3 && d) { state.lastSave = Date.now(); setProg(state.anime, state.ep, t, d); alMaybeUpdate(state.anime, state.ep, t, d); }
@@ -1839,12 +2008,13 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (state.liveOn) return;
     var a = state.anime;
     if (isVid(a)) { embedEnded(); return; }
-    if (a.episodes && state.ep >= a.episodes) { setProg(a, state.ep, 0, 0); closePlayer(); return; }
+    if (a.episodes && state.ep >= a.episodes) { setProg(a, state.ep, 0, 0); autoStatus(a, state.ep, true); closePlayer(); toast('Series finished — marked Completed'); return; }
     setProg(a, state.ep + 1, 0, 0);
     if (store.get('ea_autonext', true) === false) { closePlayer(); toast('Episode finished'); return; }       // Settings: play the next episode automatically
     play(a, state.ep + 1, 0);
   });
   function stopVideo() {
+    guardStop(); flushQuality(false);
     if (state.hls) { state.hls.destroy(); state.hls = null; }
     try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) {}
     clearTracks();
@@ -2017,9 +2187,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.id === 'dBack') { closeDetail(); return; }
     if (e.id === 'dPlay') { startFromDetail(); return; }
     if (e.id === 'dList') { toggleList(state.anime); paintDetailButtons(); return; }
+    if (e.id === 'dStatus') { var cs = statusOf(state.anime), nx = ST_CYCLE[(ST_CYCLE.indexOf(cs) + 1) % ST_CYCLE.length]; setStatus(state.anime, nx); paintDetailButtons(); toast('Marked ' + ST_LABEL[nx]); return; }
+    if (e.__lst !== undefined) { state.lst = e.__lst; renderList(); var again = $('listChips').querySelectorAll('.chip'); for (var q = 0; q < again.length; q++) if (again[q].__lst === e.__lst) setFocus(again[q]); return; }
     if (e.__genre !== undefined) { state.genre = state.genre === e.__genre ? '' : e.__genre; paintChips(); runSearch(); return; }
     if (e.__season !== undefined) { state.tvSeason = e.__season; renderEpisodes(); setFocus($('dRanges').children[e.__season]); return; }
     if (e.__set !== undefined) { if (e.__set === 'custom') editCustomSource(); else cycleAppSetting(e.__set); return; }
+    if (e.__feed && EA.feed) { EA.feed.activate(e); return; }
+    if (e.__rows) { rowsAct(e.__rows); return; }
+    if (e.id === 'setRowsBtn') { openRows(); return; }
     if (e.__p) { profAct(e.__p); return; }
     if (e.id === 'navProf') { EA_PROF.switchTo(); return; }
     if (e.__x) { openExtra(e.__x); return; }
@@ -2122,6 +2297,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (state.menuOpen) { if (isBackKey(k)) { state.lastBack = Date.now(); closeMenu(); } else menuKey(k); return; }
       if (isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); closePlayer(); }
       else if (k === KEY.ENTER && $('skipBtn').className === 'skipbtn show') doSkip();
+      else if (state.playFail && (k === KEY.ENTER || k === KEY.PLAY)) retryPlay();
       else if (k === KEY.ENTER || k === KEY.SPACE || k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) togglePlay();
       else if (k === KEY.LEFT || k === KEY.RW) seek(-10);
       else if (k === KEY.RIGHT || k === KEY.FF) seek(10);
@@ -2181,13 +2357,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     clearTimeout(state.searchTimer);
     state.searchTimer = setTimeout(runSearch, 450);
   });
-  ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings'].forEach(function (id) {
+  ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewSchedule'].forEach(function (id) {
     $(id).addEventListener('scroll', function () { $('nav').className = this.scrollTop > 40 ? 'solid' : ''; });
   });
   document.addEventListener('visibilitychange', function () { if (document.hidden && state.view === 'player' && !(EA.live && EA.live.playing())) video.pause(); });
 
   // ======================= Bridge for public/live.js (Live TV) =======================
   var EA = window.EA = { state: state, $: $, el: el, esc: esc, ic: ic, fmt: fmt, store: store, toast: toast, setFocus: setFocus, KEY: KEY, isBackKey: isBackKey, apiBase: apiBase, video: video,
+    card: card, keyOf: keyOf, progOf: progOf, getProg: getProg, getHist: getHist, inList: inList, listItem: listItem, openDetail: openDetail, aniQuery: aniQuery, aniMap: aniMap, tname: tname, airIn: airIn, fmtTime: fmtTime, paintAir: paintAir, paintAirBadges: paintAirBadges, makeRow: makeRow, showHero: showHero, refreshDetailTags: refreshDetailTags, ST_LABEL: ST_LABEL, feed: null,
     hasCls: hasCls, up: up, IS_TV: IS_TV, OLD_ENGINE: OLD_ENGINE, CHROME_V: CHROME_V, lite: function () { return LITE; }, showTab: showTab, paintTabs: paintTabs, live: null };
 
   // ======================= Init =======================

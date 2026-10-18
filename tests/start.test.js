@@ -10,12 +10,12 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 test('index.html starts through start.js and never loads the app scripts itself', () => {
   const html = read('public/index.html');
   assert.match(html, /<script src="start\.js"><\/script>/);
-  for (const f of ['main.js', 'live.js', 'iptv.js', 'iq.js', 'avp.js']) assert.ok(!new RegExp('<script[^>]+src="' + f.replace('.', '\\.') + '"').test(html), f + ' is loaded by start.js');
+  for (const f of ['main.js', 'feed.js', 'live.js', 'iptv.js', 'iq.js', 'avp.js']) assert.ok(!new RegExp('<script[^>]+src="' + f.replace('.', '\\.') + '"').test(html), f + ' is loaded by start.js');
 });
 
 test('start.js lists every app script, in dependency order, and they exist', () => {
   const js = read('public/start.js'), list = (/var APP = \[([^\]]*)\]/.exec(js)[1].match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
-  assert.deepStrictEqual(list, ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'live.js']);
+  assert.deepStrictEqual(list, ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'live.js']);
   list.forEach(f => assert.ok(fs.existsSync(path.join(root, 'public', f)), f));
 });
 

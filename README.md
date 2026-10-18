@@ -29,8 +29,9 @@ Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | **Accounts** | Optional sync of Continue Watching / My List / History, and optional [AniList](https://anilist.co) linking |
 | **Live TV (IPTV)** | Bring your own M3U playlist or Xtream login (or pick free public channels): fast channel browser for 50,000+ channels, TV guide, zapping, favorites. No channels are included |
 | **Player engine** | Samsung AVPlay (the TV's native player) is used by default on Tizen 4 and can be chosen on any Samsung TV in Settings; it plays HLS / MPEG-TS / MP4 natively and falls back to the standard player automatically |
+| **Schedule and personal feed** | A Schedule tab (yesterday + 6 days, your local time, bell reminders), next-episode countdowns, "New episodes for you", "Because you watched …", Seasons & related, library statuses, titles in English or Romaji, poster size and home-row control |
 | **Profiles and looks** | Up to 6 profiles (original character avatars), each with its own list, history, progress and AniList link; an optional 4-digit lock per profile (a family lock, not security; off in Settings); **Classic** look for low-end devices (the default on Tizen 4 / 5) and **Modern** look with a side rail for newer devices; an opening animation (skipped on Tizen 4 and 5, can be turned off) |
-| **Stability** | A start-up safe mode after three failed starts, time limits and one automatic retry on API calls, memory trimming on Android, and a clear recovery screen instead of a black page |
+| **Stability** | Playback guard (frozen / no-picture streams recovered step by step, then a clear panel), server-side stream verification, SourceIQ that learns smoothness and resolution, a start-up safe mode after three failed starts, time limits and one automatic retry on API calls, memory trimming on Android, and a clear recovery screen instead of a black page |
 | **Extra sources** | Optional, in Settings: debrid service (Real-Debrid, AllDebrid, Premiumize, TorBox; the key stays on your device), Stremio / Nuvio add-ons, a CinePro Core server. They play in our own player, so they also work on Tizen 4. Nothing here is required |
 | **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy, optional VidLink and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play unless you add a **stream add-on** (Settings), whose plain video files play in our own player; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
@@ -50,6 +51,28 @@ Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | Profiles, optional PIN, Classic / Modern look | **Yes** | Not found | Not found | Varies | Yes |
 | Free and open source | **Yes** | Free; source on its project pages | Free; source not published in its repo | Mostly paid or ad-supported | Subscription |
 | Still being updated | **Yes** | **Appears to have stopped:** the newest version I found is 2.14.2 (26 Jan 2026, RuStore) | Yes at the time of checking | Varies | Yes |
+
+### Aniultimatium and AnikenTV, side by side
+AnikenTV (a fork of the Anilili app, Android TV / Google TV only, per its own README) is a good-looking native anime client, and its screenshots show a Schedule, a Library with statuses and a notifications screen. Aniultimatium covers the same ground and adds the things below. *Source: AnikenTV's README and screenshots; I have not run it, so this compares features, not speed or stability.*
+
+| | **Aniultimatium** | **AnikenTV** |
+|---|---|---|
+| Where it runs | Samsung Tizen 4.0+ (`.wgt`), Android TV, Fire TV (`.apk`), browsers | Android TV / Google TV (Android 5.1+) |
+| What it plays | Anime, movies, TV shows **and** your own IPTV playlist (M3U / Xtream, 30,000+ channels) | Anime |
+| Schedule with local times, "AIRED / IN 3h" status and a bell | Yes, plus a "My list & follows" filter | Yes (per its screenshots) |
+| Next-episode countdowns on cards, hero and detail page | Yes (can be turned off) | "New episode soon" tag on the hero |
+| New-episode alerts for shows you follow | A home row "New episodes for you" (in-app, no push notifications) | Notifications screen |
+| Library statuses (Watching, Planning, Completed, Paused, Dropped) | Yes, set by hand or automatically while you watch | Yes (per its screenshots, synced with AniList / MAL) |
+| Recommendations / related seasons | "Because you watched …" row, "Seasons & related" and "You may also like" on each show | Related tab on the detail page |
+| Personalization | Profiles with a lock, Classic / Modern look, accent colour, title language, poster size, show / hide / reorder home rows, airing badges, start tab | Not documented |
+| Playback recovery | Frozen or picture-less streams are detected, then re-fetched, rerouted, switched to the next source, and finally a clear panel (OK retry · Up another source) | Server fallback switching (per its README) |
+| Stream checking | The server reads the playlist, a variant, the key and the first segment before a stream is used; add-on and debrid streams are checked the same way | Not documented |
+| Source ranking | SourceIQ learns from real playback on your device: start success, start time, stalls and resolution | Not documented |
+| Optional extras | Debrid (Real-Debrid, AllDebrid, Premiumize, TorBox), Stremio / Nuvio add-ons, CinePro Core | Not documented |
+| Open source | Yes (this repository) | App source is not published in its repo |
+| Accounts | AniList | AniList and MyAnimeList |
+
+**Where AnikenTV is ahead:** it is a native app (the system decodes video directly, which a WebView app like ours cannot match), it lists more scraper providers by name, it also syncs MyAnimeList, and it has a Discord community. Aniultimatium's Android app is a WebView, tested in a browser and against mock servers but not yet on a wide range of devices.
 
 **What Aniultimatium offers on top**
 - **One app for three jobs:** anime, movies and TV, and your own IPTV playlist, instead of three apps. The same code runs on Samsung (including 2018 TVs), Android TV and Fire TV.

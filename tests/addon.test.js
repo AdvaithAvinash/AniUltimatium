@@ -38,15 +38,15 @@ test('sources(): add-on stream becomes the direct file; movie and episode addres
   assert.match((await movies.sources({ id: 'tt0137523', via: 'addon', addon: base + '/manifest.json', title: 'x' })).addonError, /not valid/);   // refused while the guard is on
   process.env.ALLOW_PRIVATE_ADDONS = '1';
   try {
-    const d = await movies.sources({ id: 'tt0137523', via: 'addon', addon: base + '/manifest.json', title: 'x', quality: '' });
+    const d = await movies.sources({ id: 'tt0137523', via: 'addon', addon: base + '/manifest.json', title: 'x', quality: '' }, { verify: async r => r });
     assert.strictEqual(d.direct.url, 'https://cdn.example/m1080.mp4');
     assert.deepStrictEqual(d.direct.headers, { Referer: 'https://r.example/' });
     assert.strictEqual(d.direct.subtitles[0].url, 'https://s.example/e.vtt');
     assert.strictEqual(d.direct.provider, 'addon');
     assert.ok(seen.includes('/stream/movie/tt0137523.json'), seen.join());
-    const t = await movies.sources({ id: 'tt0944947', via: 'auto', type: 'series', s: '2', e: '3', addon: base, title: 'x' });
+    const t = await movies.sources({ id: 'tt0944947', via: 'auto', type: 'series', s: '2', e: '3', addon: base, title: 'x' }, { verify: async r => r });
     assert.ok(t.direct && seen.includes('/stream/series/tt0944947:2:3.json'), seen.join());
-    const n = await movies.sources({ id: 'tt0000001', via: 'auto', addon: base, title: 'x' }).catch(e => e);
+    const n = await movies.sources({ id: 'tt0000001', via: 'auto', addon: base, title: 'x' }, { verify: async r => r }).catch(e => e);
     assert.ok(!n.direct && /torrents|no ready-to-play/.test(n.addonError), JSON.stringify(n.addonError));
   } finally { delete process.env.ALLOW_PRIVATE_ADDONS; global.fetch = realFetch; srv.close(); }
 });

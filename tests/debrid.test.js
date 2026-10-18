@@ -95,16 +95,17 @@ test('movie sources: several add-ons, debrid for torrent-only entries, CinePro C
   Object.assign(process.env, { ALLOW_PRIVATE_ADDONS: '1', DEBRID_BASE_RD: rd.url });
   try {
     const q = { id: 'tt0137523', title: 'x', addons: JSON.stringify([B.url + '/manifest.json', A.url + '/manifest.json']) };
-    const noDebrid = await movies.sources(q);
+    const V = { verify: async r => r };
+    const noDebrid = await movies.sources(q, V);
     assert.ok(!noDebrid.direct && /debrid/i.test(noDebrid.addonError), 'torrent-only without debrid says so: ' + noDebrid.addonError);
     assert.ok(noDebrid.embeds.length >= 4, 'embeds are still there as the normal fallback');
     assert.ok(seen.some(x => x.startsWith('A/stream/movie/tt0137523')) && seen.some(x => x.startsWith('B/stream/movie/tt0137523')), 'both add-ons asked');
-    const withDebrid = await movies.sources(q, { debrid: { p: 'rd', k: 'KEY12345' } });
+    const withDebrid = await movies.sources(q, { debrid: { p: 'rd', k: 'KEY12345' }, verify: V.verify });
     assert.strictEqual(withDebrid.direct.url, 'https://rd.example/m.mp4'); assert.strictEqual(withDebrid.direct.provider, 'debrid');
-    const c = await movies.sources({ id: 'tt0137523', title: 'x', cinepro: cp.url });
+    const c = await movies.sources({ id: 'tt0137523', title: 'x', cinepro: cp.url }, V);
     assert.strictEqual(c.direct.url, 'https://cp.example/1080.m3u8'); assert.strictEqual(c.direct.subtitles[0].url, 'https://s.example/e.vtt');
     assert.ok(seen.includes('CP/v1/movies/550'), seen.join());
-    const t = await movies.sources({ id: 'tt0944947', type: 'series', s: '2', e: '3', title: 'x', cinepro: cp.url });
+    const t = await movies.sources({ id: 'tt0944947', type: 'series', s: '2', e: '3', title: 'x', cinepro: cp.url }, V);
     assert.ok(t.direct && seen.includes('CP/v1/tv/550/seasons/2/episodes/3'));
     // VidLink is optional: never in Auto, only when picked
     const auto = await movies.sources({ id: 'tt0137523', title: 'x' });

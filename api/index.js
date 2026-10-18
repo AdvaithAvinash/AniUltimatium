@@ -19,6 +19,7 @@ try {
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
 const debrid = require('../lib/debrid');
+const verify = require('../lib/verify');
 const subsLib = require('../lib/subs');
 const turbo = require('../lib/turbo');          // TurboScrape: cache + de-duplication + hedged source race + cancellation
 turbo.installFetch();
@@ -27,7 +28,7 @@ const ANILIST = 'https://graphql.anilist.co';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 const MEDIA_FIELDS = `id title{romaji english native} coverImage{extraLarge large color} bannerImage description(asHtml:false)
-  idMal episodes nextAiringEpisode{episode} format seasonYear averageScore status genres synonyms popularity isAdult`;
+  idMal episodes nextAiringEpisode{episode airingAt} format seasonYear averageScore status genres synonyms popularity isAdult`;
 const FRAG = `fragment F on Media{${MEDIA_FIELDS}}`;
 
 function cors(res) {
@@ -88,6 +89,7 @@ function mapMedia(m) {
     genres: m.genres || [],
     synonyms: (m.synonyms || []).filter(x => /^[\x20-\x7e]+$/.test(x)).slice(0, 4),
     score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+    next: m.nextAiringEpisode && m.nextAiringEpisode.airingAt ? { ep: m.nextAiringEpisode.episode, at: m.nextAiringEpisode.airingAt } : null,       // next episode: number + unix time (cards show a countdown)
   };
 }
 async function trending() {
@@ -269,23 +271,10 @@ function avPick(d) {
     qualities: best.type === 'mp4' ? usable.filter(x => x.type === 'mp4' && x.quality).sort((a, b) => q(b) - q(a)).map(x => ({ label: x.quality, url: x.url })) : undefined,
   };
 }
-// Make sure a stream really plays from THIS host (some CDNs answer 404/HTML to cloud IPs) before we hand it out
+// Make sure a stream really plays from THIS host (some CDNs answer 404/HTML to cloud IPs) before we hand it out.
+// lib/verify.js reads the playlist, a variant and the first segment (Node server); on Workers it checks the playlist only, to save subrequests.
 async function probeStream(r) {
-  const ctl = new AbortController();
-  let late = false;
-  const t = setTimeout(() => { late = true; ctl.abort(); }, 5000);                 // a playlist that cannot be fetched in 5 s will not play well either
-  try {
-    let x;
-    try { x = await fetch(r.url, { signal: ctl.signal, redirect: 'follow', headers: { 'User-Agent': UA, ...(r.headers || {}), ...(r.headers && r.headers.Referer ? { Origin: (() => { try { return new URL(r.headers.Referer).origin; } catch (e) { return undefined; } })() } : {}), ...(r.cookie ? { Cookie: r.cookie } : {}), ...(r.mp4 ? { Range: 'bytes=0-1023' } : {}) } }); }
-    catch (e) { if (/subrequest/i.test(e.message)) return r; throw e; }   // Workers request budget used up: let the player try it
-    if (!x.ok) throw new Error('stream HTTP ' + x.status);
-    const ct = (x.headers.get('content-type') || '').toLowerCase();
-    if (r.mp4) { if (/text\/html|json/.test(ct)) throw new Error('stream is not video'); }
-    else { const head = (await x.text()).slice(0, 64); if (head.indexOf('#EXTM3U') < 0) throw new Error('stream is not a playlist'); }
-    try { x.body && x.body.cancel(); } catch (e) { /* ignore */ }
-  } catch (e) { if (late) throw new Error('stream probe timed out'); throw e; }
-  finally { clearTimeout(t); }
-  return r;
+  return verify.verifyStream(r, { fetch: (...a) => fetch(...a), ua: UA, timeout: 5000, deep: !globalThis.__AV_WORKER });
 }
 async function viaAnivexa(anilistId, ep, only, audio) {
   if (!anilistId) throw new Error('no anilist id');
