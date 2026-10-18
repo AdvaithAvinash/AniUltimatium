@@ -210,6 +210,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var qs = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
     var headers = {}, au = auth(), init = { headers: headers };
     if (opts.signal) init.signal = opts.signal;
+    if (opts.headers) Object.keys(opts.headers).forEach(function (k) { headers[k] = opts.headers[k]; });
     if (au && /^(me|sync_get|sync_put)$/.test(params.action)) headers.Authorization = 'Bearer ' + au.token;
     if (opts.body) { init.method = 'POST'; headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
     var aniAct = /^(home|trending|search)$/.test(params.action);
@@ -519,7 +520,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
     if (t === 'account') renderAccount();
-    if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('serverInput')); }
+    if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); paintExtras(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('setApp').firstChild || $('serverInput')); }
     if (focusContent && isHomeTab(t)) setFocus($('heroPlay'));
     if (focusContent && t === 'list') { var f = $('listGrid').firstChild; if (f) setFocus(f); }
     if (focusContent && t === 'history') { var hb = $('clearHist'); setFocus($('histGrid').firstChild || hb); }
@@ -765,7 +766,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // ----- movie dropdowns: Source and desired Quality (picked on the movie page, before Play) -----
   // ---- Ads: a source gets an "Ads" tag when it is known to open popups. Built-in findings are in ADS_KNOWN (docs/SOURCE_ADS.md explains what was tested);
   // on the Android app every popup the shell blocks is counted for the source on screen, so the tag also appears from your own experience.
-  var ADS_KNOWN = { cinesrc: 'popups', vidfast: 'popups' };       // from reading the players' own scripts (tools/probe_ads.js static): see docs/SOURCE_ADS.md
+  var ADS_KNOWN = { cinesrc: 'popups', vidfast: 'popups', vidlink: 'popups' };       // from reading the players' own scripts (tools/probe_ads.js static): see docs/SOURCE_ADS.md
   function adsSeen() { return store.get('ea_adseen', {}) || {}; }
   function hasAds(key) { return ADS_KNOWN[key] === 'popups' || (adsSeen()[key] || 0) >= 1; }
   function adWarnOn() { return store.get('ea_adwarn', true) !== false; }
@@ -779,8 +780,20 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   window.EA_key = function (code) {                                              // Android shell: remote keys that WebView does not deliver (media, colour, channel) arrive as the codes this app already knows
     var ev = document.createEvent('Event'); ev.initEvent('keydown', true, true); ev.keyCode = code; document.dispatchEvent(ev);
   };
-  function addonUrl() { var u = store.get('ea_addon', ''); return typeof u === 'string' && /^(https?|stremio):\/\/\S+$/i.test(u) ? u : ''; }
-  function addonName() { try { return addonUrl().replace(/^\w+:\/\//, '').split('/')[0]; } catch (e) { return ''; } }
+  // ---- Optional extra sources: Stremio / Nuvio add-ons, a debrid account, a CinePro Core server. Everything is stored on this device only. ----
+  function hostOf(u) { return String(u || '').replace(/^\w+:\/\//, '').split('/')[0]; }
+  function addonList() {
+    var l = store.get('ea_addons', null);
+    if (!l) { var old = store.get('ea_addon', ''); l = typeof old === 'string' && /^(https?|stremio):\/\/\S+$/i.test(old) ? [{ url: old, name: hostOf(old) }] : []; }      // the single add-on of the previous version
+    return Array.isArray(l) ? l.filter(function (x) { return x && /^(https?|stremio):\/\/\S+$/i.test(x.url || ''); }) : [];
+  }
+  function addonsParam() { var l = addonList(); return l.length ? JSON.stringify(l.map(function (x) { return x.url; })) : ''; }
+  function debridCfg() { var d = store.get('ea_debrid', null); return d && /^(rd|ad|pm|tb)$/.test(d.p) && typeof d.k === 'string' && d.k.length >= 8 ? d : null; }
+  function debridHdr() { var d = debridCfg(); return d ? { 'x-debrid': d.p + ':' + d.k } : undefined; }        // sent with the request, never stored by the server
+  function cineproUrl() { var u = store.get('ea_cinepro', ''); return typeof u === 'string' && /^https?:\/\/\S+$/i.test(u) ? u : ''; }
+  function hasExtra() { return addonList().length > 0 || !!cineproUrl(); }
+  var DEBRIDS = [['rd', 'Real-Debrid'], ['ad', 'AllDebrid'], ['pm', 'Premiumize'], ['tb', 'TorBox']];
+  function debridName(p) { for (var i = 0; i < DEBRIDS.length; i++) if (DEBRIDS[i][0] === p) return DEBRIDS[i][1]; return p; }
   function customSrc() { var c = store.get('ea_custom_src', null); return c && /^https?:\/\//i.test(c.url || '') ? c : null; }
   function customUrl(d, a, ep) {                                                 // {imdb} {tmdb} {s} {e}: the address template of a player the user chose
     var c = customSrc(); if (!c) return null;
@@ -793,12 +806,13 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else CineSrc'], ['cinesrc', 'CineSrc', 'remote control · subtitles · quality'],
                        ['vidfast', 'VidFast', 'remote control · auto quality'], ['vidcore', 'VidCore', 'auto quality up to 4K'],
-                       ['videasy', 'Videasy', 'auto quality'], ['archive', 'Public domain', 'our own player']];
+                       ['videasy', 'Videasy', 'auto quality'], ['simplstream', 'SimplStream', 'VidSrc · 111Movies · GoDrive (also tried by Auto)'],
+                       ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   function srcOpts() {
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
     var c = customSrc(); if (c) base.push(['custom', 'Custom: ' + c.name, 'your own player address']);
-    if (addonUrl()) base.unshift(['addon', 'Stream add-on', addonName() + ' · plays in our own player · works on every TV']);
+    if (hasExtra()) base.unshift(['addon', 'Your add-ons' + (debridCfg() ? ' + ' + debridName(debridCfg().p) : ''), 'plays in our own player · works on every TV']);
     return base.map(function (o) { return hasAds(o[0]) && adWarnOn() ? [o[0], o[1] + '  ⚠ Ads', 'may open popup ads' + (o[2] ? ' · ' + o[2] : '')] : o; });
   }
   var DROPS = {
@@ -939,8 +953,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
     var usedPre = false;
-    var req = movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '', addon: addonUrl() },
-        isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}))
+    var req = movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '', addons: addonsParam(), cinepro: cineproUrl() },
+        isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}), { headers: debridHdr() })
       : (function () { var pre = takePrefetch(a, ep); if (pre) { usedPre = true; return pre; } return api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(','), order: iqOrder() }, { signal: state.srcCtl && state.srcCtl.signal }); })();
     req.then(function (d) {
       if (tk !== state.token) return;
@@ -979,11 +993,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // ---- Old TV engines (Tizen 4/5/5.5/6): the hosted movie/TV players are written for 2020+ browsers and do not run there ----
   function showOldEng(failed) {
     pmsg('', false);
-    var b = $('oldEng'), has = !!addonUrl(), tz = CHROME_V >= 76 ? '6' : CHROME_V >= 69 ? '5.5' : CHROME_V >= 63 ? '5' : '4';
+    var b = $('oldEng'), has = hasExtra(), tz = CHROME_V >= 76 ? '6' : CHROME_V >= 69 ? '5.5' : CHROME_V >= 63 ? '5' : '4';
     b.innerHTML = '<h3>' + (failed ? 'The player did not start on this TV' : 'This TV\'s browser is too old for these players') + '</h3>' +
       '<p>The hosted movie and TV players need a 2020 or newer browser. This TV has Chromium ' + (CHROME_V || '56') + ' (Tizen ' + tz + '), which cannot run them.</p>' +
-      '<p>' + (has ? 'Your stream add-on had no stream for this title.' : 'You can still watch here: enter a <b>stream add-on</b> address below. It gives us a plain video file that plays in our own player, which this TV can run.') + '</p>' +
-      '<input id="oeUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" value="' + esc(addonUrl()) + '" autocomplete="off" spellcheck="false">' +
+      '<p>' + (has ? 'Your extra sources had no stream for this title.' : 'You can still watch here: add a <b>Stremio / Nuvio add-on</b> address below (or a debrid service in Settings → Extra sources). It gives us a plain video file that plays in our own player, which this TV can run.') + '</p>' +
+      '<input id="oeUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" value="" autocomplete="off" spellcheck="false">' +
       '<div class="setrow"><button id="oeSave" class="btn primary focusable">Save add-on and play</button><button id="oeTry" class="btn focusable">' + (failed ? 'Try the next player' : 'Try the player anyway') + '</button></div>' +
       '<p class="hint">Up / Down to move · OK to type or press · Back to return. Public-domain films and all anime play normally.</p>';
     b.className = ''; state.oldEng = { failed: failed }; setFocus($('oeUrl'));
@@ -994,7 +1008,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (useAddon) {
       var u = $('oeUrl').value.trim();
       if (!/^(https?|stremio):\/\/\S+$/i.test(u)) { toast('Enter the add-on address first (it starts with https://)'); setFocus($('oeUrl')); return; }
-      store.set('ea_addon', u); state.mvia = 'addon'; store.set('ea_msrc', 'addon'); hideOldEng(); play(state.anime, state.ep, 0, true); return;
+      addAddon(u, hostOf(u)); state.mvia = 'addon'; store.set('ea_msrc', 'addon'); hideOldEng(); play(state.anime, state.ep, 0, true); return;
     }
     var list = state.embeds || [], i = failed ? (state.embedIdx || 0) + 1 : (state.embedIdx || 0);
     hideOldEng();
@@ -1012,7 +1026,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function startEmbed(url, customName) {
     stopVideo();
     state.embed = true; state.embedKind = !customName && /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';   // 'vidcore' = the VidCore/VidFast/Videasy message API (a custom player is treated the same way)
-    state.embedName = customName || (/vidfast/.test(url) ? 'VidFast' : /videasy/.test(url) ? 'Videasy' : /cinesrc/.test(url) ? 'CineSrc' : 'VidCore');
+    state.embedName = customName || (/vidfast/.test(url) ? 'VidFast' : /videasy/.test(url) ? 'Videasy' : /cinesrc/.test(url) ? 'CineSrc' : /vidlink/.test(url) ? 'VidLink' : /vidsrc/.test(url) ? 'VidSrc' : /111movies/.test(url) ? '111Movies' : /godrive/.test(url) ? 'GoDrive' : 'VidCore');
     state.cin = { t: 0, d: 0, paused: true, stamp: performance.now(), live: false };
     state.vcNoCmd = false; state.vcChk = null; state.embedHeard = false;
     var f = $('embedFrame');
@@ -1453,9 +1467,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function paintSettingsApp() {
     var box = $('setApp'); if (!box) return; box.innerHTML = '';
     APPSET.forEach(function (row, i) { var b = el('button', 'setr focusable', '<span>' + esc(row[1]) + '</span><b>' + esc(setLabel(row)) + '</b>'); b.__set = i; box.appendChild(b); });
-    var ab = el('button', 'setr focusable', '<span>Stream add-on (movies &amp; shows on any TV)</span><b>' + (addonUrl() ? esc(addonName()) : 'None') + '</b>'); ab.__set = 'addon'; box.appendChild(ab);
     var c = customSrc(), cb = el('button', 'setr focusable', '<span>Custom movie player</span><b>' + (c ? esc(c.name) : 'None') + '</b>'); cb.__set = 'custom'; box.appendChild(cb);
-    $('setCustomHelp').textContent = c ? c.url : addonUrl() ? 'Add-on: ' + addonUrl() : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
+    $('setCustomHelp').textContent = c ? c.url : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
   }
   function cycleAppSetting(i) {
     var row = APPSET[i], cur = store.get(row[0], row[2]), opts = row[3], at = 0, k;
@@ -1468,13 +1481,94 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var c = customSrc() || {};                                                              // the TV keyboard works on input fields: use the two fields in the settings page
     $('setCustomName').value = c.name || ''; $('setCustomUrl').value = c.url || ''; $('setCustomBox').className = ''; setFocus($('setCustomName'));
   }
-  function editAddon() { $('setAddonUrl').value = addonUrl(); $('setAddonBox').className = ''; setFocus($('setAddonUrl')); }
-  function saveAddon() {
-    var u = $('setAddonUrl').value.trim();
-    if (!u) { store.set('ea_addon', ''); if (state.mvia === 'addon') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } toast('Add-on removed'); }
-    else if (!/^(https?|stremio):\/\/\S+$/i.test(u)) { toast('Enter the add-on address, for example https://example.com/manifest.json'); return; }
-    else { store.set('ea_addon', u); toast('Add-on saved — movies and shows now play in our own player'); }
-    $('setAddonBox').className = 'hidden'; paintSettingsApp(); setFocus($('setApp').children[$('setApp').children.length - 2]);
+  function addAddon(url, name) {
+    var l = addonList().filter(function (x) { return x.url !== url; }); l.unshift({ url: url, name: name || hostOf(url) }); store.set('ea_addons', l.slice(0, 8));
+  }
+  // ---- Settings -> Extra sources (all optional) ----
+  function paintExtras() {
+    var box = $('setExtra'); if (!box) return; box.innerHTML = '';
+    var d = debridCfg(), l = addonList(), c = cineproUrl();
+    [['debrid', 'Debrid service', d ? debridName(d.p) + ' · connected' : 'None'], ['addons', 'Add-ons (Stremio / Nuvio)', l.length ? l.length + ' added' : 'None'], ['cinepro', 'CinePro Core server', c ? hostOf(c) : 'None']].forEach(function (r) {
+      var b = el('button', 'setr focusable', '<span>' + r[1] + '</span><b>' + esc(r[2]) + '</b>'); b.__x = r[0]; box.appendChild(b);
+    });
+  }
+  function closeExtra() { clearInterval(state.xPoll); state.xPoll = null; $('setXBox').className = 'hidden'; $('setXBox').innerHTML = ''; state.xk = null; paintExtras(); }
+  function openExtra(kind) {
+    var box = $('setXBox'); clearInterval(state.xPoll); state.xk = kind; state.xProv = (debridCfg() || { p: 'rd' }).p;
+    var h = '';
+    if (kind === 'debrid') {
+      h = '<p class="hint">Use your own debrid account to play torrent entries that your add-ons list. The key stays on this device and is sent with each request; our server never stores it. Only files the service already has cached play.</p>' +
+        '<button id="xProv" class="btn focusable"></button><input id="xKey" class="focusable" type="text" placeholder="API key" autocomplete="off" spellcheck="false">' +
+        '<div class="setrow"><button id="xSave" class="btn primary focusable">Save and check</button><button id="xPhone" class="btn focusable">Send from phone</button><button id="xRemove" class="btn focusable">Remove</button><button id="xClose" class="btn focusable">Close</button></div>';
+    } else if (kind === 'addons') {
+      h = '<p class="hint">Stremio and Nuvio add-ons both work: paste the add-on\'s address (the link that ends in manifest.json). Add-ons are optional extra sources and are never required to play anything.</p><div id="xList"></div>' +
+        '<input id="xUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" autocomplete="off" spellcheck="false">' +
+        '<div class="setrow"><button id="xSave" class="btn primary focusable">Add</button><button id="xPhone" class="btn focusable">Send from phone</button><button id="xClose" class="btn focusable">Close</button></div>';
+    } else {
+      h = '<p class="hint">CinePro Core is an open-source streaming API that you (or someone you trust) host. Enter its address, for example https://cinepro.example. It is an optional extra source.</p>' +
+        '<input id="xUrl" class="focusable" type="text" placeholder="https://your-cinepro.example" autocomplete="off" spellcheck="false">' +
+        '<div class="setrow"><button id="xSave" class="btn primary focusable">Save</button><button id="xPhone" class="btn focusable">Send from phone</button><button id="xRemove" class="btn focusable">Remove</button><button id="xClose" class="btn focusable">Close</button></div>';
+    }
+    box.innerHTML = h + '<div id="xInfo" class="hint"></div><div id="xQr"></div>'; box.className = '';
+    if (kind === 'debrid') { paintProv(); $('xKey').value = ''; setFocus($('xKey')); }
+    else { if (kind === 'addons') paintAddonList(); else $('xUrl').value = cineproUrl(); setFocus($('xUrl')); }
+  }
+  function paintProv() { $('xProv').textContent = 'Service: ' + debridName(state.xProv); }
+  function paintAddonList() {
+    var l = addonList(), box = $('xList'); box.innerHTML = '';
+    l.forEach(function (x, i) { var b = el('button', 'setr focusable', '<span>' + esc(x.name) + '</span><b>Remove</b>'); b.__xdel = i; box.appendChild(b); });
+  }
+  function xmsg(t) { var i = $('xInfo'); if (i) i.textContent = t; toast(t); }
+  function saveExtra() {
+    var k = state.xk;
+    if (k === 'debrid') {
+      var key = $('xKey').value.trim(); if (key.length < 8) { xmsg('Paste your API key first'); return; }
+      xmsg('Checking the key…');
+      api({ action: 'debrid_check' }, { headers: { 'x-debrid': state.xProv + ':' + key } }).then(function (r) {
+        store.set('ea_debrid', { p: state.xProv, k: key });
+        xmsg(debridName(state.xProv) + ' connected' + (r.user ? ' as ' + r.user : '') + (r.premium === false ? ' — but the account is not premium' : ''));
+        $('xKey').value = ''; paintExtras();
+      }).catch(function (e) { xmsg('Could not use that key: ' + e.message); });
+    } else if (k === 'addons') {
+      var u = $('xUrl').value.trim(); if (!/^(https?|stremio):\/\/\S+$/i.test(u)) { xmsg('Enter the add-on address (https://…/manifest.json)'); return; }
+      xmsg('Checking the add-on…');
+      api({ action: 'addon_check', url: u }).then(function (r) {
+        if (r.streams === false) { xmsg((r.name || 'That add-on') + ' does not provide streams'); return; }
+        addAddon(u, r.name); $('xUrl').value = ''; paintAddonList(); paintExtras();
+        xmsg(r.name + ' added' + (r.config ? ' (it may need configuring on its own page first)' : ''));
+      }).catch(function (e) { xmsg('Could not use that add-on: ' + e.message); });
+    } else {
+      var c = $('xUrl').value.trim();
+      if (!/^https?:\/\/\S+$/i.test(c)) { xmsg('Enter the server address (https://…)'); return; }
+      store.set('ea_cinepro', c); paintExtras(); xmsg('CinePro Core saved');
+    }
+  }
+  function removeExtra() {
+    if (state.xk === 'debrid') { store.set('ea_debrid', null); xmsg('Debrid service removed'); }
+    else if (state.xk === 'cinepro') { store.set('ea_cinepro', ''); $('xUrl').value = ''; xmsg('CinePro Core removed'); }
+    if (state.mvia === 'addon' && !hasExtra()) { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); }
+    paintExtras();
+  }
+  function phoneExtra() {                                                          // like the IPTV "Add with your phone": scan the QR, type there, it arrives here
+    var kind = state.xk; clearInterval(state.xPoll); $('xInfo').textContent = 'Getting a code…';
+    api({ action: 'pair_start' }).then(function (p) {
+      if (state.xk !== kind) return;
+      $('xInfo').textContent = 'On your phone open ' + p.url.replace(/^https?:\/\//, '') + ' and enter the code ' + p.code + ' (or scan the QR code), then choose ' + (kind === 'debrid' ? 'Debrid key' : kind === 'addons' ? 'Add-on' : 'CinePro') + '.';
+      if (EA.qr) EA.qr($('xQr'), p.url + '?code=' + p.code);
+      var until = Date.now() + p.expiresIn * 1000;
+      state.xPoll = setInterval(function () {
+        if (Date.now() > until) { clearInterval(state.xPoll); $('xInfo').textContent = 'The code expired. Press Send from phone again.'; return; }
+        api({ action: 'pair_poll', code: p.code }).then(function (x) {
+          if (x.status === 'expired') { clearInterval(state.xPoll); $('xInfo').textContent = 'The code expired. Press Send from phone again.'; return; }
+          if (x.status !== 'ok' || !x.playlist) return;
+          clearInterval(state.xPoll); var d = x.playlist;
+          if (d.type === 'debrid') { store.set('ea_debrid', { p: d.p, k: d.k }); xmsg(debridName(d.p) + ' key received'); }
+          else if (d.type === 'addon') { addAddon(d.url, hostOf(d.url)); xmsg('Add-on received'); if (state.xk === 'addons') paintAddonList(); }
+          else if (d.type === 'cinepro') { store.set('ea_cinepro', d.url); xmsg('CinePro Core received'); }
+          paintExtras();
+        }).catch(function () {});
+      }, 3000);
+    }).catch(function (e) { $('xInfo').textContent = e.message; });
   }
   function saveCustomSource() {
     var n = $('setCustomName').value.trim(), u = $('setCustomUrl').value.trim();
@@ -1485,7 +1579,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function resetAppSettings() {
     APPSET.forEach(function (row) { try { localStorage.removeItem(row[0]); } catch (e) { /* ignore */ } });
-    ['ea_custom_src', 'ea_addon', 'ea_adseen', 'ea_lite', 'ea_subpos', 'ea_subsize', 'ea_live_set'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
+    ['ea_custom_src', 'ea_adseen', 'ea_lite', 'ea_subpos', 'ea_subsize', 'ea_live_set'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
     state.audioPref = 'sub'; state.mq = 'auto'; applyAccent(); applySubStyle(); paintSettingsApp(); paintSetSubs(); toast('Settings reset (playlists, favorites and progress are kept)');
   }
   function paintSetSubs() {
@@ -1874,9 +1968,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.id === 'dList') { toggleList(state.anime); paintDetailButtons(); return; }
     if (e.__genre !== undefined) { state.genre = state.genre === e.__genre ? '' : e.__genre; paintChips(); runSearch(); return; }
     if (e.__season !== undefined) { state.tvSeason = e.__season; renderEpisodes(); setFocus($('dRanges').children[e.__season]); return; }
-    if (e.__set !== undefined) { if (e.__set === 'custom') editCustomSource(); else if (e.__set === 'addon') editAddon(); else cycleAppSetting(e.__set); return; }
-    if (e.id === 'setAddonSave') { saveAddon(); return; }
-    if (e.id === 'setAddonCancel') { $('setAddonBox').className = 'hidden'; setFocus($('setApp').children[$('setApp').children.length - 2]); return; }
+    if (e.__set !== undefined) { if (e.__set === 'custom') editCustomSource(); else cycleAppSetting(e.__set); return; }
+    if (e.__x) { openExtra(e.__x); return; }
+    if (e.__xdel !== undefined) { var al = addonList(); al.splice(e.__xdel, 1); store.set('ea_addons', al); paintAddonList(); paintExtras(); if (!hasExtra() && state.mvia === 'addon') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } setFocus($('xUrl')); return; }
+    if (e.id === 'xProv') { var pi = 0; DEBRIDS.forEach(function (d, i) { if (d[0] === state.xProv) pi = i; }); state.xProv = DEBRIDS[(pi + 1) % DEBRIDS.length][0]; paintProv(); return; }
+    if (e.id === 'xSave') { saveExtra(); return; }
+    if (e.id === 'xRemove') { removeExtra(); return; }
+    if (e.id === 'xPhone') { phoneExtra(); return; }
+    if (e.id === 'xClose') { closeExtra(); setFocus($('setExtra').firstChild); return; }
     if (e.id === 'setCustomSave') { saveCustomSource(); return; }
     if (e.id === 'setCustomCancel') { $('setCustomBox').className = 'hidden'; setFocus($('setApp').lastChild); return; }
     if (e.id === 'setResetAll') { resetAppSettings(); return; }

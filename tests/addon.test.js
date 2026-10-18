@@ -47,6 +47,6 @@ test('sources(): add-on stream becomes the direct file; movie and episode addres
     const t = await movies.sources({ id: 'tt0944947', via: 'auto', type: 'series', s: '2', e: '3', addon: base, title: 'x' });
     assert.ok(t.direct && seen.includes('/stream/series/tt0944947:2:3.json'), seen.join());
     const n = await movies.sources({ id: 'tt0000001', via: 'auto', addon: base, title: 'x' }).catch(e => e);
-    assert.ok(!n.direct && /no ready-to-play/.test(n.addonError), JSON.stringify(n.addonError));
+    assert.ok(!n.direct && /torrents|no ready-to-play/.test(n.addonError), JSON.stringify(n.addonError));
   } finally { delete process.env.ALLOW_PRIVATE_ADDONS; global.fetch = realFetch; srv.close(); }
 });

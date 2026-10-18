@@ -13,6 +13,10 @@ const SOURCES = {
   vidfast: 'https://vidfast.vc/movie/tt0137523',
   vidcore: 'https://vidcore.io/movie/tt0137523',
   videasy: 'https://player.videasy.to/movie/550',
+  vidlink: 'https://vidlink.pro/movie/550',
+  vidsrc: 'https://vidsrc.xyz/embed/movie?tmdb=550',
+  '111movies': 'https://111movies.com/movie/550',
+  godrive: 'https://godriveplayer.com/player.php?imdb=tt0137523',
 };
 const AD_NETWORKS = ['adsterra', 'propellerads', 'propeller-tracking', 'exoclick', 'juicyads', 'clickadu', 'hilltopads', 'monetag', 'trafficjunky', 'adcash', 'popcash', 'popads', 'onclickads', 'onclasrv', 'a-ads', 'admaven', 'richads', 'pushhouse', 'trafficstars', 'realsrv', 'tsyndicate', 'clickaine', 'mgid', 'revcontent', 'yllix', 'adskeeper', 'plugrush', 'adspyglass', 'popunder', 'pop-under', 'profitableratecpm', 'highperformanceformat', 'effectivegatecpm', 'cpmrevenuegate', 'wpnsrv', 'pemsrv'];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';

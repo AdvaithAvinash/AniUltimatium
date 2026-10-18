@@ -18,6 +18,7 @@ try {
 
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
+const debrid = require('../lib/debrid');
 const subsLib = require('../lib/subs');
 const turbo = require('../lib/turbo');          // TurboScrape: cache + de-duplication + hedged source race + cancellation
 turbo.installFetch();
@@ -569,7 +570,15 @@ async function pairPut(b) {
     const url = str(b.url, 2000);
     if (!/^https?:\/\/[^\s]+$/i.test(url)) throw bad('Enter the playlist link (starting with http:// or https://)');
     data = { type: 'm3u', name, url };
-  } else throw bad('Unknown playlist type');
+  } else if (b.kind === 'debrid') {                        // a debrid API key for the TV's Settings (kept only until the TV has fetched it; never in KV)
+    const prov = str(b.p, 2), key = str(b.k, 200);
+    if (!/^(rd|ad|pm|tb)$/.test(prov) || !/^\S{8,200}$/.test(key)) throw bad('Pick the service and paste the API key');
+    data = { type: 'debrid', p: prov, k: key };
+  } else if (b.kind === 'addon' || b.kind === 'cinepro') {
+    const url = str(b.url, 1500);
+    if (!/^(https?|stremio):\/\/[^\s]+$/i.test(url)) throw bad('Enter the address (starting with https://)');
+    data = { type: b.kind, url };
+  } else throw bad('Unknown type');
   await accounts.store.set('ip:' + code, { at: v.at, data }, IP_TTL);
   return { ok: true };
 }
@@ -698,11 +707,17 @@ async function handle(req, res) {
         if (!/^tt\d+$/.test(q.id || '')) return send(res, 400, { error: 'id required' }, 'no-store');
         return send(res, 200, await turbo.cached('tvm:' + q.id, 6 * 3600 * 1000, () => movies.seriesMeta(q.id)), 's-maxage=21600');
       case 'movie_sources': {
-        const r = await movies.sources(q);
+        const r = await movies.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });   // the key is never stored or logged
         // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)
         const base = r.direct ? finish(r.direct, origin) : {};
         return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds, tmdb: r.tmdb, addonError: r.addonError || undefined }, 'no-store');
       }
+      case 'debrid_check': {        // is this debrid API key good? (the key arrives in a header and is not stored)
+        const a = debrid.parseAuth(req.headers['x-debrid']); if (!a) return send(res, 400, { error: 'Missing or malformed key' }, 'no-store');
+        return send(res, 200, await debrid.check(a.p, a.k), 'no-store');
+      }
+      case 'addon_check':
+        return send(res, 200, await movies.addonInfo(q.url), 'no-store');
       case 'subs':
         return send(res, 200, { subtitles: await subsFor(q, origin).catch(() => []) }, 's-maxage=3600');
       case 'skip':

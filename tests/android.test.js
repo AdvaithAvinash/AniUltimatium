@@ -18,6 +18,12 @@ test('manifest: TV launcher entry, banner, no touchscreen needed, http streams a
   assert.match(m, /android\.permission\.INTERNET/);
   assert.ok(fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-xhdpi/banner.png')), 'banner image exists');
   assert.ok(fs.existsSync(path.join(root, 'android/aniultimatium.keystore')), 'signing key exists');
+  assert.match(m, /screenOrientation="sensorLandscape"/, 'landscape, both directions');
+  assert.match(m, /configChanges="[^"]*orientation[^"]*screenSize[^"]*"/, 'rotation never recreates the activity');
+  assert.match(m, /android\.hardware\.screen\.landscape"\s+android:required="false"/);
+  assert.match(m, /resizeableActivity="true"/);
+  assert.ok(fs.existsSync(path.join(root, 'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')), 'adaptive icon');
+  assert.match(read('android/app/src/main/res/values-v28/styles.xml'), /shortEdges/, 'notch support');
   const g = read('android/app/build.gradle');
   assert.match(g, /minSdk 21/);
 });
