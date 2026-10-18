@@ -34,6 +34,33 @@ Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Samsung: sideload `Aniultimatium.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `Aniultimatium.apk` ([steps](docs/ANDROID.md)) |
 
+## How Aniultimatium compares
+*Checked October 2026 from public store pages and READMEs; things change, so check each project's own page. "Not found" means I could not find it, not that it is impossible.*
+
+| | **Aniultimatium** | **AniLiberty** | **AnikenTV** | **IPTV players** (AquaPlay IPTV, Smart IPTV, IPTV Smarters, TiviMate) | **Official apps** (Crunchyroll, Netflix, …) |
+|---|---|---|---|---|---|
+| Samsung Tizen TV (including 2018, Tizen 4) | **Yes** (`.wgt`, tested down to a Chromium 56 engine) | Not found | No (Android TV only) | Some (e.g. Smart IPTV, AquaPlay) | Yes, store apps |
+| Android TV / Fire TV | **Yes** (`.apk`) | Android and Android TV apps | Android TV / Google TV | Mostly | Yes |
+| Anime with English sub and dub | **Yes** | Mainly Russian-language releases | Yes | No | Licensed catalogue only |
+| Movies and TV shows | **Yes** | No | No | Only what your provider offers | Yes |
+| Live TV from your own M3U / Xtream playlist | **Yes**, 30,000+ channels without freezing (measured) | No | No | **Yes**, that is their job | No |
+| AniList link | **Yes** | Not found | Yes (also MyAnimeList) | No | No |
+| Profiles, optional PIN, Classic / Modern look | **Yes** | Not found | Not found | Varies | Yes |
+| Free and open source | **Yes** | Free; source on its project pages | Free; source not published in its repo | Mostly paid or ad-supported | Subscription |
+| Still being updated | **Yes** | **Appears to have stopped:** the newest version I found is 2.14.2 (26 Jan 2026, RuStore) | Yes at the time of checking | Varies | Yes |
+
+**What Aniultimatium offers on top**
+- **One app for three jobs:** anime, movies and TV, and your own IPTV playlist, instead of three apps. The same code runs on Samsung (including 2018 TVs), Android TV and Fire TV.
+- **Made for old TVs too:** Tizen 4 gets its own Classic look, Lite mode, Samsung AVPlay and a start-up safe mode; most anime apps skip these TVs.
+- **Sources that heal themselves:** SourceIQ learns which anime source really plays on your TV and routes around failing ones.
+- **Optional extras, never required:** debrid services, Stremio / Nuvio add-ons and a CinePro Core server, all kept on your device.
+- **Your data stays yours:** lists, history, playlists and keys live on the device; nothing needs an account.
+
+**What it does not do**
+- It is not an official or licensed service, and it hosts no media.
+- On Tizen 4 to 6 the hosted movie players cannot run; movies there need an add-on / debrid or are limited to public-domain films.
+- The Android app and AVPlay were tested in a browser and against mock servers, not on every device.
+
 ## IPTV player at a glance
 Aniultimatium's **Live TV** is built for people who already have an IPTV provider (or want free public channels) and want it to feel quick on a TV remote.
 
