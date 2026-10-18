@@ -6,13 +6,9 @@
 
 > # Polite Request
 > Hello everyone! ❤️ I’ve been working consistently to improve AniUltimatium and bring you regular updates. It’s been a challenging journey, and honestly, I’m starting to feel exhausted and running low on funds to keep things going.
-
 I have just one small request: **if you’ve enjoyed using AniUltimatium, please consider giving the project a ⭐ on GitHub!** It may seem like a small gesture, but it means a lot to me. Your support motivates me to keep improving the app and helps more people discover it.
-
 Thank you to everyone who has used the app, shared feedback, reported bugs, or supported the project in any way. I genuinely appreciate every bit of support. ❤️
-
 **AniUltimatium will always remain FREE, OPEN SOURCE, and AD-FREE.** These are the values I want this project to stand by, and I’m committed to preserving them.
-
 Thank you for being part of this journey! 🙏
 
 
