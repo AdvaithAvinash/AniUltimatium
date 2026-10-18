@@ -3,8 +3,7 @@
 > **A free, open-source TV app with a fast IPTV player.** Add your own M3U playlist or Xtream login (from your phone, with a QR code), browse 50,000+ channels without the screen freezing,
 > use a TV guide, favorites and fast zapping, and also watch English sub & dub anime, movies and TV shows. Runs on **Samsung Tizen 4.0+ (2018 and newer)**, **Android TV**, **Fire TV** and in any browser.
 > It provides no channels: you bring your own playlist, or start with free public channel lists.
->
->
+
 > # Polite Request
 > Hello everyone! ❤️
 
