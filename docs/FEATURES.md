@@ -18,3 +18,6 @@
 ## Notes
 - All AniList data for these features is requested by the device through the app's rate-limited AniList queue, so no Worker redeploy is needed for them (the Worker's home data also carries `next` airing info after a redeploy).
 - Tested in a desktop browser with a stubbed AniList and mock streams; not on real TVs or phones.
+
+## Hosted players (later change)
+2Embed, SuperEmbed, VidSrc.to and VidSrc.me are new hosted sources, and hosted players now run in a popup-blocking sandboxed frame by default. Details and limits: [SOURCE_ADS.md](SOURCE_ADS.md).

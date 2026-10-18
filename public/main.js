@@ -909,7 +909,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else CineSrc'], ['cinesrc', 'CineSrc', 'remote control · subtitles · quality'],
                        ['vidfast', 'VidFast', 'remote control · auto quality'], ['vidcore', 'VidCore', 'auto quality up to 4K'],
-                       ['videasy', 'Videasy', 'auto quality'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
+                       ['videasy', 'Videasy', 'auto quality'], ['2embed', '2Embed', 'extra player'], ['superembed', 'SuperEmbed', 'extra player'], ['vidsrcto', 'VidSrc.to', 'extra player'], ['vidsrcme', 'VidSrc.me', 'extra player'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   function srcOpts() {
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
@@ -1126,14 +1126,22 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (k === KEY.ENTER) { e.preventDefault(); if (cur === 1) oldEngGo(true); else oldEngGo(false); }
   }
   // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
+  var EMBED_NAMES = [[/vidfast/, 'VidFast'], [/videasy/, 'Videasy'], [/cinesrc/, 'CineSrc'], [/vidlink/, 'VidLink'], [/2embed/, '2Embed'], [/multiembed|streamingnow/, 'SuperEmbed'],
+                     [/vidsrc\.to/, 'VidSrc.to'], [/vidsrc\.(me|sh)/, 'VidSrc.me']];
+  function embedNameOf(url) { for (var i = 0; i < EMBED_NAMES.length; i++) if (EMBED_NAMES[i][0].test(url)) return EMBED_NAMES[i][1]; return 'VidCore'; }
+  // Popup blocking for hosted players: the frame is sandboxed WITHOUT allow-popups and allow-top-navigation, so window.open() and "redirect the whole page" ads are refused by the browser itself
+  // (Samsung TV, Android and web). Scripts, cookies, forms and fullscreen still work. Ads drawn inside the player's own picture cannot be removed this way.
+  var SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-presentation';
+  function popBlockOn() { return store.get('ea_popblock', true) !== false; }
   function startEmbed(url, customName) {
     stopVideo();
     state.embed = true; state.embedKind = !customName && /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';   // 'vidcore' = the VidCore/VidFast/Videasy message API (a custom player is treated the same way)
-    state.embedName = customName || (/vidfast/.test(url) ? 'VidFast' : /videasy/.test(url) ? 'Videasy' : /cinesrc/.test(url) ? 'CineSrc' : /vidlink/.test(url) ? 'VidLink' : /vidsrc/.test(url) ? 'VidSrc' : /111movies/.test(url) ? '111Movies' : /godrive/.test(url) ? 'GoDrive' : 'VidCore');
+    state.embedName = customName || embedNameOf(url);
     state.cin = { t: 0, d: 0, paused: true, stamp: performance.now(), live: false };
     state.vcNoCmd = false; state.vcChk = null; state.embedHeard = false;
     var f = $('embedFrame');
     f.className = 'show';
+    if (popBlockOn()) f.setAttribute('sandbox', SANDBOX); else f.removeAttribute('sandbox');          // must be set before the address
     f.src = url;
     pmsg('Loading player… (press Enter to focus it, Back to exit)', true);
     f.onload = function () { if (state.embed) pmsg('', false); };
@@ -1150,7 +1158,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       else if (/^(CineSrc|VidFast|VidCore|Videasy)$/.test(state.embedName) && state.embeds && state.embeds[(state.embedIdx || 0) + 1]) {         // these players always report back: silence means a dead player, so move on
         state.embedIdx = (state.embedIdx || 0) + 1; var nx = state.embeds[state.embedIdx]; toast(state.embedName + ' did not start — trying ' + nx.name); startEmbed(nx.url);
       }
-      else toast('Player not responding? Press Up, then Source, to try another player');
+      else toast('Player not responding? Press Up, then Source, to try another player' + (popBlockOn() ? ' — or switch off "Block popups in hosted players" in Settings if it stays blank' : ''));
     }, OLD_ENGINE ? 20000 : 30000);
     startSubLoop();                                  // OpenSubtitles overlay, locked to the player clock
     osFetchList(function () { subAuto(); });
@@ -1563,6 +1571,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_airbadge', 'Airing badges (episode countdown)', true, [[true, 'On'], [false, 'Off']], function () { paintAirBadges(); }],
     ['ea_alerts', 'New-episode alerts on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_recs', 'Recommendations on the home page', true, [[true, 'On'], [false, 'Off']]],
+    ['ea_popblock', 'Block popups in hosted movie players', true, [[true, 'On'], [false, 'Off']]],
     ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']], function (v) { UI_MODERN = v === 'modern'; document.body.className = bodyCls(); }],
     ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],

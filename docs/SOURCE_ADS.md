@@ -29,3 +29,14 @@ node tools/probe_ads.js static     # needs only Node 18+
 node tools/probe_ads.js browser    # needs playwright-core and a Chromium; run it from a home connection
 ```
 `browser` prints `loaded: false` for a player that did not start; ignore a 0 popup count in that case. If a source you tested shows popups, add it to `ADS_KNOWN` in `public/main.js` and update this table.
+
+## Popup blocking for hosted players (new)
+Settings -> **Block popups in hosted movie players** (On by default). Hosted players run in a frame with the browser's own `sandbox` attribute set to `allow-scripts allow-same-origin allow-forms allow-presentation`, and **without** `allow-popups`, `allow-top-navigation` and `allow-modals`. The browser itself then refuses `window.open()`, "open a new tab" links, ad redirects of the whole page and alert dialogs, on Samsung TVs, Android and the web alike. Checked in a real browser with a hostile test player: with blocking on, `window.open` returned nothing, changing the top page was refused and no new tab opened; with blocking off the same player opened a tab and moved the page. On Android the app shell additionally refuses and counts popups.
+
+What it cannot do: remove ads drawn **inside** a player's own picture (overlays, pre-roll), and a player that refuses to run in a sandboxed frame will stay blank (the app says so after 40 s; turn the setting off for that player).
+
+## New sources: 2Embed, SuperEmbed, VidSrc.to, VidSrc.me
+Added as hosted players (Auto tries them after CineSrc, VidFast, VidCore and Videasy). Their outer pages are thin shells that load the real player in a nested frame, so a static scan of the outer page (18 Oct 2026) says nothing about ads inside: 2Embed and VidSrc.me showed no ad-network code in the page itself (one / two `window.open` calls); VidSrc.to has almost no code in the shell; SuperEmbed answered 403 to the scan. They carry **no Ads tag** because nothing was found, which is "not checked deeply", not "ad-free". VidSrc.me now redirects to vidsrc.sh.
+
+## Cyberlockers (Vidplay / Vidsrc Stream, RabbitStream, Filemoon)
+Not added as direct sources. Those hosts hand out streams only through encrypted or obfuscated requests and their own catalogue ids; using them directly would mean decrypting or reverse-engineering their players, which this project does not do. VidSrc and 2Embed pages already load them internally, so they play inside those frames when available.
