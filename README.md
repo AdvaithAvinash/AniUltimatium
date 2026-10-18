@@ -84,7 +84,7 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 - **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
 
 ## Install on Android TV and Fire TV
-Download `app.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) and install it with Downloader (Fire TV), a USB stick / "Send files to TV" (Android TV) or `adb install app.apk`. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
+Download `Aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) and install it with Downloader (Fire TV), a USB stick / "Send files to TV" / Or create aftnews shortcut and use downloader (Android TV) or `adb install app.apk`. For android tv just use some send files to tv normally how you sideload in android tv it should be working. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
 
 ## Install on a Samsung TV
 1. Download `app.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest).
