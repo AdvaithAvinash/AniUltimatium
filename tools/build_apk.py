@@ -1,6 +1,6 @@
-"""Build the Android TV / Fire TV app (app.apk) from public/ + android/.
+"""Build the Android TV / Fire TV app (aniultimatium.apk) from public/ + android/.
 Needs a JDK (17+) and the Android SDK (platform 34, build-tools 34): set ANDROID_HOME (or android/local.properties: sdk.dir=...).
-Usage:  python3 tools/build_apk.py            -> app.apk in the repository root
+Usage:  python3 tools/build_apk.py            -> aniultimatium.apk in the repository root
 The web app inside is exactly the Samsung .wgt content (same public/ files, minus the website-only pages)."""
 import json, os, re, shutil, subprocess, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +31,6 @@ gradle = os.path.join(droid, 'gradlew')
 cmd = [gradle if os.path.exists(gradle) else 'gradle', 'assembleRelease', '--no-daemon', '-q', '-PappVersionName=' + ver, '-PappVersionCode=' + str(code)]
 subprocess.check_call(cmd, cwd=droid, env=env)
 apk = os.path.join(droid, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk')
-out = os.path.join(root, 'app.apk')
+out = os.path.join(root, 'aniultimatium.apk')
 shutil.copy2(apk, out)
 print('built', out, '%.1f MB' % (os.path.getsize(out) / 1048576))

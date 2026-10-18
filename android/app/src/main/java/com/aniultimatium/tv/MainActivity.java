@@ -5,6 +5,8 @@ import android.content.pm.PackageInfo;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Build;
+import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -12,6 +14,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -73,6 +76,12 @@ public class MainActivity extends Activity {
                 notifyPopup("redirect");                                  // the top page is never allowed to leave the app (ad redirects)
                 return true;
             }
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {   // the WebView process died (low memory): reload instead of crashing the app
+                if (web != null) { root.removeView(web); web.destroy(); }
+                web = null; recreate();
+                return true;
+            }
         });
         chrome = new WebChromeClient() {
             @Override
@@ -103,6 +112,7 @@ public class MainActivity extends Activity {
         };
         web.setWebChromeClient(chrome);
 
+        WebView.setWebContentsDebuggingEnabled(false);
         hideSystemBars();
         web.requestFocus();
         if (savedInstanceState != null) web.restoreState(savedInstanceState); else web.loadUrl(START_URL);
@@ -122,6 +132,12 @@ public class MainActivity extends Activity {
 
     @SuppressWarnings("deprecation")
     private void hideSystemBars() {
+        if (Build.VERSION.SDK_INT >= 30) {                                 // Android 11+: the current way to go full screen (also over notches / gesture bars)
+            getWindow().setDecorFitsSystemWindows(false);
+            android.view.WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) { c.hide(android.view.WindowInsets.Type.systemBars()); c.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE); }
+            return;
+        }
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
@@ -134,6 +150,11 @@ public class MainActivity extends Activity {
                 if (e.getAction() == KeyEvent.ACTION_UP && web != null) chrome.onHideCustomView();
                 return true;
             }
+            if (e.getAction() == KeyEvent.ACTION_UP)
+                js("(function(){var e=document.createEvent('Event');e.initEvent('tizenhwkey',true,true);e.keyName='back';document.dispatchEvent(e);})()");
+            return true;
+        }
+        if (e.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B) {                // game controller: B = Back
             if (e.getAction() == KeyEvent.ACTION_UP)
                 js("(function(){var e=document.createEvent('Event');e.initEvent('tizenhwkey',true,true);e.keyName='back';document.dispatchEvent(e);})()");
             return true;
@@ -162,6 +183,7 @@ public class MainActivity extends Activity {
             case KeyEvent.KEYCODE_INFO: return 457;
             case KeyEvent.KEYCODE_CHANNEL_UP: case KeyEvent.KEYCODE_PAGE_UP: return 427;
             case KeyEvent.KEYCODE_CHANNEL_DOWN: case KeyEvent.KEYCODE_PAGE_DOWN: return 428;
+            case KeyEvent.KEYCODE_BUTTON_A: return 13;                                  // game controller: A = OK
             default: return 0;
         }
     }
@@ -172,6 +194,17 @@ public class MainActivity extends Activity {
         if (hasFocus) hideSystemBars();
     }
 
+    /** Rotation, split screen and display changes are handled here (the manifest lists them), so the page is never reloaded: it just gets resized. */
+    @Override
+    public void onConfigurationChanged(Configuration c) {
+        super.onConfigurationChanged(c);
+        hideSystemBars();
+        js("window.dispatchEvent(new Event('resize'))");
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); }
+
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
@@ -179,6 +212,11 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onPause() { super.onPause(); if (web != null) web.onPause(); }
+    /** Home / another app in front: stop the picture and sound (a TV must not keep playing in the background). */
+    @Override protected void onStop() {
+        super.onStop();
+        js("var v=document.getElementById('video');if(v&&!v.paused)v.pause();");
+    }
     @Override protected void onResume() { super.onResume(); if (web != null) { web.onResume(); web.requestFocus(); } }
 
     @Override

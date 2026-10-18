@@ -1,6 +1,6 @@
-# Builds app.wgt (tools/build_wgt.py) and app.apk (tools/build_apk.py) and attaches them to a DRAFT GitHub release.
+# Builds aniultimatium.wgt (tools/build_wgt.py) and aniultimatium.apk (tools/build_apk.py) and attaches them to a DRAFT GitHub release.
 # Runs when a tag like "stable-v1.03", "beta-v1.06" or "v1.03" is pushed, or by hand from the Actions tab. beta-* releases are marked "pre-release".
-name: Release app.wgt
+name: Release aniultimatium.wgt
 
 on:
   push:
@@ -30,17 +30,17 @@ jobs:
           node --test tests/*.test.js
           python3 tools/check_compat.py
 
-      - name: Build app.wgt
+      - name: Build aniultimatium.wgt
         run: |
           python3 tools/build_wgt.py
-          unzip -l app.wgt
+          unzip -l aniultimatium.wgt
           head -1 public/main.js
 
-      - name: Build app.apk (Android TV / Fire TV)
+      - name: Build aniultimatium.apk (Android TV / Fire TV)
         continue-on-error: true            # a Gradle or SDK hiccup must not block the Samsung release
         run: |
           python3 tools/build_apk.py
-          ls -l app.apk
+          ls -l aniultimatium.apk
 
       - name: Release name
         id: meta
@@ -52,7 +52,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Create release with app.wgt
+      - name: Create release with aniultimatium.wgt
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
@@ -60,6 +60,6 @@ jobs:
           draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
           prerelease: ${{ steps.meta.outputs.pre == 'true' }}
           files: |
-            app.wgt
-            app.apk
+            aniultimatium.wgt
+            aniultimatium.apk
           body_path: RELEASE_NOTES.md

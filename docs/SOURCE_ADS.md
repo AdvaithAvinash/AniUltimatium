@@ -8,6 +8,8 @@ Movies and TV shows play inside other sites' players (CineSrc, VidFast, VidCore,
 |---|---|---|
 | CineSrc | **Tagged: Ads** | Its scripts contain a popunder ad configuration (keys `siteId`, `minBid`, `popundersPerIP`, `delayBetween`, the layout used by popunder ad networks) |
 | VidFast | **Tagged: Ads** | Its scripts replace `window.open` with a version that opens windows through a hidden frame or form, with a frequency cap kept in `localStorage` (`shown_at`). That is the technique popup-ad code uses to get around popup blockers |
+| VidLink | **Tagged: Ads** | Its scripts contain ad-network and popunder code (strings for Adcash, PopAds and popunder). Static scan, 18 Oct 2026 |
+| VidSrc, 111Movies, GoDrive (SimplStream's servers) | **not checked** | The research machine could not fetch these players, so nothing is known either way: no tag does not mean no ads |
 | VidCore | not tagged | No ad-network or popup code found (only Google tag / analytics references) |
 | Videasy | not tagged | No ad-network or popup code found (its one `window.open` is a CSV download helper) |
 | Public domain, anime sources | no ads | Played in our own `<video>` element; no third-party page |

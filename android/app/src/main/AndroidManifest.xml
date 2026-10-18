@@ -7,12 +7,17 @@
     <!-- A TV has no touch screen and may not report leanback: neither may be required, or the app is hidden from the store/launcher -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.faketouch" android:required="false" />
 
     <application
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
         android:label="@string/app_name"
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
@@ -22,6 +27,8 @@
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden|navigation|uiMode|screenLayout|smallestScreenSize|density"
             android:exported="true"
             android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:windowSoftInputMode="stateHidden|adjustPan"
             android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

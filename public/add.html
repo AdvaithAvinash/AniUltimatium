@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Add a playlist · Aniultimatium Live TV</title>
+<title>Send to your TV · Aniultimatium</title>
 <style>
   :root { --bg: #0b0b10; --card: #16161f; --text: #f2f2f7; --muted: #9a9ab0; --accent: #ff3d7f; --ok: #3ddc97; --bad: #ff6b6b; --line: #2a2a38; }
   * { box-sizing: border-box; }
@@ -15,10 +15,11 @@
   p { color: var(--muted); margin: 0 0 16px; }
   label { display: block; font-size: .82rem; color: var(--muted); margin: 14px 0 5px; text-transform: uppercase; letter-spacing: .06em; }
   input { width: 100%; padding: 13px 14px; font-size: 1rem; border-radius: 10px; border: 2px solid var(--line); background: #0f0f16; color: var(--text); outline: none; }
+  select { width: 100%; padding: 13px 14px; font-size: 1rem; border-radius: 10px; border: 2px solid var(--line); background: #0f0f16; color: var(--text); }
   input:focus { border-color: var(--accent); }
   #code { font-size: 1.7rem; letter-spacing: .35em; text-align: center; text-transform: uppercase; }
-  .tabs { display: flex; margin: 0 0 4px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .tabs button { flex: 1; padding: 11px; border: 0; background: transparent; color: var(--muted); font-size: .95rem; font-weight: 700; cursor: pointer; }
+  .tabs { display: flex; flex-wrap: wrap; margin: 0 0 4px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .tabs button { flex: 1 1 30%; padding: 11px 6px; border: 0; background: transparent; color: var(--muted); font-size: .95rem; font-weight: 700; cursor: pointer; }
   .tabs button.on { background: var(--accent); color: #fff; }
   .go { width: 100%; margin-top: 20px; padding: 15px; font-size: 1.05rem; font-weight: 800; border: 0; border-radius: 12px; background: var(--accent); color: #fff; cursor: pointer; }
   .go[disabled] { opacity: .5; }
@@ -29,12 +30,12 @@
 </head>
 <body>
 <div class="card">
-  <h1>Add a playlist to your TV</h1>
-  <p>Enter the code shown on your TV, then your IPTV provider's details. Nothing is stored after your TV has received it.</p>
+  <h1>Send to your TV</h1>
+  <p>Enter the code shown on your TV, then what you want to send: an IPTV playlist, or an optional extra source (debrid key, add-on, CinePro Core). Nothing is stored after your TV has received it.</p>
   <label for="code">Code from the TV</label>
   <input id="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123">
-  <label>Playlist type</label>
-  <div class="tabs"><button id="tX" class="on" type="button">Xtream login</button><button id="tM" type="button">M3U link</button></div>
+  <label>What to send</label>
+  <div class="tabs"><button id="tX" class="on" type="button">Xtream login</button><button id="tM" type="button">M3U link</button><button id="tD" type="button">Debrid key</button><button id="tA" type="button">Add-on</button><button id="tC" type="button">CinePro</button></div>
   <div id="fX">
     <label for="srv">Server address</label><input id="srv" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="http://provider.example:8080">
     <label for="usr">Username</label><input id="usr" autocapitalize="none" autocomplete="off" spellcheck="false">
@@ -43,7 +44,17 @@
   <div id="fM" class="hid">
     <label for="url">Playlist link (.m3u / .m3u8)</label><input id="url" type="url" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="https://…/playlist.m3u">
   </div>
-  <label for="nm">Name (optional)</label><input id="nm" maxlength="60" placeholder="My IPTV">
+  <div id="fD" class="hid">
+    <label for="dp">Service</label><select id="dp"><option value="rd">Real-Debrid</option><option value="ad">AllDebrid</option><option value="pm">Premiumize</option><option value="tb">TorBox</option></select>
+    <label for="dk">API key</label><input id="dk" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="paste your API key">
+  </div>
+  <div id="fA" class="hid">
+    <label for="au">Add-on address (Stremio or Nuvio)</label><input id="au" type="url" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="https://…/manifest.json">
+  </div>
+  <div id="fN" class="hid">
+    <label for="cu">CinePro Core server address</label><input id="cu" type="url" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="https://…">
+  </div>
+  <label for="nm" id="nmL">Name (optional)</label><input id="nm" maxlength="60" placeholder="My IPTV">
   <button id="go" class="go" type="button">Send to my TV</button>
   <p id="msg"></p>
   <small>Aniultimatium does not provide channels. Use the playlist or login you got from your own IPTV provider, or pick the free public channels on the TV.</small>
@@ -53,17 +64,22 @@
   var $ = function (i) { return document.getElementById(i); }, kind = 'xtream';
   function say(t, c) { $('msg').textContent = t; $('msg').className = c || ''; }
   var q = new URLSearchParams(location.search); if (q.get('code')) $('code').value = q.get('code').toUpperCase();
-  function tab(k) { kind = k; $('tX').className = k === 'xtream' ? 'on' : ''; $('tM').className = k === 'm3u' ? 'on' : ''; $('fX').className = k === 'xtream' ? '' : 'hid'; $('fM').className = k === 'm3u' ? '' : 'hid'; }
-  $('tX').onclick = function () { tab('xtream'); }; $('tM').onclick = function () { tab('m3u'); };
+  var TABS = { xtream: ['tX', 'fX'], m3u: ['tM', 'fM'], debrid: ['tD', 'fD'], addon: ['tA', 'fA'], cinepro: ['tC', 'fN'] };
+  function tab(k) { kind = k; Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).className = x === k ? 'on' : ''; $(TABS[x][1]).className = x === k ? '' : 'hid'; }); var pl = k === 'xtream' || k === 'm3u'; $('nm').style.display = $('nmL').style.display = pl ? '' : 'none'; }
+  Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).onclick = function () { tab(x); }; });
   $('go').onclick = function () {
     var code = $('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length !== 6) { say('Enter the 6-character code from your TV.', 'bad'); return; }
     var body = { code: code, kind: kind, name: $('nm').value.trim() };
-    if (kind === 'xtream') { body.server = $('srv').value.trim(); body.user = $('usr').value.trim(); body.pass = $('pwd').value.trim(); } else body.url = $('url').value.trim();
+    if (kind === 'xtream') { body.server = $('srv').value.trim(); body.user = $('usr').value.trim(); body.pass = $('pwd').value.trim(); }
+    else if (kind === 'debrid') { body.p = $('dp').value; body.k = $('dk').value.trim(); }
+    else if (kind === 'addon') body.url = $('au').value.trim();
+    else if (kind === 'cinepro') body.url = $('cu').value.trim();
+    else body.url = $('url').value.trim();
     $('go').disabled = true; say('Sending…');
     fetch('/api?action=pair_put', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; }); })
-      .then(function () { say('Done! Your TV is loading the playlist. You can close this page.', 'ok'); })
+      .then(function () { say('Done! Your TV has it. You can close this page.', 'ok'); })
       .catch(function (e) { say(e.message, 'bad'); $('go').disabled = false; });
   };
 })();

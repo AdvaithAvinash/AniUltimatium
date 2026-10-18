@@ -51,7 +51,7 @@
 <noscript><main style="font:16px/1.6 system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;color:#f4f4f8;background:#0b0b12">
 <h1>Aniultimatium — English sub &amp; dub anime app for Samsung Tizen TVs</h1>
 <p>Free, open-source anime streaming app built for Samsung Tizen smart TVs (2018 / Tizen 4.0 and newer), with English subtitles, English dub, remote-first controls, automatic source switching and AniList sync. It also runs in any browser — enable JavaScript to use it here.</p>
-<p><a style="color:#00e5ff" href="/about">About, install guide and FAQ</a> · <a style="color:#00e5ff" href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest">Download app.wgt</a> · <a style="color:#00e5ff" href="https://github.com/AdvaithAvinash/AniUltimatium">GitHub</a></p>
+<p><a style="color:#00e5ff" href="/about">About, install guide and FAQ</a> · <a style="color:#00e5ff" href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest">Download aniultimatium.wgt</a> · <a style="color:#00e5ff" href="https://github.com/AdvaithAvinash/AniUltimatium">GitHub</a></p>
 </main></noscript>
 <div id="app">
   <header id="nav">
@@ -186,15 +186,15 @@
       <p class="hint">OK changes a setting. Everything here is saved on this device.</p>
       <div id="setApp" class="msets"></div>
       <p class="hint" id="setCustomHelp"></p>
-      <div id="setAddonBox" class="hidden">
-        <input id="setAddonUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" autocomplete="off" spellcheck="false">
-        <div class="setrow"><button id="setAddonSave" class="btn primary focusable">Save</button><button id="setAddonCancel" class="btn focusable">Cancel</button></div>
-      </div>
       <div id="setCustomBox" class="hidden">
         <input id="setCustomName" class="focusable" type="text" placeholder="Name (for example: My player)" autocomplete="off" spellcheck="false">
         <input id="setCustomUrl" class="focusable" type="text" placeholder="https://player.example/movie/{tmdb}" autocomplete="off" spellcheck="false">
         <div class="setrow"><button id="setCustomSave" class="btn primary focusable">Save</button><button id="setCustomCancel" class="btn focusable">Cancel</button></div>
       </div>
+      <h3 style="margin-top:1.6rem">Extra sources (all optional)</h3>
+      <p class="hint">Nothing here is needed to watch. Add Stremio / Nuvio add-ons and a debrid account for more movie and TV sources that play in our own player (they also work on older TVs), or a CinePro Core server.</p>
+      <div id="setExtra" class="msets"></div>
+      <div id="setXBox" class="hidden"></div>
       <h3 style="margin-top:1.6rem">Stream server</h3>
       <p class="hint">Streaming sites block most cloud servers. If playback fails, run <b>npm start</b> on your computer
         (it prints a TV address) and enter it here, e.g. <b>http://192.168.1.20:3000</b>. Leave empty to use the cloud backend.</p>
