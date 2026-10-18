@@ -89,7 +89,7 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 ## Install on Android TV and Fire TV
 Get `aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest). Pick whichever way is easiest:
 
-- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`DOWNLOADER-CODE-HERE`** (placeholder, the real code will be added here). It downloads `aniultimatium.apk`; press Install.
+- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`2030789`** or shortener url: http://aftv.news/2030789 . It downloads `aniultimatium.apk`; press Install.
 - **Send Files to TV:** download `aniultimatium.apk` on your phone or computer, send it to the TV with the **Send Files to TV** app (both on the same Wi-Fi), then open the file on the TV and install it. This is the normal way to sideload on Android TV.
 - **Android TV without Downloader:** create an aftnews shortcut and use Downloader from there.
 
