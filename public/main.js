@@ -1933,10 +1933,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var root = scrollRoot(e);
     if (!root || up(e, 'tab') || $('nav').contains(e)) return;
     if (up(e, 'row') === null && $('hero').contains(e)) { root.scrollTop = 0; return; }
+    // The "camera": scroll only as far as needed to keep the focused card (and its row heading) on screen. The top bar only exists in the Classic look;
+    // in the Modern look the nav is a full-height side rail, so it must not be counted as something covering the top of the page.
     var rem = parseFloat(document.documentElement.style.fontSize) || 16;
     var anchor = up(e, 'row') || e, r = anchor.getBoundingClientRect(), er = e.getBoundingClientRect(), vr = root.getBoundingClientRect();
-    var topSafe = vr.top + (root === $('dScroll') ? 1 : $('nav').offsetHeight) * (root === $('dScroll') ? rem : 1);
-    if (er.top < topSafe || er.bottom > vr.bottom - rem) root.scrollTop += r.top - (topSafe + rem);
+    var barH = root === $('dScroll') || UI_MODERN ? 0 : $('nav').offsetHeight;
+    var topSafe = vr.top + barH + rem * 1.2, bottomSafe = vr.bottom - rem * 1.2;
+    if (r.top < topSafe) root.scrollTop -= topSafe - r.top;                         // the row heading is above the visible area: bring it back
+    else if (er.bottom > bottomSafe) root.scrollTop += Math.min(er.bottom - bottomSafe, Math.max(0, r.top - topSafe));     // the card is cut off below: scroll down just enough (never past the row heading)
   }
   function candidates() {
     var roots = state.view === 'notice' ? [$('notice')] : state.view === 'modal' ? [$('liveModal')] : state.view === 'detail' ? [$('detail')] : [$('nav'), activeView()], out = [];
