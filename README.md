@@ -14,7 +14,7 @@ This app combines all anime apis into one.
 [![AniList](https://img.shields.io/badge/AniList-sync-02a9ff)](#anilist)
 [![Last commit](https://img.shields.io/github/last-commit/AdvaithAvinash/AniUltimatium?color=555)](https://github.com/AdvaithAvinash/AniUltimatium/commits/main)
 
-Download the latest [`aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.wgt) (Samsung) or [`aniultimatium.apk`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk) (Android TV / Fire TV) · [all releases](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/)
+Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.wgt) (Samsung) or [`Aniultimatium.apk`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.apk) (Android TV / Fire TV) · [all releases](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/)
 
 ## Quick facts
 | | |
@@ -32,7 +32,7 @@ Download the latest [`aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | **Extra sources** | Optional, in Settings: debrid service (Real-Debrid, AllDebrid, Premiumize, TorBox; the key stays on your device), Stremio / Nuvio add-ons, a CinePro Core server. They play in our own player, so they also work on Tizen 4. Nothing here is required |
 | **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy, optional VidLink and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play unless you add a **stream add-on** (Settings), whose plain video files play in our own player; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
-| **Install** | Samsung: sideload `aniultimatium.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `aniultimatium.apk` ([steps](docs/ANDROID.md)) |
+| **Install** | Samsung: sideload `Aniultimatium.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `Aniultimatium.apk` ([steps](docs/ANDROID.md)) |
 
 ## IPTV player at a glance
 Aniultimatium's **Live TV** is built for people who already have an IPTV provider (or want free public channels) and want it to feel quick on a TV remote.
@@ -52,7 +52,7 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 |---|---|
 | Free, no subscription or account | Yes, free and open source |
 | Samsung Tizen TV support, including 2018 models | Yes (Tizen 4.0+), installed as a `.wgt` by sideloading |
-| Android TV / Fire TV | Yes, `aniultimatium.apk` (sideloaded; not on a store) |
+| Android TV / Fire TV | Yes, `Aniultimatium.apk` (sideloaded; not on a store) |
 | Your own M3U link or Xtream login | Yes |
 | Typing nothing on the remote | Yes: code or QR scan from a phone |
 | Large playlists without freezing | Measured: 30,000 channels ready in about 0.6 s, saved lists reopen in about 0.1 s to first rows |
@@ -87,16 +87,16 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 - **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
 
 ## Install on Android TV and Fire TV
-Get `aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk) (this link always downloads the newest build). Pick whichever way is easiest:
+Get `Aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.apk) (this link always downloads the newest build). Pick whichever way is easiest:
 
-- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`1881056`** or use the shortener URL http://aftv.news/1881056 . It downloads `aniultimatium.apk`; press Install.
-- **Send Files to TV:** download `aniultimatium.apk` on your phone or computer, send it to the TV with the **Send Files to TV** app (both on the same Wi-Fi), then open the file on the TV and install it. This is the normal way to sideload on Android TV.
+- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`1881056`** or use the shortener URL http://aftv.news/1881056 . It downloads `Aniultimatium.apk`; press Install.
+- **Send Files to TV:** download `Aniultimatium.apk` on your phone or computer, send it to the TV with the **Send Files to TV** app (both on the same Wi-Fi), then open the file on the TV and install it. This is the normal way to sideload on Android TV.
 - **Android TV without Downloader:** create an aftnews shortcut and use Downloader from there.
 
 You may need to allow "Install unknown apps" for Downloader / your file manager once. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
 
 ## Install on a Samsung TV
-1. Download `aniultimatium.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.wgt) (this link always downloads the newest build).
+1. Download `Aniultimatium.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.wgt) (this link always downloads the newest build).
 2. Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
 3. Open **Aniultimatium** on the TV. The first start walks you through choosing a profile, an optional 4-digit lock, an optional AniList link and your look (Classic or Modern).
 
@@ -113,7 +113,7 @@ It does the same core job (plays your own IPTV provider's M3U or Xtream playlist
 
 **How do I add an Xtream or M3U playlist without typing on the remote?** Live TV → Add a playlist → **Add with your phone**. Scan the QR code (or open the address shown), enter the details on the phone, and the playlist appears on the TV. The server forgets it as soon as the TV has it.
 
-**Does it work on Android TV and Fire TV?** Yes: install `aniultimatium.apk` ([steps](docs/ANDROID.md)). It blocks popup ads from movie players and works with the remote's media and colour keys. It has been built and checked statically but not yet run on a physical device here, so please report any problem with your device model.
+**Does it work on Android TV and Fire TV?** Yes: install `Aniultimatium.apk` ([steps](docs/ANDROID.md)). It blocks popup ads from movie players and works with the remote's media and colour keys. It has been built and checked statically but not yet run on a physical device here, so please report any problem with your device model.
 
 **What is the best anime app for Samsung smart TVs?**
 It depends on what you need. For *licensed* catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others). If you want a **free, open-source anime app
@@ -162,7 +162,7 @@ when the first source is already fast there is little left to save. Time to firs
 - `public/` is the front-end and the TV app. `public/iq.js` is SourceIQ, `public/main.js` the app.
 - `api/index.js` is the backend (AniList metadata, stream lookup, relay); it runs on Cloudflare Workers (`worker/index.js`), Vercel or Node (`server/local.js`).
 - `lib/turbo.js` is TurboScrape (cache, de-duplication, hedged race, cancellation).
-- `tools/build_wgt.py` zips `public/` into `aniultimatium.wgt`; `tools/build_apk.py` builds the Android TV / Fire TV `aniultimatium.apk` from the same files plus `android/` ([docs/ANDROID.md](docs/ANDROID.md)); `tools/probe_ads.js` checks which movie players run popup ads; `tools/check_compat.py` is the old-TV compatibility check; `tools/gen_compat_css.py` generates the CSS fallbacks;
+- `tools/build_wgt.py` zips `public/` into `Aniultimatium.wgt`; `tools/build_apk.py` builds the Android TV / Fire TV `Aniultimatium.apk` from the same files plus `android/` ([docs/ANDROID.md](docs/ANDROID.md)); `tools/probe_ads.js` checks which movie players run popup ads; `tools/check_compat.py` is the old-TV compatibility check; `tools/gen_compat_css.py` generates the CSS fallbacks;
   `tools/bench_sources.js` is the latency benchmark. Tests: `npm test`.
 
 Set `VERCEL_API_URL` at the top of `public/main.js` (any backend URL), then run `python3 tools/build_wgt.py`.

@@ -1,7 +1,7 @@
-"""Zip /public into aniultimatium.wgt with config.xml and index.html at the archive root."""
+"""Zip /public into Aniultimatium.wgt with config.xml and index.html at the archive root."""
 import os, zipfile
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-pub, out = os.path.join(root, "public"), os.path.join(root, "aniultimatium.wgt")
+pub, out = os.path.join(root, "public"), os.path.join(root, "Aniultimatium.wgt")
 WEB_ONLY = {"robots.txt", "sitemap.xml", "llms.txt", "og.png", "link.html", "about.html", "add.html"}      # served by the website only, not needed inside the TV app
 if os.path.exists(out): os.remove(out)
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:

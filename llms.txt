@@ -3,7 +3,7 @@
 > Aniultimatium is a free, open-source IPTV player and streaming app for TVs. It plays your own M3U playlist or Xtream login (added from a phone with a code or QR scan), with a fast channel browser for 50,000+ channels, TV guide, favorites and zapping. It also has English sub and dub anime, movies and TV shows. It runs on Samsung Tizen TVs (4.0 / 2018 and newer), Android TV, Amazon Fire TV and in any browser. It ships no channels.
 
 ## Facts
-- Platforms: Samsung Tizen 4.0+ (`aniultimatium.wgt`, installed with Apps2Samsung), Android TV / Google TV and Fire TV (`aniultimatium.apk`, Android 5+ / Fire OS 5+, sideloaded), modern web browsers.
+- Platforms: Samsung Tizen 4.0+ (`Aniultimatium.wgt`, installed with Apps2Samsung), Android TV / Google TV and Fire TV (`Aniultimatium.apk`, Android 5+ / Fire OS 5+, sideloaded), modern web browsers.
 - Live TV (IPTV): bring your own M3U link or Xtream login, or pick free public channel lists (iptv-org). Add from a phone with a code or QR. Virtual lists and a background loader: a 30,000-channel list is ready in about 0.6 s and a saved list shows its first rows in about 0.1 s (measured on a laptop; also tested with the CPU slowed 4x). TV guide: XMLTV (including .xml.gz) and the Xtream short guide, with a time-shift setting. Favorites, recently watched, search, sort, channel numbers, previous channel, channel list over the video, sleep timer, parental PIN, hidden adult groups, quality / audio / picture options, stream-stats overlay, buffering modes.
 - Not included: any channels or subscription, Xtream movies and series (VOD), catch-up or recording, DRM channels, LG webOS and Apple TV apps.
 - Anime: English subtitles (OpenSubtitles chosen automatically) and English dub where a source has one; sources AnimeX, AniKoto, AnimeYubi, AniWaves are ranked on the user's own device (SourceIQ); AniList sync.
@@ -14,7 +14,7 @@
 - [Repository and README](https://github.com/AdvaithAvinash/AniUltimatium): features, IPTV checklist, FAQ, install guides, developer docs
 - [IPTV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/IPTV.md)
 - [Android TV and Fire TV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/ANDROID.md)
-- [Latest release (aniultimatium.wgt, aniultimatium.apk)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
+- [Latest release (Aniultimatium.wgt, Aniultimatium.apk)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
 - [Apps2Samsung (Samsung installer)](https://github.com/Apps2Samsung/Apps2Samsung/releases)
 - [Web app](https://aniultimatium.advaithavinash404.workers.dev/)
 

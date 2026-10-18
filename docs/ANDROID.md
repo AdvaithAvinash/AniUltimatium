@@ -1,18 +1,18 @@
 # Aniultimatium for Android TV and Fire TV
 
-`aniultimatium.apk` is the same app as the Samsung `.wgt`, in a small native shell (one WebView, no extra libraries, about 0.3 MB including hls.js). It runs on **Android TV / Google TV**, **Amazon Fire TV** (Fire OS 5 and newer), Android tablets and phones. Minimum: Android 5.0 (API 21).
+`Aniultimatium.apk` is the same app as the Samsung `.wgt`, in a small native shell (one WebView, no extra libraries, about 0.3 MB including hls.js). It runs on **Android TV / Google TV**, **Amazon Fire TV** (Fire OS 5 and newer), Android tablets and phones. Minimum: Android 5.0 (API 21).
 
 > Status: built and statically verified (valid signature, TV launcher entry, banner, permissions) and the web app was tested under the same conditions the shell creates (file origin, no CORS, TV user-agent, remote keys). It has **not** been run on a physical TV or an emulator yet. Please report problems with the device model and Android/Fire OS version.
 
 ## Install
 **Fire TV (Fire Stick, Fire TV Cube, Fire TV TVs)**
 1. Settings → My Fire TV → Developer options → turn on *Install unknown apps* for **Downloader** (install Downloader from the Amazon store first).
-2. In Downloader, enter the code **`1881056`** (or `http://aftv.news/1881056`), or open `https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk`, then install.
+2. In Downloader, enter the code **`1881056`** (or `http://aftv.news/1881056`), or open `https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.apk`, then install.
 3. Find it under Your Apps & Channels.
 
 **Android TV / Google TV**
 1. Settings → Device Preferences → Security & restrictions → *Unknown sources* (allow your file manager or Downloader).
-2. Send `aniultimatium.apk` to the TV with **Send Files to TV** (phone or computer and TV on the same Wi-Fi), a USB stick, or Downloader, then open it on the TV and install. If Downloader is not available, create an aftnews shortcut and use Downloader from there.
+2. Send `Aniultimatium.apk` to the TV with **Send Files to TV** (phone or computer and TV on the same Wi-Fi), a USB stick, or Downloader, then open it on the TV and install. If Downloader is not available, create an aftnews shortcut and use Downloader from there.
 
 Updates install over the old version because every release is signed with the same key (`android/aniultimatium.keystore`; it is a project key for sideloading, not a secret and not for the Play Store).
 
@@ -26,7 +26,7 @@ Updates install over the old version because every release is signed with the sa
 ## Build it yourself
 Needs JDK 17+ and the Android SDK (platform 34, build-tools 34). Set `ANDROID_HOME`, then:
 ```
-python3 tools/build_apk.py        # copies public/ into the app, builds, writes aniultimatium.apk (version from package.json)
+python3 tools/build_apk.py        # copies public/ into the app, builds, writes Aniultimatium.apk (version from package.json)
 ```
 `android/` is a plain Gradle project (AGP 8.5, no AndroidX): `MainActivity.java` is the whole shell. `tests/android.test.js` keeps the shell and the web app's key codes and hooks in step.
 
