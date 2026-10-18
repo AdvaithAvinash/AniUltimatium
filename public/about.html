@@ -37,7 +37,8 @@ img{max-width:100%;height:auto;border-radius:.7rem;margin:.6rem 0}
 <p><a href="/">&larr; Open the app</a></p>
 <h1>Ani<b>Ultimatium</b> — English sub &amp; dub anime app for Samsung Tizen TVs</h1>
 <p class="lead">Aniultimatium is a free, open-source anime streaming app built for Samsung Tizen smart TVs (2018 / Tizen 4.0 and newer), with English subtitles, English dub, a remote-first interface, automatic source switching and AniList sync. The same code also runs in any laptop or desktop browser.</p>
-<p><a class="cta" href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest">Download aniultimatium.wgt (Samsung)</a><a class="cta" href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest">Download aniultimatium.apk (Android TV / Fire TV)</a><a class="cta alt" href="/">Open the web app</a><a class="cta alt" href="https://github.com/AdvaithAvinash/AniUltimatium">GitHub</a></p>
+<p><a class="cta" id="dlWgt" href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.wgt">Download aniultimatium.wgt (Samsung)</a><a class="cta" id="dlApk" href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk">Download aniultimatium.apk (Android TV / Fire TV)</a><a class="cta alt" href="/">Open the web app</a><a class="cta alt" href="https://github.com/AdvaithAvinash/AniUltimatium">GitHub</a></p>
+<p id="relVer" style="color:#9a9ab0;margin-top:.4rem"></p>
 <img src="og.png" alt="Aniultimatium: English sub and dub anime app for Samsung Tizen smart TVs" width="1200" height="630">
 
 <h2>Quick facts</h2>
@@ -63,14 +64,14 @@ img{max-width:100%;height:auto;border-radius:.7rem;margin:.6rem 0}
 
 <h2>Install on a Samsung TV</h2>
 <ol>
-<li>Download <strong>aniultimatium.wgt</strong> from the <a href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest">latest release</a>.</li>
+<li>Download <strong>aniultimatium.wgt</strong> from the <a href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.wgt">latest release</a>.</li>
 <li>Put the TV in Developer Mode, then install the file with <a href="https://github.com/Apps2Samsung/Apps2Samsung/releases">Apps2Samsung</a> (custom wgt).</li>
 <li>Open Aniultimatium on the TV: choose a profile, an optional 4-digit lock, an optional AniList link and your look (Classic or Modern).</li>
 </ol>
 
 <h2>Install on Android TV or Fire TV</h2>
 <ol>
-<li>Download <strong>aniultimatium.apk</strong> from the <a href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest">latest release</a>, or open the Downloader app and enter the code <strong>DOWNLOADER-CODE-HERE</strong> (placeholder).</li>
+<li>Download <strong>aniultimatium.apk</strong> from the <a href="https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk">latest release</a>, or open the Downloader app and enter the code <strong>1881056</strong>.</li>
 <li>Or send the file to the TV with the Send Files to TV app, then open it on the TV and install.</li>
 <li>Open Aniultimatium from the TV launcher.</li>
 </ol>
@@ -80,5 +81,17 @@ img{max-width:100%;height:auto;border-radius:.7rem;margin:.6rem 0}
 
 <p style="margin-top:2.4rem"><a href="https://github.com/AdvaithAvinash/AniUltimatium">Source code, documentation and issues on GitHub</a> · <a href="/llms.txt">llms.txt</a></p>
 </main>
+<script>
+/* Always offer the newest release: the buttons already point at GitHub's "latest" download links; this asks GitHub which version that is and uses the exact asset links. */
+(function () {
+  if (!window.fetch) return;
+  fetch('https://api.github.com/repos/AdvaithAvinash/AniUltimatium/releases/latest', { headers: { Accept: 'application/vnd.github+json' } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (!j || !j.assets) return;
+    var map = { 'aniultimatium.wgt': 'dlWgt', 'aniultimatium.apk': 'dlApk' };
+    j.assets.forEach(function (x) { var id = map[String(x.name).toLowerCase()], el = id && document.getElementById(id); if (el) { el.href = x.browser_download_url; el.title = (j.name || j.tag_name) + ' · ' + Math.round(x.size / 1024) + ' KB'; } });
+    var v = document.getElementById('relVer'); if (v) v.textContent = 'Latest release: ' + (j.name || j.tag_name);
+  }).catch(function () {});
+}());
+</script>
 </body>
 </html>

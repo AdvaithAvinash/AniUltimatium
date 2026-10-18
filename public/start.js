@@ -10,7 +10,10 @@
   function del(k) { try { LS.removeItem(k); } catch (e) { /* ignore */ } }
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  var LOWEND = CV > 0 && CV < 69;                       // Tizen 4 (Chromium 56) and Tizen 5 (Chromium 63): no animation, straight to the profile step
+  var LOWEND = CV > 0 && CV < 69;
+  function scale() { var w = window.innerWidth, h = window.innerHeight; document.documentElement.style.fontSize = Math.max(12, Math.min(w / 96, h / 54)) + 'px'; }      // same sizing rule as main.js (it has not loaded yet)
+  scale(); window.addEventListener('resize', scale);
+  var NOINTRO = /[?&]nointro=1/.test(location.search);                       // the Android shell asks for this after the web view crashed                       // Tizen 4 (Chromium 56) and Tizen 5 (Chromium 63): no animation, straight to the profile step
 
   // ------------------------------------------------------------------ crash-loop safe mode
   // main.js clears ea_boot when it has started properly. Three starts in a row that never got that far -> Classic look, Lite mode, no animation.
@@ -24,7 +27,7 @@
   function byId(id) { var l = profiles(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
   function hash(pin, id) { var h = 2166136261, s = 'aniu|' + id + '|' + pin; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16); }   // a casual lock for the family, not security
   function nextId() { var n = 1, l = profiles(); while (byId('p' + n)) n++; return 'p' + n; }
-  function activate(id) { var p = byId(id); window.EA_PROFILE = p ? { id: p.id, name: p.name, av: p.av, lock: !!p.pin } : { id: 'p1', name: 'Me', av: 'ninja', lock: false }; set('ea_profile', window.EA_PROFILE.id); }
+  function activate(id) { var p = byId(id); window.EA_PROFILE = p ? { id: p.id, name: p.name, av: p.av, img: p.img, lock: !!p.pin } : { id: 'p1', name: 'Me', av: 'ninja', lock: false }; set('ea_profile', window.EA_PROFILE.id); }
 
   // ------------------------------------------------------------------ original avatars (archetypes, not existing characters)
   var AV = [
@@ -42,6 +45,24 @@
     { id: 'hero', n: 'Hero', k: 'Movie', bg: '#1c3d7a', skin: '#e9bd98', hair: '#2a1d12', out: '#c8202f', hairS: 'short', acc: 'mask' }
   ];
   function avOf(id) { for (var i = 0; i < AV.length; i++) if (AV[i].id === id) return AV[i]; return AV[0]; }
+  function avatarOf(p) {
+    if (p && p.img) return '<img class="avimg" src="' + esc(p.img) + '" alt="" onerror="this.style.visibility=\'hidden\'">';
+    return avatar(p && p.av);
+  }
+  // Popular anime characters from AniList (their pictures are loaded from AniList's own image server, nothing is bundled). Cached for a week; the drawn avatars are the offline fallback.
+  function loadChars(cb) {
+    var c = get('ea_chars', null);
+    if (c && c.l && c.l.length && c.at > Date.now() - 7 * 86400000) { cb(c.l); return; }
+    if (!window.fetch) { cb(c && c.l || []); return; }
+    var done = false, t = setTimeout(function () { if (!done) { done = true; cb(c && c.l || []); } }, 7000);
+    fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: 'query{Page(page:1,perPage:36){characters(sort:FAVOURITES_DESC){id name{first full} image{medium}}}}' }) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        var l = (((j.data || {}).Page || {}).characters || []).filter(function (x) { return x.image && x.image.medium; }).map(function (x) { return { id: 'c' + x.id, n: x.name.first || x.name.full, full: x.name.full, k: 'Anime', img: x.image.medium }; });
+        if (l.length) set('ea_chars', { at: Date.now(), l: l });
+        if (!done) { done = true; clearTimeout(t); cb(l.length ? l : (c && c.l || [])); }
+      }).catch(function () { if (!done) { done = true; clearTimeout(t); cb(c && c.l || []); } });
+  }
   function avatar(id) {
     var a = avOf(id), s = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="c' + a.id + '"><circle cx="50" cy="50" r="50"/></clipPath></defs><g clip-path="url(#c' + a.id + ')">';
     s += '<rect width="100" height="100" fill="' + a.bg + '"/><circle cx="50" cy="118" r="52" fill="rgba(255,255,255,.06)"/>';
@@ -106,6 +127,7 @@
     var rows = active.rows; if (!rows.length) return; r = Math.max(0, Math.min(rows.length - 1, r)); c = Math.max(0, Math.min(rows[r].length - 1, c));
     if (active.cur) active.cur.className = active.cur.className.replace(/\s*\bsf\b/g, '');
     active.r = r; active.c = c; active.cur = rows[r][c]; active.cur.className += ' sf';
+    var cu = active.cur; try { if (cu.scrollIntoViewIfNeeded) cu.scrollIntoViewIfNeeded(false); else cu.scrollIntoView(false); } catch (e) { /* ignore */ }
     if (active.cur.tagName === 'INPUT' && !/Tizen|Android/.test(UA)) active.cur.focus();
   }
   function move(k) {
@@ -123,11 +145,13 @@
   function panel(cls) { var r = ensureRoot(); r.innerHTML = ''; var p = el('div', 'sp ' + (cls || '')); r.appendChild(p); return p; }
 
   // ------------------------------------------------------------------ intro animation
-  function intro(done) {
+  function letters(w) { var o = ''; for (var i = 0; i < w.length; i++) o += '<u style="animation-delay:' + (1.95 + i * 0.06).toFixed(2) + 's">' + w.charAt(i) + '</u>'; return o; }
+  function intro(done, light) {
     var r = ensureRoot(), fin = false;
-    r.innerHTML = '<div class="in-bloom"></div><div class="in-wrap"><div class="in-logo"><svg class="in-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="56"/></svg><img src="logo.svg" alt=""></div>' +
-      '<div class="in-word"><span class="w1">ANI</span><span class="w2">ULTIMATIUM</span></div><div class="in-tag">Anime · Movies · Live TV</div></div>';
-    function end() { if (fin) return; fin = true; clearTimeout(t); active = null; r.className = 'out'; setTimeout(function () { r.innerHTML = ''; done(); }, 260); }
+    r.innerHTML = '<div class="in-bloom"></div><div class="in-wrap' + (light ? ' light' : '') + '"><div class="in-logo"><svg class="in-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="56"/></svg><img src="logo.svg" alt=""></div>' +
+      '<div class="in-word"><span class="w1">' + letters('ANI') + '</span><span class="w2">' + letters('ULTIMATIUM') + '</span></div><div class="in-tag">Anime · Movies · Live TV</div></div>';
+    set('ea_ifail', (get('ea_ifail', 0) | 0) + 1);                                      // cleared when the animation ends: if the page dies during it, the next start uses a lighter one (then none)
+    function end() { if (fin) return; fin = true; clearTimeout(t); set('ea_ifail', 0); active = null; r.className = 'out'; setTimeout(function () { r.innerHTML = ''; done(); }, 260); }
     var t = setTimeout(end, 3300);
     active = { rows: [], onKey: function () { end(); return true; }, back: end };
     r.onclick = end;
@@ -138,18 +162,27 @@
 
   function chooseAvatar(ctx) {                                                    // "Choose your profile"
     var p = panel('wide'); p.innerHTML = (ctx.steps ? stepDots(1, ctx.steps) : '') + '<h1>Choose your profile</h1><p class="ssub">Pick a character. Everyone who watches gets their own list, history and AniList.</p><div class="agrid"></div>';
-    var g = p.querySelector('.agrid'), rows = [[], []];
-    AV.forEach(function (a, i) {
-      var t = el('button', 'atile', '<span class="av">' + avatar(a.id) + '</span><b>' + a.n + '</b><i>' + a.k + '</i>'); t.__go = function () { ctx.av = a.id; nameStep(ctx); };
-      g.appendChild(t); rows[i < 6 ? 0 : 1].push(t);
-    });
-    var start = 0; for (var i = 0; i < AV.length; i++) if (ctx.av === AV[i].id) start = i;
-    screen(rows, { start: [start < 6 ? 0 : 1, start % 6], back: ctx.cancel });
+    var g = p.querySelector('.agrid'), chars = ctx.chars || [], gone = false;
+    function perRow() { var rem = parseFloat(document.documentElement.style.fontSize) || 16; return Math.max(2, Math.min(7, Math.floor(Math.min(86, window.innerWidth / rem * 0.94) / 12.8))); }
+    function render() {
+      if (gone) return; var all = chars.concat(AV), n = perRow(), rows = [], row = null, keep = ctx.picked, start = [0, 0]; g.innerHTML = '';
+      all.forEach(function (a, i) {
+        var t = el('button', 'atile', '<span class="av">' + avatarOf(a.img ? { img: a.img } : { av: a.id }) + '</span><b>' + esc(a.n) + '</b><i>' + a.k + '</i>');
+        t.__go = function () { ctx.av = a.id; ctx.picked = a.id; ctx.img = a.img || null; ctx.defName = a.n; nameStep(ctx); };
+        g.appendChild(t); if (i % n === 0) { row = []; rows.push(row); } row.push(t); if (a.id === keep) start = [rows.length - 1, row.length - 1];
+      });
+      screen(rows, { start: start, back: function () { ctx.stopGrid(); if (ctx.cancel) ctx.cancel(); } });
+    }
+    ctx.stopGrid = function () { gone = true; window.removeEventListener('resize', render); };
+    render(); window.addEventListener('resize', render);
+    if (!chars.length) loadChars(function (l) { if (!l.length || gone || !g.parentNode) return; chars = l; ctx.chars = l; render(); });
   }
   function nameStep(ctx) {
-    var p = panel(); p.innerHTML = (ctx.steps ? stepDots(1, ctx.steps) : '') + '<div class="bigav">' + avatar(ctx.av) + '</div><h1>What should we call you?</h1><input id="sname" maxlength="16" autocomplete="off" spellcheck="false" placeholder="' + esc(avOf(ctx.av).n) + '">';
+    if (ctx.stopGrid) ctx.stopGrid();
+    var dn = ctx.defName || avOf(ctx.av).n;
+    var p = panel(); p.innerHTML = (ctx.steps ? stepDots(1, ctx.steps) : '') + '<div class="bigav">' + avatarOf({ av: ctx.av, img: ctx.img }) + '</div><h1>What should we call you?</h1><input id="sname" maxlength="16" autocomplete="off" spellcheck="false" placeholder="' + esc(dn) + '">';
     var inp = p.querySelector('input'); inp.value = ctx.name || '';
-    var row = el('div', 'srow'); var next = btn('Continue', function () { ctx.name = (inp.value.trim() || avOf(ctx.av).n).slice(0, 16); ctx.afterName(ctx); }, 'pri'), back = btn('Change character', function () { chooseAvatar(ctx); });
+    var row = el('div', 'srow'); var next = btn('Continue', function () { ctx.name = (inp.value.trim() || dn).slice(0, 16); ctx.afterName(ctx); }, 'pri'), back = btn('Change character', function () { chooseAvatar(ctx); });
     row.appendChild(next); row.appendChild(back); p.appendChild(row);
     screen([[inp], [next, back]], { start: [0, 0], back: function () { chooseAvatar(ctx); } });
   }
@@ -203,6 +236,7 @@
     var first = !!opts.first, ctx = { av: opts.av || 'ninja', name: '', pin: null, al: false, steps: first ? 4 : 3, cancel: opts.cancel };
     function save() {
       var l = profiles(), id = first && !byId('p1') ? 'p1' : nextId(), p = { id: id, name: ctx.name, av: ctx.av };
+      if (ctx.img) p.img = ctx.img;
       if (ctx.pin) p.pin = hash(ctx.pin, id);
       l.push(p); set('ea_profiles', l); set('ea_onboard', true);
       if (ctx.al) { try { sessionStorage.setItem('ea_al_go', '1'); } catch (e) { /* ignore */ } }
@@ -222,7 +256,7 @@
     var l = profiles(), pn = panel('wide'); pn.innerHTML = '<h1>Who\'s watching?</h1><div class="agrid pick"></div>';
     var g = pn.querySelector('.agrid'), row = [], cur = get('ea_profile', 'p1'), startC = 0;
     l.forEach(function (p, i) {
-      var t = el('button', 'atile', '<span class="av">' + avatar(p.av) + (p.pin ? '<s class="lk"></s>' : '') + '</span><b>' + esc(p.name) + '</b>'); if (p.id === cur) startC = i;
+      var t = el('button', 'atile', '<span class="av">' + avatarOf(p) + (p.pin ? '<s class="lk"></s>' : '') + '</span><b>' + esc(p.name) + '</b>'); if (p.id === cur) startC = i;
       t.__go = function () { if (p.pin) askPin(p, function () { chosen(p.id); }, function () { picker(chosen, opts); }); else chosen(p.id); };
       g.appendChild(t); row.push(t);
     });
@@ -258,7 +292,7 @@
 
   // ------------------------------------------------------------------ public API (Settings uses this)
   window.EA_PROF = {
-    list: profiles, avatar: avatar, avatars: AV, lowEnd: LOWEND,
+    list: profiles, avatar: avatar, avatarOf: avatarOf, avatars: AV, lowEnd: LOWEND,
     current: function () { return byId((window.EA_PROFILE || {}).id) || profiles()[0] || null; },
     switchTo: function () { picker(function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }, { cancel: function () { closeRoot(); } }); },
     add: function () { createFlow({ first: false, cancel: function () { closeRoot(); } }, function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }); },
@@ -287,7 +321,8 @@
   function run() {
     var l = profiles(), done = !!get('ea_onboard', false) && l.length > 0, switching = false;
     try { switching = sessionStorage.getItem('ea_switch') === '1'; sessionStorage.removeItem('ea_switch'); } catch (e) { /* ignore */ }
-    var animate = get('ea_intro', true) !== false && !LOWEND && !get('ea_lite', false) && !window.EA_SAFE && !switching;
+    var ifail = get('ea_ifail', 0) | 0;
+    var animate = get('ea_intro', true) !== false && !LOWEND && !get('ea_lite', false) && !window.EA_SAFE && !switching && !NOINTRO && ifail < 2;
     function afterIntro() {
       if (window.EA_SAFE) { boot(done ? get('ea_profile', l[0].id) : 'p1'); return; }
       if (!done) {
@@ -300,7 +335,7 @@
       if (cur.pin) { askPin(cur, function () { boot(cur.id); }); return; }
       boot(cur.id);
     }
-    if (animate) intro(afterIntro); else afterIntro();
+    if (animate) intro(afterIntro, ifail === 1); else afterIntro();
   }
   if (document.body) run(); else document.addEventListener('DOMContentLoaded', run);
 }());

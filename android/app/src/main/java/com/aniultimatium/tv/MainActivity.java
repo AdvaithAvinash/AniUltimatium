@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Build;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -78,6 +79,7 @@ public class MainActivity extends Activity {
             }
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {   // the WebView process died (low memory): reload instead of crashing the app
+                getSharedPreferences("aniu", MODE_PRIVATE).edit().putLong("gone", System.currentTimeMillis()).apply();
                 if (web != null) { root.removeView(web); web.destroy(); }
                 web = null; recreate();
                 return true;
@@ -115,7 +117,10 @@ public class MainActivity extends Activity {
         WebView.setWebContentsDebuggingEnabled(false);
         hideSystemBars();
         web.requestFocus();
-        if (savedInstanceState != null) web.restoreState(savedInstanceState); else web.loadUrl(START_URL);
+        // After a web view crash the next load skips the opening animation (start.js reads nointro=1), so a crash can never repeat in a loop
+        SharedPreferences sp = getSharedPreferences("aniu", MODE_PRIVATE);
+        boolean recent = System.currentTimeMillis() - sp.getLong("gone", 0) < 90000;
+        if (savedInstanceState != null && !recent) web.restoreState(savedInstanceState); else web.loadUrl(recent ? START_URL + "?nointro=1" : START_URL);
     }
 
     private String versionName() {

@@ -1501,12 +1501,12 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function paintProf() {
     var box = $('setProf'); if (!box || !window.EA_PROF) return; box.innerHTML = '';
     var p = EA_PROF.current(); if (!p) return;
-    var rows = [['switch', 'Profile', p.name, '<span class="pav">' + EA_PROF.avatar(p.av) + '</span>'], ['lock', 'Profile lock (4-digit PIN)', p.pin ? 'On' : 'Off', ''], ['padd', 'Add a profile', '', '']];
+    var rows = [['switch', 'Profile', p.name, '<span class="pav">' + EA_PROF.avatarOf(p) + '</span>'], ['lock', 'Profile lock (4-digit PIN)', p.pin ? 'On' : 'Off', ''], ['padd', 'Add a profile', '', '']];
     if (EA_PROF.list().length > 1) rows.push(['pdel', state.pdelAsk ? 'Press again to delete this profile and its list' : 'Delete this profile', '', '']);
     rows.forEach(function (r) { var b = el('button', 'setr focusable', r[3] + '<span>' + esc(r[1]) + '</span><b>' + esc(r[2]) + '</b>'); b.__p = r[0]; box.appendChild(b); });
     paintProfBtn();
   }
-  function paintProfBtn() { var b = $('navProf'), p = window.EA_PROF && EA_PROF.current(); if (b && p) { b.innerHTML = EA_PROF.avatar(p.av); b.title = p.name; } }
+  function paintProfBtn() { var b = $('navProf'), p = window.EA_PROF && EA_PROF.current(); if (b && p) { b.innerHTML = EA_PROF.avatarOf(p); b.title = p.name; } }
   function profAct(k) {
     if (k === 'switch') { EA_PROF.switchTo(); return; }
     if (k === 'lock') { var p = EA_PROF.current(); if (p.pin) EA_PROF.clearPin(function () { toast('Profile lock off'); paintProf(); }); else EA_PROF.setPin(function () { toast('Profile lock on'); paintProf(); }); return; }
@@ -1953,7 +1953,16 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!cur || !document.body.contains(cur) || cur.offsetParent === null && !$('nav').contains(cur)) {
       var f = candidates()[0]; if (f) setFocus(f); return;
     }
-    var c = center(cur), best = null, bestScore = Infinity;
+    var c = center(cur), best = null, bestScore = Infinity, nav = $('nav'), inNav = nav.contains(cur);
+    if (UI_MODERN && inNav && dir === 'right') {                      // Modern look: the tabs are a side rail, so Right enters the content (the row that is nearest in height)
+      var tgt = null, td = Infinity;
+      candidates().forEach(function (e) {
+        if (nav.contains(e) || e.offsetParent === null) return;
+        var r = e.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight || r.right < 0) return;
+        var d = Math.abs((r.top + r.height / 2) - c.y) + Math.max(0, r.left) * 0.15; if (d < td) { td = d; tgt = e; }
+      });
+      if (tgt) { setFocus(tgt); return; }
+    }
     candidates().forEach(function (e) {
       if (e === cur || e.offsetParent === null && !(e.parentNode && e.parentNode.id === 'tabs')) return;
       var p = center(e), dx = p.x - c.x, dy = p.y - c.y, main, off;
@@ -1968,6 +1977,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       var score = main + off * 3;
       if (score < bestScore) { bestScore = score; best = e; }
     });
+    if (UI_MODERN && dir === 'left' && !inNav && (!best || nav.contains(best))) { var at = $('tabs').querySelector('.tab.active') || $('tabs').firstChild; if (at) best = at; }   // Left from the content goes to the current tab, not to whatever sits at the same height
     if (best) setFocus(best);
   }
 

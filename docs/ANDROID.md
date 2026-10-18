@@ -7,7 +7,7 @@
 ## Install
 **Fire TV (Fire Stick, Fire TV Cube, Fire TV TVs)**
 1. Settings → My Fire TV → Developer options → turn on *Install unknown apps* for **Downloader** (install Downloader from the Amazon store first).
-2. In Downloader, enter the code **`DOWNLOADER-CODE-HERE`** (placeholder, to be added), or open `https://github.com/AdvaithAvinash/AniUltimatium/releases/latest` and choose `aniultimatium.apk`, then install.
+2. In Downloader, enter the code **`1881056`** (or `http://aftv.news/1881056`), or open `https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk`, then install.
 3. Find it under Your Apps & Channels.
 
 **Android TV / Google TV**

@@ -32,6 +32,6 @@ test('per-profile keys are keys the app really uses; main.js maps them and clear
 test('release files use the aniultimatium.* names everywhere', () => {
   const files = ['tools/build_wgt.py', 'tools/build_apk.py', '.github/workflows/release.yml', '.gitignore', 'README.md', 'docs/ANDROID.md', 'public/about.html', 'RELEASE_NOTES.md'];
   files.forEach(f => assert.ok(!/\bapp\.(wgt|apk)\b/.test(read(f)), f + ' still mentions app.wgt / app.apk'));
-  assert.match(read('README.md'), /DOWNLOADER-CODE-HERE/);
+  assert.match(read('README.md'), /1881056/);
   assert.ok(!/adb install/.test(read('README.md') + read('docs/ANDROID.md')));
 });

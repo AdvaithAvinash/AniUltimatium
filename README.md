@@ -14,7 +14,7 @@ This app combines all anime apis into one.
 [![AniList](https://img.shields.io/badge/AniList-sync-02a9ff)](#anilist)
 [![Last commit](https://img.shields.io/github/last-commit/AdvaithAvinash/AniUltimatium?color=555)](https://github.com/AdvaithAvinash/AniUltimatium/commits/main)
 
-[Download `aniultimatium.wgt` (Samsung) or `aniultimatium.apk` (Android TV / Fire TV)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/)
+Download the latest [`aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.wgt) (Samsung) or [`aniultimatium.apk`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk) (Android TV / Fire TV) · [all releases](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/)
 
 ## Quick facts
 | | |
@@ -87,16 +87,16 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 - **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
 
 ## Install on Android TV and Fire TV
-Get `aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest). Pick whichever way is easiest:
+Get `aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.apk) (this link always downloads the newest build). Pick whichever way is easiest:
 
-- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`2030789`** or shortener url: http://aftv.news/2030789 . It downloads `aniultimatium.apk`; press Install.
+- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`1881056`** or use the shortener URL http://aftv.news/1881056 . It downloads `aniultimatium.apk`; press Install.
 - **Send Files to TV:** download `aniultimatium.apk` on your phone or computer, send it to the TV with the **Send Files to TV** app (both on the same Wi-Fi), then open the file on the TV and install it. This is the normal way to sideload on Android TV.
 - **Android TV without Downloader:** create an aftnews shortcut and use Downloader from there.
 
 You may need to allow "Install unknown apps" for Downloader / your file manager once. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
 
 ## Install on a Samsung TV
-1. Download `aniultimatium.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest).
+1. Download `aniultimatium.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/aniultimatium.wgt) (this link always downloads the newest build).
 2. Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
 3. Open **Aniultimatium** on the TV. The first start walks you through choosing a profile, an optional 4-digit lock, an optional AniList link and your look (Classic or Modern).
 
