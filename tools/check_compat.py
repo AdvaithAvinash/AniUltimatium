@@ -4,7 +4,7 @@ import re, os, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 css = re.sub(r'/\*.*?\*/', '', open(os.path.join(root, 'public', 'styles.css')).read(), flags=re.S)   # comments out
 # Old-engine marker survives comment stripping through the generated selectors below it
-JS_FILES = ['main.js', 'avp.js', 'iptv.js', 'live.js', 'iq.js']
+JS_FILES = ['main.js', 'start.js', 'avp.js', 'iptv.js', 'live.js', 'iq.js']
 def strip_js(raw):
     raw = re.sub(r'/\*.*?\*/', '', raw, flags=re.S)                                        # block comments out
     raw = re.sub(r'(?m)(^|[^:\'"\\])//[^\n]*', r'\1', raw)                                  # line comments out (not http:// in strings)

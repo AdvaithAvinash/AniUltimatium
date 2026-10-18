@@ -78,7 +78,7 @@ test('AllDebrid, Premiumize and TorBox: cached torrents resolve, uncached give n
   } finally { for (const k of ['DEBRID_BASE_AD', 'DEBRID_BASE_PM', 'DEBRID_BASE_TB']) delete process.env[k]; ad.s.close(); pm.s.close(); tb.s.close(); }
 });
 
-test('movie sources: several add-ons, debrid for torrent-only entries, CinePro Core, optional embeds', async () => {
+test('movie sources: several add-ons, debrid for torrent-only entries, CinePro Core, optional VidLink', async () => {
   const realFetch = global.fetch;
   global.fetch = (u, o) => /127\.0\.0\.1/.test(String(u)) ? realFetch(u, o)
     : Promise.resolve(new Response(JSON.stringify(/strem\.io/.test(String(u)) ? { meta: { moviedb_id: 550 } } : { response: { docs: [] } }), { status: 200, headers: { 'content-type': 'application/json' } }));
@@ -106,12 +106,9 @@ test('movie sources: several add-ons, debrid for torrent-only entries, CinePro C
     assert.ok(seen.includes('CP/v1/movies/550'), seen.join());
     const t = await movies.sources({ id: 'tt0944947', type: 'series', s: '2', e: '3', title: 'x', cinepro: cp.url });
     assert.ok(t.direct && seen.includes('CP/v1/tv/550/seasons/2/episodes/3'));
-    // embeds: SimplStream's servers are in Auto, VidLink only when asked for
+    // VidLink is optional: never in Auto, only when picked
     const auto = await movies.sources({ id: 'tt0137523', title: 'x' });
-    const keys = auto.embeds.map(e => e.key); assert.ok(keys.includes('vidsrc') && keys.includes('111movies') && keys.includes('godrive') && !keys.includes('vidlink'), keys.join());
-    assert.ok(keys.indexOf('cinesrc') < keys.indexOf('vidsrc'), 'our players first, SimplStream after');
-    const ss = await movies.sources({ id: 'tt0137523', title: 'x', via: 'simplstream' });
-    assert.deepStrictEqual(ss.embeds.slice(0, 3).map(e => e.key).sort(), ['111movies', 'godrive', 'vidsrc']);
+    const keys = auto.embeds.map(e => e.key); assert.ok(!keys.includes('vidlink') && keys.includes('cinesrc') && !keys.includes('vidsrc'), keys.join());
     const vl = await movies.sources({ id: 'tt0137523', title: 'x', via: 'vidlink' });
     assert.strictEqual(vl.embeds[0].key, 'vidlink'); assert.match(vl.embeds[0].url, /vidlink\.pro\/movie\/550/);
     const tvl = await movies.sources({ id: 'tt0944947', type: 'series', s: '2', e: '3', title: 'x', via: 'vidlink' });

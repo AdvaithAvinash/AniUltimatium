@@ -41,10 +41,13 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
     return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
+  // Per-profile keys (list, history, progress, AniList link) get the profile id appended; the first profile keeps the old names (see start.js)
+  function pk(k) { var p = window.EA_PROFILE; return p && p.id !== 'p1' && window.EA_PROF && EA_PROF.perProfile.test(k) ? k + '@' + p.id : k; }
   var store = {
-    get: function (k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-    set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+    get: function (k, d) { try { var v = localStorage.getItem(pk(k)); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem(pk(k), JSON.stringify(v)); } catch (e) { try { prune(); localStorage.setItem(pk(k), JSON.stringify(v)); } catch (e2) { /* storage full */ } } }
   };
+  function prune() { try { ['ea_adseen', 'ea_live_countries', 'ea_am'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) { /* ignore */ } }   // storage full: drop the caches first
 
   // Kinds: 'anime' (AniList), 'movie' and 'tv' (Cinemeta + hosted players). TV episodes are numbered season*1000+episode (S2 E5 = 2005).
   function isVid(a) { return !!a && (a.kind === 'movie' || a.kind === 'tv'); }
@@ -60,7 +63,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // Lite mode: no animations / banner rotation, smaller pictures. Default on for the oldest engines (Chromium < 63: Tizen 4)
   var LITE = store.get('ea_lite', null); if (LITE === null) LITE = OLD_ENGINE && CHROME_V > 0 && CHROME_V < 63;
 
-  document.body.className = (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : '');
+  var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';
+  function bodyCls() { return (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : '') + (UI_MODERN ? ' ui-modern' : ''); }
+  document.body.className = bodyCls();
   // One layout, scaled to any window: 1080p TV -> 20px root, 1366x768 laptop -> ~14px root
   function applyScale() {
     var w = window.innerWidth, h = window.innerHeight;
@@ -197,6 +202,16 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (/^https?:$/.test(location.protocol) && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)) return location.origin;
     return VERCEL_API_URL.replace(/\/+$/, '');
   }
+  // Stability: every API call has a time limit (a hung connection never leaves the screen waiting forever), and a plain GET gets one more try after a dropped connection or a 502/503/504
+  function delay(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+  function fetchRetry(url, init, ms) {
+    function once() { return Promise.race([fetch(url, init), new Promise(function (_, rej) { setTimeout(function () { rej(new Error('The server did not answer in time')); }, ms); })]); }
+    function go(n) {
+      return once().then(function (r) { return (r.status === 502 || r.status === 503 || r.status === 504) && n < 1 && !init.body ? delay(700).then(function () { return go(n + 1); }) : r; },
+        function (e) { if (n < 1 && !init.body && !(e && e.name === 'AbortError')) return delay(700).then(function () { return go(n + 1); }); throw e; });
+    }
+    return go(0);
+  }
   function api(params, opts) {
     opts = opts || {};
     var amId = (params.action === 'sources' && params.id) || (params.action === 'subs' && params.anilist) || '';
@@ -220,7 +235,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (aniAct && Date.now() < (store.get('ea_aldirect', 0) || 0)) return aniDirect(params).catch(function () { return remote(); });
     return remote();
     function remote() {
-      return fetch(apiBase() + '/api?' + qs, init).then(function (r) {
+      return fetchRetry(apiBase() + '/api?' + qs, init, /^(sources|movie_sources|movie_home|proxy)$/.test(params.action) ? 45000 : 25000).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) {
           if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; er.status = r.status; er.nojson = !Object.keys(j).length; throw er; }
           return j;
@@ -520,7 +535,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
     if (t === 'account') renderAccount();
-    if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); paintExtras(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('setApp').firstChild || $('serverInput')); }
+    if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); paintExtras(); paintProf(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('setApp').firstChild || $('serverInput')); }
     if (focusContent && isHomeTab(t)) setFocus($('heroPlay'));
     if (focusContent && t === 'list') { var f = $('listGrid').firstChild; if (f) setFocus(f); }
     if (focusContent && t === 'history') { var hb = $('clearHist'); setFocus($('histGrid').firstChild || hb); }
@@ -806,8 +821,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else CineSrc'], ['cinesrc', 'CineSrc', 'remote control · subtitles · quality'],
                        ['vidfast', 'VidFast', 'remote control · auto quality'], ['vidcore', 'VidCore', 'auto quality up to 4K'],
-                       ['videasy', 'Videasy', 'auto quality'], ['simplstream', 'SimplStream', 'VidSrc · 111Movies · GoDrive (also tried by Auto)'],
-                       ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
+                       ['videasy', 'Videasy', 'auto quality'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   function srcOpts() {
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
@@ -1452,6 +1466,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var QOPTS = [['auto', 'Auto'], ['1080', '1080p'], ['720', '720p'], ['480', '480p']];
   var APPSET = [
     ['ea_engine', 'Player engine (Samsung TVs)', 'auto', [['auto', 'Auto (AVPlay on Tizen 4)'], ['avplay', 'Samsung AVPlay'], ['html5', 'Standard HTML5']]],
+    ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']], function (v) { UI_MODERN = v === 'modern'; document.body.className = bodyCls(); }],
+    ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
     ['ea_accent', 'Accent colour', 'pink', [['pink', 'Pink'], ['cyan', 'Cyan'], ['violet', 'Violet'], ['green', 'Green'], ['orange', 'Orange']], applyAccent],
     ['ea_autonext', 'Play the next episode automatically', true, [[true, 'On'], [false, 'Off']]],
@@ -1480,6 +1496,27 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function editCustomSource() {
     var c = customSrc() || {};                                                              // the TV keyboard works on input fields: use the two fields in the settings page
     $('setCustomName').value = c.name || ''; $('setCustomUrl').value = c.url || ''; $('setCustomBox').className = ''; setFocus($('setCustomName'));
+  }
+  // ---- Profiles (start.js owns the screens; these are the Settings entry points) ----
+  function paintProf() {
+    var box = $('setProf'); if (!box || !window.EA_PROF) return; box.innerHTML = '';
+    var p = EA_PROF.current(); if (!p) return;
+    var rows = [['switch', 'Profile', p.name, '<span class="pav">' + EA_PROF.avatar(p.av) + '</span>'], ['lock', 'Profile lock (4-digit PIN)', p.pin ? 'On' : 'Off', ''], ['padd', 'Add a profile', '', '']];
+    if (EA_PROF.list().length > 1) rows.push(['pdel', state.pdelAsk ? 'Press again to delete this profile and its list' : 'Delete this profile', '', '']);
+    rows.forEach(function (r) { var b = el('button', 'setr focusable', r[3] + '<span>' + esc(r[1]) + '</span><b>' + esc(r[2]) + '</b>'); b.__p = r[0]; box.appendChild(b); });
+    paintProfBtn();
+  }
+  function paintProfBtn() { var b = $('navProf'), p = window.EA_PROF && EA_PROF.current(); if (b && p) { b.innerHTML = EA_PROF.avatar(p.av); b.title = p.name; } }
+  function profAct(k) {
+    if (k === 'switch') { EA_PROF.switchTo(); return; }
+    if (k === 'lock') { var p = EA_PROF.current(); if (p.pin) EA_PROF.clearPin(function () { toast('Profile lock off'); paintProf(); }); else EA_PROF.setPin(function () { toast('Profile lock on'); paintProf(); }); return; }
+    if (k === 'padd') { EA_PROF.add(); return; }
+    if (k === 'pdel') {
+      if (!state.pdelAsk) { state.pdelAsk = true; paintProf(); clearTimeout(state.pdelT); state.pdelT = setTimeout(function () { state.pdelAsk = false; paintProf(); }, 4000); return; }
+      state.pdelAsk = false; var cur = EA_PROF.current();
+      var go = function () { EA_PROF.remove(cur.id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); };
+      if (cur.pin) EA_PROF.verify(go); else go();
+    }
   }
   function addAddon(url, name) {
     var l = addonList().filter(function (x) { return x.url !== url; }); l.unshift({ url: url, name: name || hostOf(url) }); store.set('ea_addons', l.slice(0, 8));
@@ -1969,6 +2006,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.__genre !== undefined) { state.genre = state.genre === e.__genre ? '' : e.__genre; paintChips(); runSearch(); return; }
     if (e.__season !== undefined) { state.tvSeason = e.__season; renderEpisodes(); setFocus($('dRanges').children[e.__season]); return; }
     if (e.__set !== undefined) { if (e.__set === 'custom') editCustomSource(); else cycleAppSetting(e.__set); return; }
+    if (e.__p) { profAct(e.__p); return; }
+    if (e.id === 'navProf') { EA_PROF.switchTo(); return; }
     if (e.__x) { openExtra(e.__x); return; }
     if (e.__xdel !== undefined) { var al = addonList(); al.splice(e.__xdel, 1); store.set('ea_addons', al); paintAddonList(); paintExtras(); if (!hasExtra() && state.mvia === 'addon') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } setFocus($('xUrl')); return; }
     if (e.id === 'xProv') { var pi = 0; DEBRIDS.forEach(function (d, i) { if (d[0] === state.xProv) pi = i; }); state.xProv = DEBRIDS[(pi + 1) % DEBRIDS.length][0]; paintProv(); return; }
@@ -1981,7 +2020,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.id === 'setResetAll') { resetAppSettings(); return; }
     if (e.id === 'setSubPos') { setSubPos((subPos() + 1) % SUBPOS.length); paintSetSubs(); return; }
     if (e.id === 'setSubSize') { var zs = SUBSIZE.map(function (x) { return x[0]; }); store.set('ea_subsize', zs[(zs.indexOf(subSize()) + 1) % zs.length]); applySubStyle(); paintSetSubs(); return; }
-    if (e.id === 'setLite') { LITE = !LITE; store.set('ea_lite', LITE); document.body.className = (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : ''); paintSetSubs(); toast('Lite mode ' + (LITE ? 'on' : 'off')); if (!LITE && state.hero.length > 1) setHeroList(state.hero); return; }
+    if (e.id === 'setLite') { LITE = !LITE; store.set('ea_lite', LITE); document.body.className = bodyCls(); paintSetSubs(); toast('Lite mode ' + (LITE ? 'on' : 'off')); if (!LITE && state.hero.length > 1) setHeroList(state.hero); return; }
     if (e.__range !== undefined) { state.epRange = e.__range; renderEpisodes(); var rs = $('dRanges').children; setFocus(rs[e.__range]); return; }
     if (e.__ep) { play(state.anime, e.__ep); return; }
     if (e.__cont) { state.returnFocus = e; state.anime = e.__anime; play(e.__anime, e.__cont.ep); return; }
@@ -2156,5 +2195,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   (function () { var st = store.get('ea_start', 'home'); if (/^(movies|tv|live)$/.test(st)) showTab(st, false); })();                       // Settings: Start on
   if (auth()) syncNow(false);
   if (alAuth() && !alAuth().id) alLoadViewer().then(function () { state.alRowAt = 0; renderContinue(); }).catch(function () {});
-  if (!store.get('ea_notice_off', false)) showNotice();
+  paintProfBtn();
+  try { localStorage.removeItem('ea_boot'); } catch (e) { /* ignore */ }                         // started properly: start.js counts starts that never got this far (safe mode)
+  var goAl = false; try { goAl = sessionStorage.getItem('ea_al_go') === '1'; sessionStorage.removeItem('ea_al_go'); } catch (e) { /* ignore */ }
+  if (goAl) { showTab('account', false); setTimeout(function () { alStartLink(); }, 300); }                    // chosen on the "Connect to your list!" step
+  else if (window.EA_SAFE) toast('Safe mode: the app did not start properly three times, so it is using the Classic look and Lite mode. You can change this in Settings.');
+  else if (!store.get('ea_notice_off', false)) showNotice();
+  window.EA_trim = function () { apiCache = {}; state.hero = state.hero.slice(0, 8); };                          // the Android shell calls this when the system is short of memory
 })();

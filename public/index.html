@@ -67,6 +67,7 @@
       <button class="tab focusable" data-tab="account"></button>
       <button class="tab focusable" data-tab="settings"></button>
     </nav>
+    <button id="navProf" class="focusable" title="Profile"></button>
   </header>
 
   <main id="viewHome" class="view">
@@ -191,6 +192,9 @@
         <input id="setCustomUrl" class="focusable" type="text" placeholder="https://player.example/movie/{tmdb}" autocomplete="off" spellcheck="false">
         <div class="setrow"><button id="setCustomSave" class="btn primary focusable">Save</button><button id="setCustomCancel" class="btn focusable">Cancel</button></div>
       </div>
+      <h3 style="margin-top:1.6rem">Profile</h3>
+      <p class="hint">Each profile has its own list, history, progress and AniList link.</p>
+      <div id="setProf" class="msets"></div>
       <h3 style="margin-top:1.6rem">Extra sources (all optional)</h3>
       <p class="hint">Nothing here is needed to watch. Add Stremio / Nuvio add-ons and a debrid account for more movie and TV sources that play in our own player (they also work on older TVs), or a CinePro Core server.</p>
       <div id="setExtra" class="msets"></div>
@@ -339,11 +343,6 @@
   <div id="toast"></div>
 </div>
 <script async src="hls.min.js"></script>   <!-- hls.js 1.5.15 (Apache-2.0), bundled: no CDN needed, and async so the UI never waits for it -->
-<script src="avp.js"></script>
-<script src="iq.js"></script>
-<script src="qr.js"></script>
-<script src="iptv.js"></script>
-<script src="main.js"></script>
-<script src="live.js"></script>
+<script src="start.js"></script>   <!-- opening animation, profiles, lock, look; then loads avp.js, iq.js, qr.js, iptv.js, main.js, live.js in that order -->
 </body>
 </html>

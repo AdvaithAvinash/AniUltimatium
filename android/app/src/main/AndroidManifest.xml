@@ -15,6 +15,7 @@
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:hardwareAccelerated="true"
+        android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"

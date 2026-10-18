@@ -27,8 +27,10 @@ This app combines all anime apis into one.
 | **Accounts** | Optional sync of Continue Watching / My List / History, and optional [AniList](https://anilist.co) linking |
 | **Live TV (IPTV)** | Bring your own M3U playlist or Xtream login (or pick free public channels): fast channel browser for 50,000+ channels, TV guide, zapping, favorites. No channels are included |
 | **Player engine** | Samsung AVPlay (the TV's native player) is used by default on Tizen 4 and can be chosen on any Samsung TV in Settings; it plays HLS / MPEG-TS / MP4 natively and falls back to the standard player automatically |
+| **Profiles and looks** | Up to 6 profiles (original character avatars), each with its own list, history, progress and AniList link; an optional 4-digit lock per profile (a family lock, not security; off in Settings); **Classic** look for low-end devices (the default on Tizen 4 / 5) and **Modern** look with a side rail for newer devices; an opening animation (skipped on Tizen 4 and 5, can be turned off) |
+| **Stability** | A start-up safe mode after three failed starts, time limits and one automatic retry on API calls, memory trimming on Android, and a clear recovery screen instead of a black page |
 | **Extra sources** | Optional, in Settings: debrid service (Real-Debrid, AllDebrid, Premiumize, TorBox; the key stays on your device), Stremio / Nuvio add-ons, a CinePro Core server. They play in our own player, so they also work on Tizen 4. Nothing here is required |
-| **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy, SimplStream's servers (VidSrc, 111Movies, GoDrive), optional VidLink and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play unless you add a **stream add-on** (Settings), whose plain video files play in our own player; the app tells you instead of hanging |
+| **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy, optional VidLink and public-domain films. Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play unless you add a **stream add-on** (Settings), whose plain video files play in our own player; the app tells you instead of hanging |
 | **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Samsung: sideload `aniultimatium.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `aniultimatium.apk` ([steps](docs/ANDROID.md)) |
 
@@ -85,12 +87,18 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 - **Open and self-hostable.** The whole project, including the backend and the tests, is in this repository.
 
 ## Install on Android TV and Fire TV
-Download `aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) and install it with Downloader (Fire TV), a USB stick / "Send files to TV" / Or create aftnews shortcut and use downloader (Android TV) or `adb install aniultimatium.apk`. For android tv just use some send files to tv normally how you sideload in android tv it should be working. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
+Get `aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest). Pick whichever way is easiest:
+
+- **Downloader (Fire TV and Android TV):** install the **Downloader** app, open it and enter the code **`DOWNLOADER-CODE-HERE`** (placeholder, the real code will be added here). It downloads `aniultimatium.apk`; press Install.
+- **Send Files to TV:** download `aniultimatium.apk` on your phone or computer, send it to the TV with the **Send Files to TV** app (both on the same Wi-Fi), then open the file on the TV and install it. This is the normal way to sideload on Android TV.
+- **Android TV without Downloader:** create an aftnews shortcut and use Downloader from there.
+
+You may need to allow "Install unknown apps" for Downloader / your file manager once. Step by step: [docs/ANDROID.md](docs/ANDROID.md). Minimum Android 5.0 / Fire OS 5.
 
 ## Install on a Samsung TV
 1. Download `aniultimatium.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest).
 2. Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
-3. Open **Aniultimatium** on the TV. (The first start shows the controls; "Don't show again" hides it.)
+3. Open **Aniultimatium** on the TV. The first start walks you through choosing a profile, an optional 4-digit lock, an optional AniList link and your look (Classic or Modern).
 
 Samsung TVs need Developer Mode for sideloading (Apps screen, type 12345, Developer mode ON, enter your computer's IP, reboot). Apps2Samsung walks through it.
 

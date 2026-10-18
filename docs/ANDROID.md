@@ -7,18 +7,13 @@
 ## Install
 **Fire TV (Fire Stick, Fire TV Cube, Fire TV TVs)**
 1. Settings → My Fire TV → Developer options → turn on *Install unknown apps* for **Downloader** (install Downloader from the Amazon store first).
-2. In Downloader, open `https://github.com/AdvaithAvinash/AniUltimatium/releases/latest`, choose `aniultimatium.apk`, install.
+2. In Downloader, enter the code **`DOWNLOADER-CODE-HERE`** (placeholder, to be added), or open `https://github.com/AdvaithAvinash/AniUltimatium/releases/latest` and choose `aniultimatium.apk`, then install.
 3. Find it under Your Apps & Channels.
 
 **Android TV / Google TV**
 1. Settings → Device Preferences → Security & restrictions → *Unknown sources* (allow your file manager or Downloader).
-2. Copy `aniultimatium.apk` to the TV (Downloader, a USB stick, or "Send files to TV") and open it.
+2. Send `aniultimatium.apk` to the TV with **Send Files to TV** (phone or computer and TV on the same Wi-Fi), a USB stick, or Downloader, then open it on the TV and install. If Downloader is not available, create an aftnews shortcut and use Downloader from there.
 
-**From a computer (any of them)**
-```
-adb connect <tv-ip>:5555
-adb install aniultimatium.apk
-```
 Updates install over the old version because every release is signed with the same key (`android/aniultimatium.keystore`; it is a project key for sideloading, not a secret and not for the Play Store).
 
 ## What the shell adds
@@ -41,3 +36,6 @@ python3 tools/build_apk.py        # copies public/ into the app, builds, writes 
 - Notches and punch-holes (Android 9+): `shortEdges` cutout mode; Android 11+: the modern full-screen / transient-bars API. `adjustPan` keeps text inputs visible when the soft keyboard opens on a phone.
 - Leaving the app (Home, another app) pauses the picture and sound. If Android kills the WebView process (low memory) the app reloads itself instead of crashing.
 - Game controllers: A = OK, B = Back. All of this is built and statically checked; it has **not** been run on a real device or an emulator.
+
+## Player on Android
+The Android app plays everything in the WebView's **HTML5 `<video>` player with hls.js** (hardware-decoded by the system WebView): anime, Live TV and add-on / debrid streams. Hosted movie players run in an embedded frame, with popups blocked. Samsung's AVPlay engine is Tizen-only and is never used here. A native ExoPlayer was considered and not added: it cannot be tested without a device, and the HTML5 path is what the rest of the app (subtitles overlay, skip buttons, quality menu) is built on.

@@ -202,6 +202,13 @@ public class MainActivity extends Activity {
         js("window.dispatchEvent(new Event('resize'))");
     }
 
+    /** Low-memory TV boxes: when the system asks apps to trim, the web app drops its caches. */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW) js("window.EA_trim&&window.EA_trim()");
+    }
+
     @Override
     protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); }
 
