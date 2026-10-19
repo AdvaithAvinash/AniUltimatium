@@ -130,3 +130,10 @@ test('pause screen uses the VAST video ad (muted, labelled) when a tag is set; n
   assert.match(sp, /<video muted playsinline/);
   assert.match(sp, /stopPauseVideo\(\)/);
 });
+
+test('an ad always shows: sponsor QR card when the network has no video (pre-roll, 20 s, continues by itself) and on pause', () => {
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(sp, /if \(!qrCard\(\)\) finish\(true, 303\)/);
+  assert.match(sp, /if \(t >= need\) finish\(true\)/);
+  assert.match(sp, /else if \(q\) pbox = qrBanner\(q\);/);
+});

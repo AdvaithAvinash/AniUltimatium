@@ -106,6 +106,7 @@
 
   // ---- pre-roll ----
   var ad = null;
+  function qrUrl() { var u = cfg && cfg.enabled === true && cfg.support && cfg.support.url; return httpsUrl(u) ? u : null; }
   function vastUrl() { return cfg && cfg.enabled === true && cfg.vast && httpsUrl(cfg.vast.url) ? cfg.vast.url : null; }
   function wants(a) {                                                                    // synchronous: the config is fetched at start-up, so a slow network never delays playback
     if (ad || !cfg || cfg.enabled !== true) return false;
@@ -204,6 +205,24 @@
       ad = null; done(go);
     }
     function canSkip() { return started && v.currentTime >= skipAt; }
+    // Always-available ad: a labelled card with a QR code to the sponsor offer (Monetag link in sponsor.json). Nothing opens on the TV; it continues by itself.
+    function qrCard() {
+      var u = qrUrl(); if (!u || finished) return false;
+      clearInterval(timer); try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* ignore */ }
+      v.style.display = 'none'; bar.parentNode.style.display = '';
+      var card = el('div', 'adqr', '<h3>Sponsored</h3><p>Scan with your phone to see this offer</p><div class="adqr-code"></div>');
+      box.appendChild(card); if (EA.qr) EA.qr(card.querySelector('.adqr-code'), u);
+      started = true; if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id;
+      note('video', 'showed the sponsor QR card (no network video)');
+      var t0q = Date.now(), need = 20;
+      timer = setInterval(function () {
+        var t = (Date.now() - t0q) / 1000;
+        left.textContent = '· ' + Math.max(0, Math.ceil(need - t)) + 's'; bar.style.width = Math.min(100, t / need * 100) + '%';
+        skipEl.className = 'ad-skip'; skipEl.textContent = 'Continues in ' + Math.max(0, Math.ceil(need - t)) + 's';
+        if (t >= need) finish(true);
+      }, 250);
+      return true;
+    }
     function onKey(e) {
       e.preventDefault(); e.stopPropagation(); var k = e.keyCode;
       if (k === EA.KEY.ENTER || k === 13) { if (canSkip()) { skipped = true; finish(true); } }
@@ -221,12 +240,13 @@
     function nextFile(why) {                                                            // this file did not play: try the ad's other sizes / formats before giving up
       if (finished || started) return;
       if (++fi < files.length && fi < 4) { t0 = Date.now(); try { v.src = files[fi].url; var p2 = v.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (e) { /* ignore */ } return; }
-      note('video', 'the ad video would not play on this device (' + why + ')'); finish(true, 405);
+      note('video', 'the ad video would not play on this device (' + why + ')');
+      if (!qrCard()) finish(true, 405);
     }
     v.addEventListener('error', function () { nextFile('error ' + (v.error && v.error.code || '')); });      // a broken ad never blocks playback
     resolveAd(function (r) {
       if (finished) return;
-      if (!r) { note('video', 'no ad: ' + (vastWhy || 'nothing set up')); finish(true, 303); return; }   // no ad to show: just play
+      if (!r) { note('video', 'no network ad (' + (vastWhy || 'nothing set up') + ')'); if (!qrCard()) finish(true, 303); return; }   // no network ad: the sponsor QR card, else just play
       it = r; vast = r.vast || null; t0 = Date.now(); skipAt = skipAfter(it, 0); files = r.files && r.files.length ? r.files : [{ url: r.video }];
       timer = setInterval(function () {
         var t = v.currentTime || 0, d = v.duration || 0;
@@ -264,6 +284,12 @@
     box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
     box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';              // invisible until the network really delivered an ad: no black box without an ad
     listenAd(f, box);
+    return box;
+  }
+  function qrBanner(u) {                                                               // always-available pause ad: labelled card with a QR code to the sponsor offer
+    var box = el('div', 'pausead', '<div class="pa-card pa-qr"><div class="pa-qrcode"></div><p>Scan for this offer</p><span class="ad-tag">Ad</span></div>');
+    if (EA.qr) EA.qr(box.querySelector('.pa-qrcode'), u);
+    note('banner', 'shown (sponsor QR card)');
     return box;
   }
   function imageBanner(it) {
@@ -304,9 +330,11 @@
   function showPause() {
     if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
-    var fallback = function () { return bn ? frameBanner(bn) : it ? imageBanner(it) : null; };
-    if (it && (Math.random() < 0.5 || (!vastUrl() && !bn))) pbox = imageBanner(it);        // the owner's own pictures take turns with the network ads
+    var q = qrUrl();
+    var fallback = function () { return it ? imageBanner(it) : q ? qrBanner(q) : bn ? frameBanner(bn) : null; };
+    if (it && (Math.random() < 0.5 || (!vastUrl() && !bn && !q))) pbox = imageBanner(it);   // the owner's own pictures take turns with the network ads
     else if (vastUrl() && !SAMSUNG) pbox = videoBanner(fallback);                       // Samsung TVs have one video decoder: a second video while the show is paused could break resuming it
+    else if (q) pbox = qrBanner(q);                                                     // the QR card always shows (network banner pages such as Monetag Vignette need a click)
     else if (bn) pbox = frameBanner(bn);
     else if (it) pbox = imageBanner(it);
     else return;
