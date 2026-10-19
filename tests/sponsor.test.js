@@ -29,16 +29,29 @@ test('nothing is picked unless enabled; weights are honoured', () => {
   assert.strictEqual(S.pickImage({ enabled: true, pause: [] }, NOW, 0), null);
 });
 
-test('anime: one ad per session; movies / TV: one per different title', () => {
-  const seen = { anime: false, last: '' };
-  assert.ok(S.due(seen, 'anime', 1));
-  seen.anime = true;
-  assert.ok(!S.due(seen, 'anime', 2));
-  assert.ok(S.due(seen, 'movie', 'm1'));
+test('anime: one ad per day; movies / TV: one per different title', () => {
+  const seen = { animeDay: '', last: '' };
+  assert.ok(S.due(seen, 'anime', 1, '2026-10-19'));
+  seen.animeDay = '2026-10-19';
+  assert.ok(!S.due(seen, 'anime', 2, '2026-10-19'));
+  assert.ok(S.due(seen, 'anime', 2, '2026-10-20'), 'a new day, a new ad');
+  assert.ok(S.due(seen, 'movie', 'm1', '2026-10-19'));
   seen.last = 'movie:m1';
-  assert.ok(!S.due(seen, 'movie', 'm1'));
-  assert.ok(S.due(seen, 'movie', 'm2'));
-  assert.ok(S.due(seen, 'tv', 'm1'));
+  assert.ok(!S.due(seen, 'movie', 'm1', '2026-10-19'));
+  assert.ok(S.due(seen, 'movie', 'm2', '2026-10-19'));
+  assert.ok(S.due(seen, 'tv', 'm1', '2026-10-19'));
+});
+
+test('VAST: picks a progressive https mp4 near 720p, never streaming or http; macros are filled', () => {
+  const f = (o) => Object.assign({ url: 'https://cdn.example/a.mp4', type: 'video/mp4', delivery: 'progressive', height: 720, bitrate: 1500 }, o);
+  assert.strictEqual(S.pickMedia([f({ height: 360, url: 'https://cdn.example/360.mp4' }), f({ height: 720, url: 'https://cdn.example/720.mp4' }), f({ height: 1080, url: 'https://cdn.example/1080.mp4' })]).url, 'https://cdn.example/720.mp4');
+  assert.strictEqual(S.pickMedia([f({ delivery: 'streaming' }), f({ type: 'application/x-mpegURL' }), f({ url: 'http://cdn.example/a.mp4' })]), null);
+  assert.strictEqual(S.pickMedia([f({ type: 'video/webm', url: 'https://cdn.example/w.webm' }), f({ url: 'https://cdn.example/m.mp4', height: 480 })]).url, 'https://cdn.example/m.mp4', 'mp4 before webm');
+  assert.ok(!/\[TIMESTAMP\]/.test(S.fillMacros('https://t.example/p?ts=[TIMESTAMP]&r=[CACHEBUSTING]')));
+  assert.strictEqual(S.fillMacros('https://t.example/e?code=[ERRORCODE]', 405), 'https://t.example/e?code=405');
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.ok(!/ClickThrough|VideoClicks|JavaScriptResource/.test(sp.replace(/\/\/.*$/gm, '')), 'no click-through, no ad-verification scripts');
+  assert.ok(S.httpsUrl(JSON.parse(fs.readFileSync(path.join(root, 'sponsor.json'), 'utf8')).vast.url));
 });
 
 test('skip is allowed after 20 s by default, never later than the ad is long', () => {

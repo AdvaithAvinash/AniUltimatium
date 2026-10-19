@@ -46,10 +46,26 @@
     var m = /^(https:\/\/[^\/]+)\//i.exec(b.page); if (!m) return null;
     return origin && m[1].toLowerCase() === String(origin).toLowerCase() ? 'allow-scripts' : 'allow-scripts allow-same-origin';
   }
-  // Is a pre-roll due for this title? seen = { anime: bool, last: 'kind:id' of the last movie / TV title that got one }
-  function due(seen, kind, id) {
-    if (kind === 'anime') return !seen.anime;
+  // Is a pre-roll due? seen = { animeDay: 'YYYY-MM-DD' of the last anime ad, last: 'kind:id' of the last movie / TV title that got one }.
+  // Anime: one ad per day. Movies / TV: one per different title (not per episode).
+  function due(seen, kind, id, today) {
+    if (kind === 'anime') return seen.animeDay !== today;
     return seen.last !== kind + ':' + id;
+  }
+  // VAST: which video file to play. Progressive MP4 (or WebM) over https, the one closest to 720p, MP4 before WebM. No streaming (HLS / DASH) files.
+  function pickMedia(files) {
+    var best = null, bestScore = 1e9;
+    (files || []).forEach(function (f) {
+      if (!f || !httpsUrl(f.url) || String(f.delivery || 'progressive').toLowerCase() === 'streaming') return;
+      var t = String(f.type || '').toLowerCase(); if (!/^video\/(mp4|webm|x-m4v)$/.test(t)) return;
+      var sc = Math.abs((+f.height || 720) - 720) * 10 + (t === 'video/webm' ? 100000 : 0) + (+f.bitrate || 0) / 1000;
+      if (sc < bestScore) { bestScore = sc; best = f; }
+    });
+    return best;
+  }
+  function fillMacros(u, code) {                                                       // the VAST macros a tag or a tracking url may contain
+    var now = String(Date.now());
+    return String(u).replace(/\[(TIMESTAMP|CACHEBUSTING|RANDOM)\]|%5B(TIMESTAMP|CACHEBUSTING|RANDOM)%5D/gi, now).replace(/\[ERRORCODE\]|%5BERRORCODE%5D/gi, String(code || 900)).replace(/\[CONTENTPLAYHEAD\]|%5BCONTENTPLAYHEAD%5D/gi, '00:00:00.000');
   }
   // Seconds before Skip appears: the ad's own setting (5..30, default 20), never more than the video is long
   function skipAfter(it, duration) {
@@ -57,12 +73,14 @@
     if (duration && duration > 2) s = Math.min(s, Math.max(0, Math.floor(duration) - 1));
     return s;
   }
-  var api = { frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
+  var api = { pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
 
   if (typeof window === 'undefined' || !window.EA) return api;
   // ------------------------------------------------------------------ in the app
   var EA = window.EA, $ = EA.$, el = EA.el, esc = EA.esc, store = EA.store, state = EA.state, video = EA.video;
-  var cfg = null, seen = { anime: false, last: '' };
+  var cfg = null, seen = { animeDay: store.get('ea_ad_day', ''), last: '' };
+  function today() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function beacon(u) { if (!httpsUrl(u)) return; try { new Image().src = fillMacros(u); } catch (e) { /* ignore */ } }      // VAST tracking pixel: what the ad network counts and pays for
 
   function getConfig(cb, force) {
     var c = store.get('ea_sponsor_cfg', null);
@@ -78,17 +96,50 @@
 
   // ---- pre-roll ----
   var ad = null;
+  function vastUrl() { return cfg && cfg.enabled === true && cfg.vast && httpsUrl(cfg.vast.url) ? cfg.vast.url : null; }
   function wants(a) {                                                                    // synchronous: the config is fetched at start-up, so a slow network never delays playback
-    return !ad && !!pickVideo(cfg, Date.now(), 0.5) && due(seen, kindOf(a), a.id);
+    if (ad || !cfg || cfg.enabled !== true) return false;
+    return (!!vastUrl() || !!pickVideo(cfg, Date.now(), 0.5)) && due(seen, kindOf(a), a.id, today());
+  }
+  // ---- VAST 2 / 3 (wrappers followed up to 3 deep). Only the video file and the tracking pixels are used: no click-through, no ad scripts, no verification code is run. ----
+  function parseVast(text) {
+    var doc; try { doc = new DOMParser().parseFromString(text, 'text/xml'); } catch (e) { return null; }
+    var ad0 = doc.getElementsByTagName('Ad')[0]; if (!ad0) return null;
+    var txt = function (n) { return String(n.textContent || '').replace(/^\s+|\s+$/g, ''); }, out = { imps: [], errors: [], track: {}, media: [], next: '' }, i, n;
+    n = ad0.getElementsByTagName('VASTAdTagURI')[0]; if (n) out.next = txt(n);
+    var list = ad0.getElementsByTagName('Impression'); for (i = 0; i < list.length; i++) out.imps.push(txt(list[i]));
+    list = ad0.getElementsByTagName('Error'); for (i = 0; i < list.length; i++) out.errors.push(txt(list[i]));
+    list = ad0.getElementsByTagName('Tracking'); for (i = 0; i < list.length; i++) { var ev = list[i].getAttribute('event'); if (ev) (out.track[ev] = out.track[ev] || []).push(txt(list[i])); }
+    list = ad0.getElementsByTagName('MediaFile'); for (i = 0; i < list.length; i++) { var m = list[i]; out.media.push({ url: txt(m), type: m.getAttribute('type'), delivery: m.getAttribute('delivery'), width: +m.getAttribute('width'), height: +m.getAttribute('height'), bitrate: +m.getAttribute('bitrate') }); }
+    return out;
+  }
+  function fetchVast(url, depth, acc, cb) {
+    var done = false, timer = setTimeout(function () { fin(null); }, 6000);
+    function fin(r) { if (done) return; done = true; clearTimeout(timer); cb(r); }
+    if (!window.fetch || !window.DOMParser || depth > 3) { fin(null); return; }
+    fetch(fillMacros(url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('x')); }).then(function (t) {
+      var v = parseVast(t); if (!v) { fin(null); return; }
+      acc.imps = acc.imps.concat(v.imps); acc.errors = acc.errors.concat(v.errors);
+      Object.keys(v.track).forEach(function (k) { acc.track[k] = (acc.track[k] || []).concat(v.track[k]); });
+      if (v.next && !v.media.length) { clearTimeout(timer); done = true; fetchVast(v.next, depth + 1, acc, cb); return; }
+      var f = pickMedia(v.media); fin(f ? { video: f.url, vast: acc } : null);
+    }).catch(function () { fin(null); });
+  }
+  function resolveAd(cb) {                                                               // a VAST ad if the tag is set and fills, else one of the owner's own videos, else nothing
+    function own() { cb(pickVideo(cfg, Date.now(), Math.random())); }
+    var u = vastUrl(); if (!u) { own(); return; }
+    fetchVast(u, 0, { imps: [], errors: [], track: {} }, function (r) { if (r) cb(r); else own(); });
   }
   function preroll(a, done) {                                                            // done(true) = go on and play, done(false) = the viewer left
-    var it = pickVideo(cfg, Date.now(), Math.random()); if (!it) { done(true); return; }
-    var kind = kindOf(a), started = false, finished = false, last = 0, lastAt = Date.now(), t0 = Date.now(), skipAt = skipAfter(it, 0), timer;
-    var box = el('div', 'adbox', '<video class="advid" playsinline></video><div class="ad-tag">Ad <span class="ad-left"></span></div><div class="ad-skip"></div><div class="ad-bar"><i></i></div>');
+    var kind = kindOf(a), started = false, finished = false, last = 0, lastAt = Date.now(), t0 = Date.now(), it = null, skipAt = 20, timer, sent = {}, vast = null, skipped = false;
+    var box = el('div', 'adbox', '<video class="advid" playsinline></video><div class="ad-tag">Ad <span class="ad-left"></span></div><div class="ad-skip">Loading ad…</div><div class="ad-bar"><i></i></div>');
     var v = box.querySelector('video'), left = box.querySelector('.ad-left'), skipEl = box.querySelector('.ad-skip'), bar = box.querySelector('i');
     ad = box; document.body.appendChild(box); try { video.pause(); } catch (e) { /* ignore */ }
-    function finish(go) {
+    function ev(name) { if (!vast || sent[name]) return; sent[name] = 1; (vast.track[name] || []).forEach(beacon); }
+    function finish(go, code) {
       if (finished) return; finished = true; clearInterval(timer); document.removeEventListener('keydown', onKey, true);
+      if (vast && !started && code) vast.errors.forEach(function (u) { beacon(fillMacros(u, code)); });
+      if (skipped) ev('skip');
       try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* ignore */ }
       if (box.parentNode) box.parentNode.removeChild(box);
       ad = null; done(go);
@@ -96,29 +147,37 @@
     function canSkip() { return started && v.currentTime >= skipAt; }
     function onKey(e) {
       e.preventDefault(); e.stopPropagation(); var k = e.keyCode;
-      if (k === EA.KEY.ENTER || k === 13) { if (canSkip()) finish(true); }
+      if (k === EA.KEY.ENTER || k === 13) { if (canSkip()) { skipped = true; finish(true); } }
       else if (EA.isBackKey(k) || k === EA.KEY.STOP) finish(false);
     }
     document.addEventListener('keydown', onKey, true);
-    box.onclick = function () { if (canSkip()) finish(true); };
+    box.onclick = function () { if (canSkip()) { skipped = true; finish(true); } };
     v.addEventListener('playing', function () {
-      if (!started) { started = true; seen.last = kind === 'anime' ? seen.last : kind + ':' + a.id; if (kind === 'anime') seen.anime = true; }    // only a shown ad counts
+      if (started) return; started = true;                                              // only a shown ad counts
+      if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id;
+      if (vast) { vast.imps.forEach(beacon); ev('creativeView'); ev('start'); }
     });
-    v.addEventListener('ended', function () { finish(true); });
-    v.addEventListener('error', function () { finish(true); });                           // a broken ad never blocks playback
-    timer = setInterval(function () {
-      var t = v.currentTime || 0, d = v.duration || 0;
-      if (t !== last) { last = t; lastAt = Date.now(); }
-      if (!started && Date.now() - t0 > 10000) { finish(true); return; }                 // never started
-      if (started && Date.now() - lastAt > 12000) { finish(true); return; }               // froze
-      if (!started) return;
-      skipAt = skipAfter(it, d);
-      left.textContent = d ? '· ' + Math.max(0, Math.ceil(d - t)) + 's' : '';
-      bar.style.width = (d ? Math.min(100, t / d * 100) : 0) + '%';
-      skipEl.className = 'ad-skip' + (canSkip() ? ' ok' : '');
-      skipEl.textContent = canSkip() ? 'Skip ad  (OK)' : 'You can skip in ' + Math.max(0, Math.ceil(skipAt - t)) + 's';
-    }, 250);
-    v.src = it.video; var p = v.play(); if (p && p.catch) p.catch(function () { finish(true); });
+    v.addEventListener('ended', function () { ev('complete'); finish(true); });
+    v.addEventListener('error', function () { finish(true, 405); });                      // a broken ad never blocks playback
+    resolveAd(function (r) {
+      if (finished) return;
+      if (!r) { finish(true, 303); return; }                                              // no ad to show: just play
+      it = r; vast = r.vast || null; t0 = Date.now(); skipAt = skipAfter(it, 0);
+      timer = setInterval(function () {
+        var t = v.currentTime || 0, d = v.duration || 0;
+        if (t !== last) { last = t; lastAt = Date.now(); }
+        if (!started && Date.now() - t0 > 10000) { finish(true, 402); return; }          // never started
+        if (started && Date.now() - lastAt > 12000) { finish(true); return; }            // froze
+        if (!started) return;
+        skipAt = skipAfter(it, d);
+        if (d) { if (t >= d * 0.25) ev('firstQuartile'); if (t >= d * 0.5) ev('midpoint'); if (t >= d * 0.75) ev('thirdQuartile'); }
+        left.textContent = d ? '· ' + Math.max(0, Math.ceil(d - t)) + 's' : '';
+        bar.style.width = (d ? Math.min(100, t / d * 100) : 0) + '%';
+        skipEl.className = 'ad-skip' + (canSkip() ? ' ok' : '');
+        skipEl.textContent = canSkip() ? 'Skip ad  (OK)' : 'You can skip in ' + Math.max(0, Math.ceil(skipAt - t)) + 's';
+      }, 250);
+      v.src = it.video; var pr = v.play(); if (pr && pr.catch) pr.catch(function () { finish(true, 405); });
+    });
   }
 
   // ---- pause ad ----
