@@ -155,7 +155,19 @@
   video.addEventListener('playing', hidePause);
   video.addEventListener('seeking', hidePause);
 
-  EA.sponsor = { wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
+  // ---- "Support the app" (Settings): a QR code for the viewer's phone. Nothing opens by itself; the link is an ad partner's offer, labelled as such ----
+  var modal = null;
+  function closeSupport() { if (modal) { document.removeEventListener('keydown', supKey, true); if (modal.parentNode) modal.parentNode.removeChild(modal); modal = null; if (state.focusEl && document.body.contains(state.focusEl)) EA.setFocus(state.focusEl, true); } }
+  function supKey(e) { if (!modal) return; e.preventDefault(); e.stopPropagation(); var k = e.keyCode; if (k === 13 || EA.isBackKey(k) || k === EA.KEY.STOP) closeSupport(); }
+  function support() {
+    var u = cfg && cfg.support && cfg.support.url;
+    if (!httpsUrl(u)) { EA.toast('Not available right now'); return; }
+    closeSupport();
+    modal = el('div', 'sponmodal', '<div class="sm-box"><h3>Support the app</h3><p>Scan with your phone. This opens a sponsor offer chosen by our ad partner (it is an ad).</p><div class="sm-qr" id="smQr"></div><p class="sm-url">' + esc(u.replace(/^https:\/\//, '')) + '</p><p class="sm-hint">Press OK or Back to close</p></div>');
+    document.body.appendChild(modal); document.addEventListener('keydown', supKey, true); modal.onclick = closeSupport;
+    if (EA.qr) EA.qr($('smQr'), u);
+  }
+  EA.sponsor = { support: support, wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
   getConfig();
   return api;
 });

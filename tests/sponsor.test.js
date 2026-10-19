@@ -51,7 +51,7 @@ test('skip is allowed after 20 s by default, never later than the ad is long', (
 test('wired in: loaded by start.js, play() wrapped, nothing can open a link', () => {
   const main = read('public/main.js'), sp = read('public/sponsor.js');
   assert.match(main, /EA\.sponsor\.wants\(a\)/);
-  assert.ok(!/window\.open|location\.href|\.url\b|<a /.test(sp.replace(/\/\/.*$/gm, '')), 'no click-through');
+  assert.ok(!/window\.open|location\.href|<a /.test(sp.replace(/\/\/.*$/gm, '')), 'nothing in the ads can open a page (the support QR is scanned on the phone)');
   assert.ok(!/createElement\('script'\)/.test(sp), 'the app itself never injects a script (a network banner runs only inside a sandboxed frame)');
 });
 
@@ -77,4 +77,14 @@ test('ad page frame: never shares the app\'s origin', () => {
   assert.ok(/n6wxm\.com\/vignette\.min\.js/.test(page) && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
   const idx = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
   assert.ok(!/n6wxm|bauval|vignette/.test(idx) && !/n6wxm|bauval|vignette/.test(fs.readFileSync(path.join(root, 'public/main.js'), 'utf8')), 'ad network tags never run inside the app page');
+});
+
+test('Support the app: Settings button, QR for the phone, link comes from sponsor.json, nothing opens by itself', () => {
+  const idx = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8'), main = fs.readFileSync(path.join(root, 'public/main.js'), 'utf8'), sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(idx, /id="setSupportBtn"/);
+  assert.match(main, /setSupportBtn[^\n]*EA\.sponsor\.support\(\)/);
+  assert.match(sp, /EA\.qr\(\$\('smQr'\), u\)/);
+  assert.match(sp, /it is an ad/);
+  const cfg = JSON.parse(fs.readFileSync(path.join(root, 'sponsor.json'), 'utf8'));
+  assert.ok(S.httpsUrl(cfg.support.url));
 });
