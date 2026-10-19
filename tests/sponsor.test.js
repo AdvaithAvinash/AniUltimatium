@@ -123,3 +123,10 @@ test('video ad relay: web-only page that fetches only the tag from sponsor.json 
   assert.match(sp, /EA\.stopVideo\(\)/, 'the app player lets go of the TV decoder before the ad');
   assert.ok(!/EA\.lite && EA\.lite\(\)\) return/.test(sp), 'the pause banner is not switched off in Lite mode');
 });
+
+test('pause screen uses the VAST video ad (muted, labelled) when a tag is set; network frame pages are only the fallback', () => {
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(sp, /else if \(vastUrl\(\)\) pbox = videoBanner\(fallback\);/);
+  assert.match(sp, /<video muted playsinline/);
+  assert.match(sp, /stopPauseVideo\(\)/);
+});

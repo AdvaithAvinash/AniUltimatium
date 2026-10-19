@@ -250,24 +250,62 @@
     setTimeout(function () { if (pbox === box && box.style.visibility === 'hidden') note('banner', 'the ad page loaded but the network drew no ad inside the frame'); }, 9000);
     window.addEventListener('message', adMsg);
   }
-  function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
+  var pvid = null;
+  function stopPauseVideo() { if (!pvid) return; clearInterval(pvid.timer); try { pvid.v.pause(); pvid.v.removeAttribute('src'); pvid.v.load(); } catch (e) { /* ignore */ } pvid = null; }
+  function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); stopPauseVideo(); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
     if (adMsg) { window.removeEventListener('message', adMsg); adMsg = null; } }
+  function frameBanner(bn) {                                                           // network banner page in a frame with NO popups and NO top navigation, in an origin of its own
+    var box = el('div', 'pausead', '<div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
+    var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', frameSandbox(bn, window.location.origin));   // never the app's own origin: the website gets a no-origin sandbox, the TV / Android app the ad page's own origin
+    f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.src = bn.page;
+    box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
+    box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';              // invisible until the network really delivered an ad: no black box without an ad
+    listenAd(f, box);
+    return box;
+  }
+  function imageBanner(it) {
+    var box = el('div', 'pausead', '<div class="pa-card"><img alt="' + esc(it.alt || 'Sponsor') + '" src="' + esc(it.image) + '"><span class="ad-tag">Ad</span></div>');
+    box.querySelector('img').onerror = hidePause;
+    return box;
+  }
+  // The video ad (VAST tag) as a small, muted, labelled picture in the banner spot. Network "banner" pages such as Monetag's Vignette only draw after a click or
+  // a page change, which never happens on a paused player, so this is the network ad that can really appear here. Same tracking as the pre-roll.
+  function videoBanner(fallback) {
+    var box = el('div', 'pausead', '<div class="pa-card pa-vid" style="width:320px;height:180px"><video muted playsinline style="width:320px;height:180px;display:block;background:#000"></video><span class="ad-tag">Ad</span></div>');
+    box.style.width = '320px'; box.style.visibility = 'hidden';
+    var v = box.querySelector('video'), me = { v: v, sent: {}, timer: null }; v.muted = true; pvid = me;
+    function gone() { return pvid !== me || pbox !== box; }
+    function giveUp(why) {
+      if (gone()) return; note('banner', why); stopPauseVideo();
+      var nb = fallback(); if (box.parentNode) box.parentNode.removeChild(box); pbox = nb;
+      if (nb) document.body.appendChild(nb);
+    }
+    vastWhy = '';
+    fetchVast(vastUrl(), 0, { imps: [], errors: [], wtrack: [] }, function (r) {
+      if (gone()) return;
+      if (!r) { giveUp('no video ad: ' + (vastWhy || 'nothing to show')); return; }
+      var files = r.files && r.files.length ? r.files : [{ url: r.video }], fi = 0, started = false, vast = r.vast;
+      function ev(n) { if (me.sent[n]) return; me.sent[n] = 1; (vast.track[n] || []).forEach(beacon); }
+      function go() { var pr = v.play(); if (pr && pr.catch) pr.catch(function () { /* the error event decides */ }); }
+      v.addEventListener('error', function () { if (gone() || started) return; if (++fi < files.length && fi < 4) { v.src = files[fi].url; go(); } else giveUp('the video ad would not play on this device'); });
+      v.addEventListener('playing', function () {
+        if (started || gone()) return; started = true; box.style.visibility = 'visible';
+        vast.imps.forEach(beacon); ev('creativeView'); ev('start'); note('banner', 'shown (video ad)');
+      });
+      v.addEventListener('ended', function () { if (!gone()) { ev('complete'); hidePause(); } });
+      me.timer = setInterval(function () { var t = v.currentTime || 0, d = v.duration || 0; if (d) { if (t >= d * 0.25) ev('firstQuartile'); if (t >= d * 0.5) ev('midpoint'); if (t >= d * 0.75) ev('thirdQuartile'); } }, 250);
+      v.src = files[0].url; go();
+    });
+    return box;
+  }
   function showPause() {
     if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
-    if (!it && !bn) return;
-    if (it && bn && Math.random() < 0.5) it = null;                                    // both set: they take turns
-    if (!it) {                                                                          // network banner: shown from the ad page in a frame with NO popups and NO top navigation, in an origin of its own
-      var box = el('div', 'pausead', '<div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
-      var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', frameSandbox(bn, window.location.origin));   // never the app's own origin: the website gets a no-origin sandbox, the TV / Android app the ad page's own origin
-      f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.src = bn.page;
-      box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
-      box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';            // invisible until the network really delivered an ad: no black box, no note without an ad
-      pbox = box; listenAd(f, box);
-    } else {
-      pbox = el('div', 'pausead', '<div class="pa-card"><img alt="' + esc(it.alt || 'Sponsor') + '" src="' + esc(it.image) + '"><span class="ad-tag">Ad</span></div>');
-      pbox.querySelector('img').onerror = hidePause;
-    }
+    var fallback = function () { return bn ? frameBanner(bn) : it ? imageBanner(it) : null; };
+    if (it && (Math.random() < 0.5 || (!vastUrl() && !bn))) pbox = imageBanner(it);        // the owner's own pictures take turns with the network ads
+    else if (vastUrl()) pbox = videoBanner(fallback);
+    else if (bn) pbox = frameBanner(bn);
+    else return;
     document.body.appendChild(pbox); document.addEventListener('keydown', hidePause, true);   // any key puts it away (the key itself still reaches the player)
     ptimer = setTimeout(hidePause, PAUSE_MS);
   }

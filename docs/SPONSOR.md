@@ -23,3 +23,8 @@ Add a `"banner": { "key": "<32 hex>", "src": "https://<network>/<path>/<key>", "
 ## VAST video pre-roll (e.g. HilltopAds "Video VAST", VAST 2 / 3)
 Add `"vast": { "url": "https://<network>/<your tag>" }` to `sponsor.json`. Before a title starts the app asks the tag for an ad (wrappers are followed up to 3 deep), plays its MP4 in the same labelled "Ad" screen (skip after 20 s, Back leaves) and fires the network's impression / start / quartile / complete / skip tracking pixels so the network can count and pay for it. Anime: one ad per day per device; movies and TV: one per different title. If the tag has no ad, a video from `preroll` is used, else playback just starts.
 Not used: click-through links, ad-verification scripts, streaming (HLS/DASH) ad files. On the website the tag is requested directly. In the TV / Android app (a local file, which sends no site address, so networks answer with no ad) it goes through `vastrelay.html` on the site (`vast.relay`), which only fetches the tag listed here and the wrapper addresses those answers name. Settings -> Support the app -> Ad check shows what happened to the last video ad and pause banner.
+
+## Pause screen order
+1. Your own `pause` pictures (they take turns with network ads).
+2. The VAST video ad, as a small muted "Ad" video (320x180) for up to 15 s, with the same tracking as the pre-roll.
+3. The network banner page (`banner.page`). Note: Monetag's Vignette only draws after a click or a page change, so it does not appear on a paused player; use a real 300x250 banner tag there.
