@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "preroll": [
+    { "id": "example", "video": "https://example.com/your-ad-30s.mp4", "skipAfter": 20, "weight": 1, "from": "2026-01-01", "to": "2026-12-31" }
+  ],
+  "pause": [
+    { "id": "example", "image": "https://example.com/your-banner-640x360.jpg", "alt": "Sponsor", "weight": 1 }
+  ]
+}

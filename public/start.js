@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var LS = window.localStorage, UA = navigator.userAgent, CV = +((UA.match(/Chrome\/(\d+)/) || [0, 0])[1]);
-  var APP = ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'live.js'];
+  var APP = ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'sponsor.js', 'live.js'];
   function get(k, d) { try { var v = LS.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function set(k, v) { try { LS.setItem(k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   function del(k) { try { LS.removeItem(k); } catch (e) { /* ignore */ } }

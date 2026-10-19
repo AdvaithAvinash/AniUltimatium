@@ -1093,6 +1093,12 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (tk === state.token) { state.playFail = true; state.failAt = startAt || 0; pmsg('Could not start playback: ' + e.message + '.   OK: try again   ·   Up: choose another source   ·   Back: leave', false); }
     });
   }
+  // Sponsor pre-roll (public/sponsor.js): one labelled video before a title, anime once per session, movies / TV once per different title; retries and source switches never show another
+  var play0 = play;
+  play = function (a, ep, startAt, keepVia, skip) {
+    if (!keepVia && !(skip && skip.length) && EA.sponsor && EA.sponsor.wants(a)) { EA.sponsor.preroll(a, function (go) { if (go) play0(a, ep, startAt, keepVia, skip); }); return; }
+    return play0(a, ep, startAt, keepVia, skip);
+  };
   // ---- Old TV engines (Tizen 4/5/5.5/6): the hosted movie/TV players are written for 2020+ browsers and do not run there ----
   function showOldEng(failed) {
     pmsg('', false);
@@ -1568,6 +1574,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_engine', 'Player engine (Samsung TVs)', 'auto', [['auto', 'Auto (AVPlay on Tizen 4)'], ['avplay', 'Samsung AVPlay'], ['html5', 'Standard HTML5']]],
     ['ea_tlang', 'Titles', 'en', [['en', 'English'], ['romaji', 'Romaji (Japanese)']]],
     ['ea_pz', 'Poster size', 'normal', [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], function () { document.body.className = bodyCls(); }],
+    ['ea_pauseads', 'Pause ads (picture shown while a video is paused)', true, [[true, 'On'], [false, 'Off']], function () { if (EA.sponsor) EA.sponsor.hidePause(); }],
     ['ea_airbadge', 'Airing badges (episode countdown)', true, [[true, 'On'], [false, 'Off']], function () { paintAirBadges(); }],
     ['ea_alerts', 'New-episode alerts on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_recs', 'Recommendations on the home page', true, [[true, 'On'], [false, 'Off']]],
@@ -2030,6 +2037,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('seekBar').style.width = '0'; $('seekBuf').style.width = '0';
   }
   function closePlayer() {
+    if (EA.sponsor) EA.sponsor.hidePause();
     state.token++; abortSources(); dropPrefetch(); state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden'; hideEmbed();
     if (video.duration && video.currentTime > 3) setProg(state.anime, state.ep, video.currentTime, video.duration);
     stopVideo();

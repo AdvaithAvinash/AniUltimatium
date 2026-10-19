@@ -15,7 +15,7 @@ test('index.html starts through start.js and never loads the app scripts itself'
 
 test('start.js lists every app script, in dependency order, and they exist', () => {
   const js = read('public/start.js'), list = (/var APP = \[([^\]]*)\]/.exec(js)[1].match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
-  assert.deepStrictEqual(list, ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'live.js']);
+  assert.deepStrictEqual(list, ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'sponsor.js', 'live.js']);
   list.forEach(f => assert.ok(fs.existsSync(path.join(root, 'public', f)), f));
 });
 
