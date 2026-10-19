@@ -64,9 +64,9 @@
   var EA = window.EA, $ = EA.$, el = EA.el, esc = EA.esc, store = EA.store, state = EA.state, video = EA.video;
   var cfg = null, seen = { anime: false, last: '' };
 
-  function getConfig(cb) {
+  function getConfig(cb, force) {
     var c = store.get('ea_sponsor_cfg', null);
-    if (c && Date.now() - c.t < TTL) { cfg = c.d; cb && cb(); return; }
+    if (!force && c && Date.now() - c.t < TTL) { cfg = c.d; cb && cb(); return; }
     cfg = c && c.d || null;                                                              // offline: the last good copy, or nothing
     if (!window.fetch) { cb && cb(); return; }
     fetch(CONFIG_URL, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('x')); }).then(function (j) {
@@ -159,15 +159,16 @@
   var modal = null;
   function closeSupport() { if (modal) { document.removeEventListener('keydown', supKey, true); if (modal.parentNode) modal.parentNode.removeChild(modal); modal = null; if (state.focusEl && document.body.contains(state.focusEl)) EA.setFocus(state.focusEl, true); } }
   function supKey(e) { if (!modal) return; e.preventDefault(); e.stopPropagation(); var k = e.keyCode; if (k === 13 || EA.isBackKey(k) || k === EA.KEY.STOP) closeSupport(); }
-  function support() {
+  function support(again) {
     var u = cfg && cfg.support && cfg.support.url;
+    if (!httpsUrl(u) && !again) { EA.toast('Loading…'); getConfig(function () { support(true); }, true); return; }   // a copy saved before the link existed: fetch the current file once
     if (!httpsUrl(u)) { EA.toast('Not available right now'); return; }
     closeSupport();
     modal = el('div', 'sponmodal', '<div class="sm-box"><h3>Support the app</h3><p>Scan with your phone. This opens a sponsor offer chosen by our ad partner (it is an ad).</p><div class="sm-qr" id="smQr"></div><p class="sm-url">' + esc(u.replace(/^https:\/\//, '')) + '</p><p class="sm-hint">Press OK or Back to close</p></div>');
     document.body.appendChild(modal); document.addEventListener('keydown', supKey, true); modal.onclick = closeSupport;
     if (EA.qr) EA.qr($('smQr'), u);
   }
-  EA.sponsor = { support: support, wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
+  EA.sponsor = { support: function () { support(false); }, wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
   getConfig();
   return api;
 });
