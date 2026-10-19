@@ -276,23 +276,34 @@
 
   // ---- pause ad ----
   var pbox = null, ptimer = null, pwait = null, adMsg = null;
-  function listenAd(frame, box) {
+  function listenAd(frame, box, shown) {
     if (adMsg) window.removeEventListener('message', adMsg);
-    adMsg = function (e) { if (e.data === 'ea-ad:ok' && frame.contentWindow && e.source === frame.contentWindow && pbox === box) { box.style.visibility = 'visible'; note('banner', 'shown'); } };
-    setTimeout(function () { if (pbox === box && box.style.visibility === 'hidden') note('banner', 'the ad page loaded but the network drew no ad inside the frame'); }, 9000);
+    var drew = false;
+    adMsg = function (e) { if (e.data === 'ea-ad:ok' && frame.contentWindow && e.source === frame.contentWindow && pbox === box && !drew) { drew = true; shown(); note('banner', 'shown (network banner)'); } };
+    setTimeout(function () { if (pbox === box && !drew) note('banner', 'the network drew no banner this time' + (box.querySelector('.pa-qr') ? ' (the QR card stayed)' : '')); }, 9000);
     window.addEventListener('message', adMsg);
   }
   var pvid = null, SAMSUNG = /Tizen/i.test(navigator.userAgent);
   function stopPauseVideo() { if (!pvid) return; clearInterval(pvid.timer); try { pvid.v.pause(); pvid.v.removeAttribute('src'); pvid.v.load(); } catch (e) { /* ignore */ } pvid = null; }
   function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); stopPauseVideo(); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
     if (adMsg) { window.removeEventListener('message', adMsg); adMsg = null; } }
-  function frameBanner(bn) {                                                           // network banner page in a frame with NO popups and NO top navigation, in an origin of its own
+  // Network banner page (Monetag In-Page Push) in a frame with NO popups and NO top navigation, in an origin of its own. While it loads (and if the network
+  // draws nothing) the sponsor QR card is shown in its place; the moment the network really draws an ad, the banner replaces the card.
+  function frameBanner(bn, q) {
     var box = el('div', 'pausead', '<div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
+    var net = box.querySelector('.pa-net'), qr = null;
     var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', frameSandbox(bn, window.location.origin));   // never the app's own origin: the website gets a no-origin sandbox, the TV / Android app the ad page's own origin
     f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.src = bn.page;
-    box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
-    box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';              // invisible until the network really delivered an ad: no black box without an ad
-    listenAd(f, box);
+    net.insertBefore(f, net.querySelector('.ad-tag'));
+    box.style.width = (+bn.width) + 'px';
+    if (q) {
+      qr = el('div', 'pa-card pa-qr', '<div class="pa-qrcode"></div><p>Scan for this offer</p><span class="ad-tag">Ad</span>');
+      if (EA.qr) EA.qr(qr.querySelector('.pa-qrcode'), q);
+      box.insertBefore(qr, net);
+      net.style.position = 'absolute'; net.style.top = '0'; net.style.right = '0'; net.style.visibility = 'hidden';   // laid out (so the ad can draw) but not seen yet
+      box.style.width = ''; note('banner', 'shown (sponsor QR card, waiting for the network banner)');
+    } else box.style.visibility = 'hidden';                                             // no card: invisible until the network really delivered an ad
+    listenAd(f, box, function () { if (qr && qr.parentNode) qr.parentNode.removeChild(qr); net.style.position = ''; net.style.visibility = 'visible'; box.style.width = (+bn.width) + 'px'; box.style.visibility = 'visible'; });
     return box;
   }
   function qrBanner(u) {                                                               // always-available pause ad: labelled card with a QR code to the sponsor offer
@@ -340,11 +351,11 @@
     if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
     var q = qrUrl();
-    var fallback = function () { return it ? imageBanner(it) : q ? qrBanner(q) : bn ? frameBanner(bn) : null; };
+    var fallback = function () { return it ? imageBanner(it) : bn ? frameBanner(bn, q) : q ? qrBanner(q) : null; };
     if (it && (Math.random() < 0.5 || (!vastUrl() && !bn && !q))) pbox = imageBanner(it);   // the owner's own pictures take turns with the network ads
     else if (vastUrl() && !SAMSUNG) pbox = videoBanner(fallback);                       // Samsung TVs have one video decoder: a second video while the show is paused could break resuming it
-    else if (q) pbox = qrBanner(q);                                                     // the QR card always shows (network banner pages such as Monetag Vignette need a click)
-    else if (bn) pbox = frameBanner(bn);
+    else if (bn) pbox = frameBanner(bn, q);                                             // network banner, with the QR card in its place until it draws
+    else if (q) pbox = qrBanner(q);
     else if (it) pbox = imageBanner(it);
     else return;
     document.body.appendChild(pbox); document.addEventListener('keydown', hidePause, true);   // any key puts it away (the key itself still reaches the player)

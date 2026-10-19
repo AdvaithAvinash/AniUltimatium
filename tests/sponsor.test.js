@@ -87,9 +87,9 @@ test('ad page frame: never shares the app\'s origin', () => {
   assert.strictEqual(S.frameSandbox({ page: 'http://site.example/x' }, 'null'), null);
   assert.strictEqual(S.frameSandbox({}, 'null'), null);
   const page = fs.readFileSync(path.join(root, 'public/adframe.html'), 'utf8');
-  assert.ok(/n6wxm\.com\/vignette\.min\.js/.test(page) && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
+  assert.ok(/nap5k\.com\/tag\.min\.js/.test(page) && /12072720/.test(page) && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
   const idx = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
-  assert.ok(!/n6wxm|bauval|vignette/.test(idx) && !/n6wxm|bauval|vignette/.test(fs.readFileSync(path.join(root, 'public/main.js'), 'utf8')), 'ad network tags never run inside the app page');
+  assert.ok(!/n6wxm|nap5k|bauval|vignette/.test(idx) && !/n6wxm|nap5k|bauval|vignette/.test(fs.readFileSync(path.join(root, 'public/main.js'), 'utf8')), 'ad network tags never run inside the app page');
 });
 
 test('Support the app: Settings button, QR for the phone, link comes from sponsor.json, nothing opens by itself', () => {
@@ -135,7 +135,7 @@ test('an ad always shows: sponsor QR card when the network has no video (pre-rol
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
   assert.match(sp, /if \(!qrCard\(\)\) finish\(true, 303\)/);
   assert.match(sp, /if \(t >= need\) finish\(true\)/);
-  assert.match(sp, /else if \(q\) pbox = qrBanner\(q\);/);
+  assert.match(sp, /else if \(bn\) pbox = frameBanner\(bn, q\);/);
 });
 
 test('the pre-roll never hangs on "Loading ad": 5 s cap, a video ad fetched ahead of time, late answers kept for the next play', () => {

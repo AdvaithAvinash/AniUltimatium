@@ -28,3 +28,6 @@ Not used: click-through links, ad-verification scripts, streaming (HLS/DASH) ad 
 1. Your own `pause` pictures (they take turns with network ads).
 2. The VAST video ad, as a small muted "Ad" video (320x180) for up to 15 s, with the same tracking as the pre-roll.
 3. The network banner page (`banner.page`). Note: Monetag's Vignette only draws after a click or a page change, so it does not appear on a paused player; use a real 300x250 banner tag there.
+
+## Pause banner on TVs (current setup)
+`adframe.html` carries the Monetag **In-Page Push** tag (zone 12072720). On pause the sponsor QR card shows at once; if the network draws an In-Page Push ad inside the ad page, it replaces the card. Vignette was removed: it only draws after a click or page change.
