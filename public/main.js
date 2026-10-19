@@ -2211,6 +2211,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.__feed && EA.feed) { EA.feed.activate(e); return; }
     if (e.__rows) { rowsAct(e.__rows); return; }
     if (e.id === 'setRowsBtn') { openRows(); return; }
+    if (e.id === 'setAdChk') { if (EA.sponsor) EA.sponsor.check(); return; }
     if (e.id === 'setSupportBtn') { if (EA.sponsor) EA.sponsor.support(); else toast('Not available right now'); return; }
     if (e.__p) { profAct(e.__p); return; }
     if (e.id === 'navProf') { EA_PROF.switchTo(); return; }

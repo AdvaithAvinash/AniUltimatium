@@ -9,7 +9,7 @@
 })(this, function () {
   'use strict';
   var CONFIG_URL = 'https://raw.githubusercontent.com/AdvaithAvinash/AniUltimatium/main/sponsor.json';
-  var TTL = 6 * 3600 * 1000, PAUSE_MS = 15000;
+  var TTL = 10 * 60 * 1000, PAUSE_MS = 15000;
 
   function httpsUrl(u) { return typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/i.test(u) && u.length < 1000; }
   function day(s) { var t = Date.parse(String(s || '') + 'T00:00:00'); return isNaN(t) ? null : t; }
@@ -129,20 +129,21 @@
     }
     return out;
   }
+  var vastWhy = '';
   function fetchVast(url, depth, acc, cb) {
-    var done = false, timer = setTimeout(function () { fin(null); }, 6000);
+    var done = false, timer = setTimeout(function () { vastWhy = vastWhy || 'the ad server did not answer in time'; fin(null); }, 6000);
     function fin(r) { if (done) return; done = true; clearTimeout(timer); cb(r); }
-    if (!window.fetch || !window.DOMParser || depth > 3) { fin(null); return; }
+    if (!window.fetch || !window.DOMParser || depth > 3) { vastWhy = 'this browser cannot read VAST'; fin(null); return; }
     fetch(fillMacros(url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('x')); }).then(function (t) {
-      var v = parseVast(t); if (!v) { fin(null); return; }
+      var v = parseVast(t); if (!v) { vastWhy = 'the ad server answered with no ad (nothing to show right now)'; fin(null); return; }
       acc.imps = acc.imps.concat(v.imps); acc.errors = acc.errors.concat(v.errors);
       acc.wtrack = acc.wtrack.concat(v.lin.map(function (c) { return c.track; }));                // a wrapper's tracking events also count
       var pick = chooseLinear(v.lin);
       if (v.next && !pick) { clearTimeout(timer); done = true; fetchVast(v.next, depth + 1, acc, cb); return; }
-      if (!pick) { fin(null); return; }
+      if (!pick) { vastWhy = 'the ad has no playable video file'; fin(null); return; }
       var track = {}; acc.wtrack.concat([pick.cand.track]).forEach(function (t) { Object.keys(t).forEach(function (e) { track[e] = (track[e] || []).concat(t[e]); }); });
       fin({ video: pick.file.url, vast: { imps: acc.imps, errors: acc.errors, track: track } });
-    }).catch(function () { fin(null); });
+    }).catch(function () { vastWhy = vastWhy || 'the request was blocked or failed (ad blocker, network, or the ad server refused it)'; fin(null); });
   }
   function resolveAd(cb) {                                                               // a VAST ad if the tag is set and fills, else one of the owner's own videos, else nothing
     function own() { cb(pickVideo(cfg, Date.now(), Math.random())); }
@@ -233,6 +234,27 @@
   video.addEventListener('playing', hidePause);
   video.addEventListener('seeking', hidePause);
 
+  // ---- Ad check (Settings): what the ad setup can do on THIS device right now, so a missing ad can be explained ----
+  function check() {
+    closeSupport();
+    modal = el('div', 'sponmodal', '<div class="sm-box"><h3>Ad check</h3><div id="adChk" style="text-align:left;font-size:1.3rem;line-height:1.7;color:#cfcfd6">Checking…</div><p class="sm-hint">Press OK or Back to close</p></div>');
+    document.body.appendChild(modal); document.addEventListener('keydown', supKey, true); modal.onclick = closeSupport;
+    var lines = [], out = function () { var n = $('adChk'); if (n) n.innerHTML = lines.map(esc).join('<br>'); };
+    getConfig(function () {
+      lines.push(cfg ? 'Settings file: loaded, ads ' + (cfg.enabled === true ? 'ON' : 'OFF') : 'Settings file: NOT loaded (offline or blocked)'); out();
+      lines.push('Anime ad: ' + (seen.animeDay === today() ? 'already shown today (next one tomorrow)' : 'due on the next anime play'));
+      var u = vastUrl();
+      var banner = function () {
+        var b = cfg && cfg.banner;
+        if (!b || !validBanner(b)) { lines.push('Banner: not set up'); out(); return; }
+        lines.push('Banner (pause screen): ' + (frameSandbox(b, window.location.origin) ? 'set up' : 'not usable here')); out();
+        if (window.fetch) fetch(b.page, { mode: 'no-cors', cache: 'no-store' }).then(function () { lines.push('Banner page: reachable'); out(); }).catch(function () { lines.push('Banner page: NOT reachable (site not deployed or blocked)'); out(); });
+      };
+      if (!u) { lines.push('Video ad: no ad tag set'); out(); banner(); return; }
+      lines.push('Video ad: asking the ad server…'); out();
+      vastWhy = ''; fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) { lines[lines.length - 1] = 'Video ad: ' + (r ? 'READY (an ad is available)' : 'NO AD, ' + (vastWhy || 'unknown reason')); out(); banner(); });
+    }, true);
+  }
   // ---- "Support the app" (Settings): a QR code for the viewer's phone. Nothing opens by itself; the link is an ad partner's offer, labelled as such ----
   var modal = null;
   function closeSupport() { if (modal) { document.removeEventListener('keydown', supKey, true); if (modal.parentNode) modal.parentNode.removeChild(modal); modal = null; if (state.focusEl && document.body.contains(state.focusEl)) EA.setFocus(state.focusEl, true); } }
@@ -246,7 +268,7 @@
     document.body.appendChild(modal); document.addEventListener('keydown', supKey, true); modal.onclick = closeSupport;
     if (EA.qr) EA.qr($('smQr'), u);
   }
-  EA.sponsor = { support: function () { support(false); }, wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
+  EA.sponsor = { check: check, support: function () { support(false); }, wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
   getConfig();
   return api;
 });
