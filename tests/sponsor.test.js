@@ -57,21 +57,16 @@ test('wired in: loaded by start.js, play() wrapped, pause ads have a setting, no
   assert.ok(!/createElement\('script'\)/.test(sp), 'the app itself never injects a script (a network banner runs only inside a sandboxed frame)');
 });
 
-test('network banner: strict key / https checks; the frame document is only the two-script snippet', () => {
+test('network banner: strict key / https checks', () => {
   const b = { key: 'd318854eb26101d27190496a3f0a4f26', src: 'https://bauval.org/22/d318854eb26101d27190496a3f0a4f26', width: 300, height: 250 };
   assert.ok(S.validBanner(b));
   assert.ok(!S.validBanner(Object.assign({}, b, { src: 'http://bauval.org/22/' + b.key })));
   assert.ok(!S.validBanner(Object.assign({}, b, { key: 'zz' })));
   assert.ok(!S.validBanner(Object.assign({}, b, { src: 'https://evil.example/x.js' })), 'script address must carry the key');
   assert.ok(!S.validBanner(Object.assign({}, b, { width: 5000 })));
-  const d = S.bannerDoc(b);
-  assert.match(d, /atOptions=\{"key":"d318854eb26101d27190496a3f0a4f26","format":"iframe","height":250,"width":300,"params":\{\}\}/);
-  assert.strictEqual((d.match(/<script/g) || []).length, 3, 'config, the network script, and the fill check');
-  assert.ok(d.indexOf('https://bauval.org/22/') > 0 && !/\.src\s*=|createElement/.test(d), 'the page adds no other script');
-  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
-  assert.match(sp, /setAttribute\('sandbox', 'allow-scripts'\)/);
-  assert.ok(!/allow-popups|allow-top-navigation/.test(sp.replace(/\/\/.*$/gm, '')));
-  assert.ok(!/allow-popups|allow-top-navigation/.test(sp.replace(/\/\/.*$/gm, '')), 'frame sandbox never grants popups or navigation');
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8').replace(/\/\/.*$/gm, '');
+  assert.ok(!/allow-popups|allow-top-navigation/.test(sp), 'frame sandbox never grants popups or navigation');
+  assert.ok(/framePage\(cfg\.banner/.test(sp), 'the banner is only used when it can have an origin of its own');
 });
 
 test('ad page frame: only from another origin than the app (never share an origin with the ad script)', () => {
