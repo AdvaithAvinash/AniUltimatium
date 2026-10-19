@@ -1,6 +1,6 @@
 // Sponsor ads, the honest kind: videos and pictures the project owner chose himself, listed in `sponsor.json` (repository root, edited on GitHub, no new release needed).
 //   Pre-roll: one labelled "Ad" video before a title starts (anime: once per app session; movies / TV: once per different title). Skippable after `skipAfter` seconds (default 20).
-//   Pause ad: a labelled picture shown for 15 s while the viewer has paused a video; it can be switched off in Settings.
+//   Pause ad: a labelled picture shown for 15 s while the viewer has paused a video.
 // No ad network, no third-party script, no tracking, no click-through links (nothing here can open a page), nothing during playback. If the ad cannot load, playback simply starts.
 // Plain ES5 (Tizen 4); the pure functions are also exported for the unit tests.
 (function (root, factory) {
@@ -64,7 +64,6 @@
   var EA = window.EA, $ = EA.$, el = EA.el, esc = EA.esc, store = EA.store, state = EA.state, video = EA.video;
   var cfg = null, seen = { anime: false, last: '' };
 
-  function pauseOn() { return store.get('ea_pauseads', true) !== false; }
   function getConfig(cb) {
     var c = store.get('ea_sponsor_cfg', null);
     if (c && Date.now() - c.t < TTL) { cfg = c.d; cb && cb(); return; }
@@ -132,20 +131,20 @@
   function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
     if (adMsg) { window.removeEventListener('message', adMsg); adMsg = null; } }
   function showPause() {
-    if (pbox || !pauseOn() || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
+    if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     if (EA.lite && EA.lite()) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
     if (!it && !bn) return;
     if (it && bn && Math.random() < 0.5) it = null;                                    // both set: they take turns
     if (!it) {                                                                          // network banner: shown from the ad page in a frame with NO popups and NO top navigation, in an origin of its own
-      var box = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
+      var box = el('div', 'pausead', '<div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
       var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', frameSandbox(bn, window.location.origin));   // never the app's own origin: the website gets a no-origin sandbox, the TV / Android app the ad page's own origin
       f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.src = bn.page;
       box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
       box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';            // invisible until the network really delivered an ad: no black box, no note without an ad
       pbox = box; listenAd(f, box);
     } else {
-      pbox = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card"><img alt="' + esc(it.alt || 'Sponsor') + '" src="' + esc(it.image) + '"><span class="ad-tag">Ad</span></div>');
+      pbox = el('div', 'pausead', '<div class="pa-card"><img alt="' + esc(it.alt || 'Sponsor') + '" src="' + esc(it.image) + '"><span class="ad-tag">Ad</span></div>');
       pbox.querySelector('img').onerror = hidePause;
     }
     document.body.appendChild(pbox); document.addEventListener('keydown', hidePause, true);   // any key puts it away (the key itself still reaches the player)

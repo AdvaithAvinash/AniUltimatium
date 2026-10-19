@@ -4,7 +4,7 @@ Aniultimatium can show sponsor ads that **you choose yourself**. There is no ad 
 
 ## What viewers see
 - **Pre-roll:** one video labelled "Ad" before a title starts. Anime: once per app session. Movies and TV: once per different title (not per episode). Skip is offered after `skipAfter` seconds (default 20). If the ad cannot load or freezes, playback just starts.
-- **Pause ad:** a picture labelled "Ad" for 15 seconds while a video is paused, with the line "You can turn off these pause ads in settings." Settings -> Pause ads switches it off.
+- **Pause ad:** a picture labelled "Ad" for 15 seconds while a video is paused,.
 - Nothing is shown during playback, and nothing is shown in Live TV or inside the hosted embed players.
 
 ## Setting it up

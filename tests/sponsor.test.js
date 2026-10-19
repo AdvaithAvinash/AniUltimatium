@@ -48,11 +48,9 @@ test('skip is allowed after 20 s by default, never later than the ad is long', (
   assert.strictEqual(S.skipAfter({}, 12), 11);
 });
 
-test('wired in: loaded by start.js, play() wrapped, pause ads have a setting, nothing can open a link', () => {
+test('wired in: loaded by start.js, play() wrapped, nothing can open a link', () => {
   const main = read('public/main.js'), sp = read('public/sponsor.js');
   assert.match(main, /EA\.sponsor\.wants\(a\)/);
-  assert.match(main, /'ea_pauseads'/);
-  assert.match(sp, /You can turn off these pause ads in settings\./);
   assert.ok(!/window\.open|location\.href|\.url\b|<a /.test(sp.replace(/\/\/.*$/gm, '')), 'no click-through');
   assert.ok(!/createElement\('script'\)/.test(sp), 'the app itself never injects a script (a network banner runs only inside a sandboxed frame)');
 });

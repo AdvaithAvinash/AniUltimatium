@@ -1574,7 +1574,6 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_engine', 'Player engine (Samsung TVs)', 'auto', [['auto', 'Auto (AVPlay on Tizen 4)'], ['avplay', 'Samsung AVPlay'], ['html5', 'Standard HTML5']]],
     ['ea_tlang', 'Titles', 'en', [['en', 'English'], ['romaji', 'Romaji (Japanese)']]],
     ['ea_pz', 'Poster size', 'normal', [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], function () { document.body.className = bodyCls(); }],
-    ['ea_pauseads', 'Pause ads (picture shown while a video is paused)', true, [[true, 'On'], [false, 'Off']], function () { if (EA.sponsor) EA.sponsor.hidePause(); }],
     ['ea_airbadge', 'Airing badges (episode countdown)', true, [[true, 'On'], [false, 'Off']], function () { paintAirBadges(); }],
     ['ea_alerts', 'New-episode alerts on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_recs', 'Recommendations on the home page', true, [[true, 'On'], [false, 'Off']]],
