@@ -38,6 +38,13 @@
   function validBanner(b) {
     return !!b && /^[0-9a-f]{32}$/i.test(b.key || '') && httpsUrl(b.src) && b.src.indexOf(b.key) > 0 && +b.width >= 100 && +b.width <= 970 && +b.height >= 50 && +b.height <= 600;
   }
+  // Where to show the banner: a page on the registered site (own origin: the ad script cannot reach the app's data) when the app runs from a different origin (TV / Android package),
+  // otherwise null -> the strict no-origin frame. Never the page's own origin: allow-same-origin there would hand the ad script the app's storage.
+  function framePage(b, origin) {
+    if (!b || !httpsUrl(b.page) || !origin) return null;
+    var m = /^(https:\/\/[^\/]+)\//i.exec(b.page); if (!m || m[1].toLowerCase() === String(origin).toLowerCase()) return null;
+    return b.page;
+  }
   function bannerDoc(b) {                                                              // the page inside the frame: the network's own two-script snippet + a tiny check that tells the app whether an ad really appeared
     var o = { key: b.key, format: 'iframe', height: +b.height, width: +b.width, params: {} };
     var probe = '(function(){var n=0,sent=false;function t(){if(sent)return;var f=document.getElementsByTagName("iframe"),i;for(i=0;i<f.length;i++)if(f[i].offsetHeight>20){sent=true;try{parent.postMessage("ea-ad:ok","*")}catch(e){}return}if(++n<55)setTimeout(t,150)}t()})();';
@@ -54,7 +61,7 @@
     if (duration && duration > 2) s = Math.min(s, Math.max(0, Math.floor(duration) - 1));
     return s;
   }
-  var api = { validBanner: validBanner, bannerDoc: bannerDoc, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
+  var api = { framePage: framePage, validBanner: validBanner, bannerDoc: bannerDoc, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
 
   if (typeof window === 'undefined' || !window.EA) return api;
   // ------------------------------------------------------------------ in the app
@@ -137,7 +144,10 @@
     if (!it) {                                                                          // network banner: scripts only run in a frame with NO popups, NO top navigation and NO access to the app's storage
       var box = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
       var f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts'); f.setAttribute('scrolling', 'no');
-      f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.srcdoc = bannerDoc(bn);
+      f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block';
+      var pg = framePage(bn, window.location.origin === 'null' || !window.location.origin ? 'null' : window.location.origin);
+      if (pg) { f.setAttribute('sandbox', 'allow-scripts allow-same-origin'); f.src = pg; }          // other origin than the app: allow-same-origin only means "its own" origin
+      else f.srcdoc = bannerDoc(bn);
       box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
       box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';            // invisible until the network really delivered an ad: no black box, no note without an ad
       pbox = box; listenAd(f, box);

@@ -70,5 +70,17 @@ test('network banner: strict key / https checks; the frame document is only the 
   assert.ok(d.indexOf('https://bauval.org/22/') > 0 && !/\.src\s*=|createElement/.test(d), 'the page adds no other script');
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
   assert.match(sp, /setAttribute\('sandbox', 'allow-scripts'\)/);
-  assert.ok(!/allow-popups|allow-top-navigation|allow-same-origin/.test(sp.replace(/\/\/.*$/gm, '')), 'frame sandbox never grants popups, navigation or same-origin');
+  assert.ok(!/allow-popups|allow-top-navigation/.test(sp.replace(/\/\/.*$/gm, '')));
+  assert.ok(!/allow-popups|allow-top-navigation/.test(sp.replace(/\/\/.*$/gm, '')), 'frame sandbox never grants popups or navigation');
+});
+
+test('ad page frame: only from another origin than the app (never share an origin with the ad script)', () => {
+  const b = { page: 'https://site.example/adframe.html' };
+  assert.strictEqual(S.framePage(b, 'null'), b.page);                    // file:// TV / Android package
+  assert.strictEqual(S.framePage(b, 'http://localhost:3222'), b.page);
+  assert.strictEqual(S.framePage(b, 'https://site.example'), null);      // the website itself: strict frame instead
+  assert.strictEqual(S.framePage({ page: 'http://site.example/x' }, 'null'), null);
+  assert.strictEqual(S.framePage({}, 'null'), null);
+  const page = fs.readFileSync(path.join(root, 'public/adframe.html'), 'utf8');
+  assert.ok(page.indexOf('https://bauval.org/22/d318854eb26101d27190496a3f0a4f26') > 0 && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
 });
