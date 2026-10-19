@@ -247,7 +247,7 @@
       var banner = function () {
         var b = cfg && cfg.banner;
         if (!b || !validBanner(b)) { lines.push('Banner: not set up'); out(); return; }
-        lines.push('Banner (pause screen): ' + (frameSandbox(b, window.location.origin) ? 'set up' : 'not usable here')); out();
+        var sb = frameSandbox(b, window.location.origin); lines.push('Banner (pause screen): ' + (!sb ? 'not usable here' : sb === 'allow-scripts' ? 'website mode: the ad runs without storage, so most ad scripts stay blank here. It is meant for the TV and Android app.' : 'app mode (own origin)')); out();
         if (window.fetch) fetch(b.page, { mode: 'no-cors', cache: 'no-store' }).then(function () { lines.push('Banner page: reachable'); out(); }).catch(function () { lines.push('Banner page: NOT reachable (site not deployed or blocked)'); out(); });
       };
       if (!u) { lines.push('Video ad: no ad tag set'); out(); banner(); return; }
