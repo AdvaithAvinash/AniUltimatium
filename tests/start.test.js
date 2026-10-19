@@ -20,10 +20,10 @@ test('start.js lists every app script, in dependency order, and they exist', () 
 });
 
 test('per-profile keys are keys the app really uses; main.js maps them and clears the crash counter', () => {
-  const start = read('public/start.js'), main = read('public/main.js');
+  const start = read('public/start.js'), main = read('public/main.js'), app = main + read('public/sponsor.js');
   const keys = /PERP = \/\^\(([^)]*)\)\$\//.exec(start)[1].split('|');
   assert.ok(keys.includes('ea_list') && keys.includes('ea_hist') && keys.includes('ea_progress') && keys.includes('ea_anilist'));
-  keys.forEach(k => assert.ok(main.includes("'" + k + "'"), k + ' is used by main.js'));
+  keys.forEach(k => assert.ok(app.includes("'" + k + "'"), k + ' is used by the app (main.js / sponsor.js, through the per-profile store)'));
   assert.match(main, /EA_PROF\.perProfile\.test\(k\)/);
   assert.match(main, /removeItem\('ea_boot'\)/);
   assert.match(main, /ui-modern/);

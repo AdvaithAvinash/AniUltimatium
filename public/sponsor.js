@@ -325,7 +325,7 @@
       lines.push(cfg ? 'Settings file: loaded, ads ' + (cfg.enabled === true ? 'ON' : 'OFF') : 'Settings file: NOT loaded (offline or blocked)'); out();
       var lg = store.get('ea_ad_log', {}) || {}, ago = function (x) { return x ? Math.round((Date.now() - x.t) / 60000) + ' min ago: ' + x.what : 'nothing yet'; };
       lines.push('Last video ad: ' + ago(lg.video)); lines.push('Last pause banner: ' + ago(lg.banner)); lines.push('Video ad route: ' + (relayUrl() ? 'through the site (app mode)' : 'direct (website mode)'));
-      lines.push('Anime ad: ' + (seen.animeDay === today() ? 'already shown today (next one tomorrow)' : 'due on the next anime play'));
+      lines.push('Anime ad (this profile): ' + (seen.animeDay === today() ? 'already shown today (next one tomorrow)' : 'due on the next anime play'));
       var u = vastUrl();
       var banner = function () {
         var b = cfg && cfg.banner;
