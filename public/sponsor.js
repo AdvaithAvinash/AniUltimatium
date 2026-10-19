@@ -63,6 +63,16 @@
     });
     return best;
   }
+  // A VAST ad can hold several creatives (e.g. 1:33 and 0:20): use ONE of them, the first with a playable file that is 45 s or shorter, else the shortest. cands: [{ dur (s), media: [...], track: {...} }]
+  function chooseLinear(cands) {
+    var best = null, bf = null, bs = 1e9;
+    (cands || []).forEach(function (c, i) {
+      var f = pickMedia(c.media); if (!f) return;
+      var sc = (c.dur > 45 ? 1000 + c.dur : 0) + i; if (!c.dur) sc = 500 + i;
+      if (sc < bs) { bs = sc; best = c; bf = f; }
+    });
+    return best ? { cand: best, file: bf } : null;
+  }
   function fillMacros(u, code) {                                                       // the VAST macros a tag or a tracking url may contain
     var now = String(Date.now());
     return String(u).replace(/\[(TIMESTAMP|CACHEBUSTING|RANDOM)\]|%5B(TIMESTAMP|CACHEBUSTING|RANDOM)%5D/gi, now).replace(/\[ERRORCODE\]|%5BERRORCODE%5D/gi, String(code || 900)).replace(/\[CONTENTPLAYHEAD\]|%5BCONTENTPLAYHEAD%5D/gi, '00:00:00.000');
@@ -73,7 +83,7 @@
     if (duration && duration > 2) s = Math.min(s, Math.max(0, Math.floor(duration) - 1));
     return s;
   }
-  var api = { pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
+  var api = { chooseLinear: chooseLinear, pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
 
   if (typeof window === 'undefined' || !window.EA) return api;
   // ------------------------------------------------------------------ in the app
@@ -105,12 +115,18 @@
   function parseVast(text) {
     var doc; try { doc = new DOMParser().parseFromString(text, 'text/xml'); } catch (e) { return null; }
     var ad0 = doc.getElementsByTagName('Ad')[0]; if (!ad0) return null;
-    var txt = function (n) { return String(n.textContent || '').replace(/^\s+|\s+$/g, ''); }, out = { imps: [], errors: [], track: {}, media: [], next: '' }, i, n;
+    var txt = function (n) { return String(n.textContent || '').replace(/^\s+|\s+$/g, ''); }, out = { imps: [], errors: [], lin: [], next: '' }, i, n;
     n = ad0.getElementsByTagName('VASTAdTagURI')[0]; if (n) out.next = txt(n);
     var list = ad0.getElementsByTagName('Impression'); for (i = 0; i < list.length; i++) out.imps.push(txt(list[i]));
     list = ad0.getElementsByTagName('Error'); for (i = 0; i < list.length; i++) out.errors.push(txt(list[i]));
-    list = ad0.getElementsByTagName('Tracking'); for (i = 0; i < list.length; i++) { var ev = list[i].getAttribute('event'); if (ev) (out.track[ev] = out.track[ev] || []).push(txt(list[i])); }
-    list = ad0.getElementsByTagName('MediaFile'); for (i = 0; i < list.length; i++) { var m = list[i]; out.media.push({ url: txt(m), type: m.getAttribute('type'), delivery: m.getAttribute('delivery'), width: +m.getAttribute('width'), height: +m.getAttribute('height'), bitrate: +m.getAttribute('bitrate') }); }
+    var lin = ad0.getElementsByTagName('Linear'), j, k;
+    for (i = 0; i < lin.length; i++) {                                                   // one candidate per creative: its files, its duration, its own tracking events
+      var c = { dur: 0, media: [], track: {} }, d = lin[i].getElementsByTagName('Duration')[0], hms = d ? /(\d+):(\d+):(\d+)/.exec(txt(d)) : null;
+      if (hms) c.dur = +hms[1] * 3600 + +hms[2] * 60 + +hms[3];
+      var tr = lin[i].getElementsByTagName('Tracking'); for (j = 0; j < tr.length; j++) { var ev = tr[j].getAttribute('event'); if (ev) (c.track[ev] = c.track[ev] || []).push(txt(tr[j])); }
+      var mf = lin[i].getElementsByTagName('MediaFile'); for (k = 0; k < mf.length; k++) { var m = mf[k]; c.media.push({ url: txt(m), type: m.getAttribute('type'), delivery: m.getAttribute('delivery'), width: +m.getAttribute('width'), height: +m.getAttribute('height'), bitrate: +m.getAttribute('bitrate') }); }
+      out.lin.push(c);
+    }
     return out;
   }
   function fetchVast(url, depth, acc, cb) {
@@ -120,15 +136,18 @@
     fetch(fillMacros(url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('x')); }).then(function (t) {
       var v = parseVast(t); if (!v) { fin(null); return; }
       acc.imps = acc.imps.concat(v.imps); acc.errors = acc.errors.concat(v.errors);
-      Object.keys(v.track).forEach(function (k) { acc.track[k] = (acc.track[k] || []).concat(v.track[k]); });
-      if (v.next && !v.media.length) { clearTimeout(timer); done = true; fetchVast(v.next, depth + 1, acc, cb); return; }
-      var f = pickMedia(v.media); fin(f ? { video: f.url, vast: acc } : null);
+      acc.wtrack = acc.wtrack.concat(v.lin.map(function (c) { return c.track; }));                // a wrapper's tracking events also count
+      var pick = chooseLinear(v.lin);
+      if (v.next && !pick) { clearTimeout(timer); done = true; fetchVast(v.next, depth + 1, acc, cb); return; }
+      if (!pick) { fin(null); return; }
+      var track = {}; acc.wtrack.concat([pick.cand.track]).forEach(function (t) { Object.keys(t).forEach(function (e) { track[e] = (track[e] || []).concat(t[e]); }); });
+      fin({ video: pick.file.url, vast: { imps: acc.imps, errors: acc.errors, track: track } });
     }).catch(function () { fin(null); });
   }
   function resolveAd(cb) {                                                               // a VAST ad if the tag is set and fills, else one of the owner's own videos, else nothing
     function own() { cb(pickVideo(cfg, Date.now(), Math.random())); }
     var u = vastUrl(); if (!u) { own(); return; }
-    fetchVast(u, 0, { imps: [], errors: [], track: {} }, function (r) { if (r) cb(r); else own(); });
+    fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) { if (r) cb(r); else own(); });
   }
   function preroll(a, done) {                                                            // done(true) = go on and play, done(false) = the viewer left
     var kind = kindOf(a), started = false, finished = false, last = 0, lastAt = Date.now(), t0 = Date.now(), it = null, skipAt = 20, timer, sent = {}, vast = null, skipped = false;

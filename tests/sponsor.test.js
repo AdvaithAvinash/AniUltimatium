@@ -101,3 +101,12 @@ test('Support the app: Settings button, QR for the phone, link comes from sponso
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'sponsor.json'), 'utf8'));
   assert.ok(S.httpsUrl(cfg.support.url));
 });
+
+test('VAST: one creative is used (short ones first), never a mix of two', () => {
+  const m = (u) => [{ url: u, type: 'video/mp4', delivery: 'progressive', height: 720, bitrate: 1000 }];
+  const long = { dur: 93, media: m('https://cdn.example/long.mp4'), track: {} }, short = { dur: 20, media: m('https://cdn.example/short.mp4'), track: {} };
+  assert.strictEqual(S.chooseLinear([long, short]).file.url, 'https://cdn.example/short.mp4');
+  assert.strictEqual(S.chooseLinear([short, long]).file.url, 'https://cdn.example/short.mp4');
+  assert.strictEqual(S.chooseLinear([long]).file.url, 'https://cdn.example/long.mp4');
+  assert.strictEqual(S.chooseLinear([{ dur: 20, media: [], track: {} }]), null);
+});
