@@ -142,7 +142,7 @@
     var f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts allow-same-origin'); f.setAttribute('aria-hidden', 'true');
     f.style.cssText = 'position:absolute;left:-9999px;top:0;width:1px;height:1px;border:0;visibility:hidden';
     relay = { url: u, f: f, ready: false, wait: [cb] };
-    var r0 = relay, fail = setTimeout(function () { if (!r0.ready) { var w = r0.wait; r0.wait = []; if (relay === r0) relay = null; if (f.parentNode) f.parentNode.removeChild(f); w.forEach(function (x) { x(null); }); } }, 8000);
+    var r0 = relay, fail = setTimeout(function () { if (!r0.ready) { var w = r0.wait; r0.wait = []; if (relay === r0) relay = null; if (f.parentNode) f.parentNode.removeChild(f); w.forEach(function (x) { x(null); }); } }, 5000);
     r0.go = function () { if (r0.ready) return; r0.ready = true; clearTimeout(fail); var w = r0.wait; r0.wait = []; w.forEach(function (x) { x(f); }); };
     f.src = u; document.body.appendChild(f);
   }
@@ -180,14 +180,23 @@
       fin({ video: pick.file.url, files: pick.files, vast: { imps: acc.imps, errors: acc.errors, track: track } });
     });
   }
-  function resolveAd(cb) {                                                               // a VAST ad if the tag is set and fills, else one of the owner's own videos, else nothing
-    function own() { cb(pickVideo(cfg, Date.now(), Math.random())); }
-    var u = vastUrl(); if (!u) { own(); return; }
-    fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) {
-      if (r) { cb(r); return; }
-      setTimeout(function () { vastWhy = ''; fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r2) { if (r2) cb(r2); else own(); }); }, 1200);   // networks often fill the second ask
-    });
+  // A video ad fetched ahead of time, so the pre-roll can start the moment Play is pressed. Fetching is not an impression: tracking only fires when it plays.
+  var ready = null, fetching = false, READY_MS = 4 * 60 * 1000;
+  function prefetch() {
+    var u = vastUrl(); if (!u || fetching || (ready && Date.now() - ready.t < READY_MS)) return;
+    fetching = true;
+    fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) { fetching = false; if (r) ready = { r: r, t: Date.now() }; });
   }
+  function resolveAd(cb) {                                                               // a VAST ad (ready, or asked for now) if the network fills, else one of the owner's own videos, else nothing
+    var done = false;
+    function give(r) { if (done) return; done = true; clearTimeout(cap); cb(r); setTimeout(prefetch, 3000); }
+    function own() { give(pickVideo(cfg, Date.now(), Math.random())); }
+    var cap = setTimeout(function () { vastWhy = vastWhy || 'the ad network took longer than 5 s'; own(); }, 5000);   // never keep the viewer on "Loading ad" for long
+    if (ready && Date.now() - ready.t < READY_MS) { var r0 = ready.r; ready = null; give(r0); return; }
+    var u = vastUrl(); if (!u) { own(); return; }
+    fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) { if (done) { if (r) ready = { r: r, t: Date.now() }; return; } if (r) give(r); else own(); });   // a late answer is kept for the next play
+  }
+
   function preroll(a, done) {                                                            // done(true) = go on and play, done(false) = the viewer left
     var kind = kindOf(a), started = false, finished = false, last = 0, lastAt = Date.now(), t0 = Date.now(), it = null, skipAt = 20, timer, sent = {}, vast = null, skipped = false;
     var box = el('div', 'adbox', '<video class="advid" playsinline></video><div class="ad-tag">Ad <span class="ad-left"></span></div><div class="ad-skip">Loading ad…</div><div class="ad-bar"><i></i></div>');
@@ -383,6 +392,7 @@
     if (EA.qr) EA.qr($('smQr'), u);
   }
   EA.sponsor = { check: check, support: function () { support(false); }, wants: wants, preroll: preroll, hidePause: hidePause, reload: getConfig };
-  getConfig();
+  getConfig(function () { setTimeout(prefetch, 4000); });
+  setInterval(prefetch, READY_MS + 15000);
   return api;
 });

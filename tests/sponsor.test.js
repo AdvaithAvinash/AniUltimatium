@@ -137,3 +137,10 @@ test('an ad always shows: sponsor QR card when the network has no video (pre-rol
   assert.match(sp, /if \(t >= need\) finish\(true\)/);
   assert.match(sp, /else if \(q\) pbox = qrBanner\(q\);/);
 });
+
+test('the pre-roll never hangs on "Loading ad": 5 s cap, a video ad fetched ahead of time, late answers kept for the next play', () => {
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(sp, /var cap = setTimeout\(function \(\) \{[^}]*own\(\); \}, 5000\);/);
+  assert.match(sp, /function prefetch\(\)/);
+  assert.match(sp, /if \(done\) \{ if \(r\) ready = \{ r: r, t: Date\.now\(\) \}; return; \}/);
+});
