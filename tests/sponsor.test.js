@@ -55,13 +55,12 @@ test('wired in: loaded by start.js, play() wrapped, nothing can open a link', ()
   assert.ok(!/createElement\('script'\)/.test(sp), 'the app itself never injects a script (a network banner runs only inside a sandboxed frame)');
 });
 
-test('network banner: strict key / https checks', () => {
-  const b = { key: 'd318854eb26101d27190496a3f0a4f26', src: 'https://bauval.org/22/d318854eb26101d27190496a3f0a4f26', width: 300, height: 250 };
+test('network banner: needs an https ad page and a sane size', () => {
+  const b = { page: 'https://site.example/adframe.html', width: 300, height: 250 };
   assert.ok(S.validBanner(b));
-  assert.ok(!S.validBanner(Object.assign({}, b, { src: 'http://bauval.org/22/' + b.key })));
-  assert.ok(!S.validBanner(Object.assign({}, b, { key: 'zz' })));
-  assert.ok(!S.validBanner(Object.assign({}, b, { src: 'https://evil.example/x.js' })), 'script address must carry the key');
+  assert.ok(!S.validBanner(Object.assign({}, b, { page: 'http://site.example/adframe.html' })));
   assert.ok(!S.validBanner(Object.assign({}, b, { width: 5000 })));
+  assert.ok(!S.validBanner(null));
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8').replace(/\/\/.*$/gm, '');
   assert.ok(!/allow-popups|allow-top-navigation/.test(sp), 'frame sandbox never grants popups or navigation');
   assert.ok(/frameSandbox\(cfg\.banner/.test(sp));
@@ -75,5 +74,7 @@ test('ad page frame: never shares the app\'s origin', () => {
   assert.strictEqual(S.frameSandbox({ page: 'http://site.example/x' }, 'null'), null);
   assert.strictEqual(S.frameSandbox({}, 'null'), null);
   const page = fs.readFileSync(path.join(root, 'public/adframe.html'), 'utf8');
-  assert.ok(page.indexOf('https://bauval.org/22/d318854eb26101d27190496a3f0a4f26') > 0 && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
+  assert.ok(/n6wxm\.com\/vignette\.min\.js/.test(page) && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
+  const idx = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
+  assert.ok(!/n6wxm|bauval|vignette/.test(idx) && !/n6wxm|bauval|vignette/.test(fs.readFileSync(path.join(root, 'public/main.js'), 'utf8')), 'ad network tags never run inside the app page');
 });

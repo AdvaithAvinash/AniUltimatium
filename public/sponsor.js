@@ -34,9 +34,9 @@
   }
   function pickVideo(cfg, now, rnd) { return cfg && cfg.enabled === true ? pickFrom(cfg.preroll, validVideo, now, rnd) : null; }
   function pickImage(cfg, now, rnd) { return cfg && cfg.enabled === true ? pickFrom(cfg.pause, validImage, now, rnd) : null; }
-  // A network banner (e.g. Adsterra "Banner", format iframe): { key: 32 hex, src: https script url, width, height }. It only ever runs inside a sandboxed frame (see showPause).
+  // A network banner: { page: https url of the ad page on the registered site (the network's tag lives in that page, never in the app), width, height }. It only ever runs inside a sandboxed frame (see showPause).
   function validBanner(b) {
-    return !!b && /^[0-9a-f]{32}$/i.test(b.key || '') && httpsUrl(b.src) && b.src.indexOf(b.key) > 0 && +b.width >= 100 && +b.width <= 970 && +b.height >= 50 && +b.height <= 600;
+    return !!b && httpsUrl(b.page) && +b.width >= 100 && +b.width <= 970 && +b.height >= 50 && +b.height <= 600;
   }
   // The banner is shown from a real page on the registered site (`page`), never from srcdoc (the network refuses a frame with no address).
   // Another origin than the app (TV / Android package): the page keeps its own origin. The website itself: the page would share the app's origin, so the frame is sandboxed WITHOUT

@@ -1,22 +1,14 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Ad</title>
+<script>(function(s){s.dataset.zone='12070831',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
 <style>html,body{margin:0;background:transparent;overflow:hidden}</style></head>
 <body>
-<!-- Ad page for the pause banner. The app shows it in a frame that has NO popups and NO top navigation, and (in the TV / Android app) a different origin from the app,
-     so the ad script cannot read the app's data. Ad networks refuse a fully locked-down frame; a page on the registered site address is accepted. -->
+<!-- Ad page for the pause banner. The app shows it in a frame that has NO popups and NO top navigation and (website: no origin at all; TV / Android app: an origin of its own),
+     so the ad script cannot read the app's data. Do not paste ad tags into index.html: they would run inside the app with access to its storage. -->
 <script>
-  atOptions = {
-    'key' : 'd318854eb26101d27190496a3f0a4f26',
-    'format' : 'iframe',
-    'height' : 250,
-    'width' : 300,
-    'params' : {}
-  };
-</script>
-<script src="https://bauval.org/22/d318854eb26101d27190496a3f0a4f26"></script>
-<script>
-  (function () { var n = 0, sent = false; function t() { if (sent) return; var f = document.getElementsByTagName('iframe'), i;
-    for (i = 0; i < f.length; i++) if (f[i].offsetHeight > 20) { sent = true; try { parent.postMessage('ea-ad:ok', '*'); } catch (e) {} return; }
+  (function () { var n = 0, sent = false; function t() { if (sent) return; var el = document.documentElement.getElementsByTagName('*'), i;
+    for (i = 0; i < el.length; i++) { var e = el[i], tn = e.tagName; if (tn === 'SCRIPT' || tn === 'STYLE' || tn === 'HTML' || tn === 'HEAD' || tn === 'BODY' || tn === 'META' || tn === 'TITLE') continue;
+      if (e.offsetHeight > 20 && e.offsetWidth > 20) { sent = true; try { parent.postMessage('ea-ad:ok', '*'); } catch (x) {} return; } }
     if (++n < 55) setTimeout(t, 150); } t(); })();
 </script>
 </body></html>
