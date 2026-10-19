@@ -126,7 +126,7 @@ test('video ad relay: web-only page that fetches only the tag from sponsor.json 
 
 test('pause screen uses the VAST video ad (muted, labelled) when a tag is set; network frame pages are only the fallback', () => {
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
-  assert.match(sp, /else if \(vastUrl\(\)\) pbox = videoBanner\(fallback\);/);
+  assert.match(sp, /else if \(vastUrl\(\) && !SAMSUNG\) pbox = videoBanner\(fallback\);/, 'no second video on Samsung while the show is paused');
   assert.match(sp, /<video muted playsinline/);
   assert.match(sp, /stopPauseVideo\(\)/);
 });

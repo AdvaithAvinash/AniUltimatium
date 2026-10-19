@@ -250,7 +250,7 @@
     setTimeout(function () { if (pbox === box && box.style.visibility === 'hidden') note('banner', 'the ad page loaded but the network drew no ad inside the frame'); }, 9000);
     window.addEventListener('message', adMsg);
   }
-  var pvid = null;
+  var pvid = null, SAMSUNG = /Tizen/i.test(navigator.userAgent);
   function stopPauseVideo() { if (!pvid) return; clearInterval(pvid.timer); try { pvid.v.pause(); pvid.v.removeAttribute('src'); pvid.v.load(); } catch (e) { /* ignore */ } pvid = null; }
   function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); stopPauseVideo(); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
     if (adMsg) { window.removeEventListener('message', adMsg); adMsg = null; } }
@@ -303,8 +303,9 @@
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
     var fallback = function () { return bn ? frameBanner(bn) : it ? imageBanner(it) : null; };
     if (it && (Math.random() < 0.5 || (!vastUrl() && !bn))) pbox = imageBanner(it);        // the owner's own pictures take turns with the network ads
-    else if (vastUrl()) pbox = videoBanner(fallback);
+    else if (vastUrl() && !SAMSUNG) pbox = videoBanner(fallback);                       // Samsung TVs have one video decoder: a second video while the show is paused could break resuming it
     else if (bn) pbox = frameBanner(bn);
+    else if (it) pbox = imageBanner(it);
     else return;
     document.body.appendChild(pbox); document.addEventListener('keydown', hidePause, true);   // any key puts it away (the key itself still reaches the player)
     ptimer = setTimeout(hidePause, PAUSE_MS);
