@@ -38,12 +38,13 @@
   function validBanner(b) {
     return !!b && /^[0-9a-f]{32}$/i.test(b.key || '') && httpsUrl(b.src) && b.src.indexOf(b.key) > 0 && +b.width >= 100 && +b.width <= 970 && +b.height >= 50 && +b.height <= 600;
   }
-  // Where to show the banner: a page on the registered site (own origin: the ad script cannot reach the app's data) when the app runs from a different origin (TV / Android package),
-  // otherwise null -> no network banner (a no-origin sandbox is refused by the network, and a page of the app's own origin would hand the ad script the app's storage). Never the page's own origin: allow-same-origin there would hand the ad script the app's storage.
-  function framePage(b, origin) {
-    if (!b || !httpsUrl(b.page) || !origin) return null;
-    var m = /^(https:\/\/[^\/]+)\//i.exec(b.page); if (!m || m[1].toLowerCase() === String(origin).toLowerCase()) return null;
-    return b.page;
+  // The banner is shown from a real page on the registered site (`page`), never from srcdoc (the network refuses a frame with no address).
+  // Another origin than the app (TV / Android package): the page keeps its own origin. The website itself: the page would share the app's origin, so the frame is sandboxed WITHOUT
+  // allow-same-origin there (opaque origin: the ad script cannot read the app's storage). Never allow-popups / allow-top-navigation.
+  function frameSandbox(b, origin) {
+    if (!b || !httpsUrl(b.page)) return null;
+    var m = /^(https:\/\/[^\/]+)\//i.exec(b.page); if (!m) return null;
+    return origin && m[1].toLowerCase() === String(origin).toLowerCase() ? 'allow-scripts' : 'allow-scripts allow-same-origin';
   }
   // Is a pre-roll due for this title? seen = { anime: bool, last: 'kind:id' of the last movie / TV title that got one }
   function due(seen, kind, id) {
@@ -56,7 +57,7 @@
     if (duration && duration > 2) s = Math.min(s, Math.max(0, Math.floor(duration) - 1));
     return s;
   }
-  var api = { framePage: framePage, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
+  var api = { frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
 
   if (typeof window === 'undefined' || !window.EA) return api;
   // ------------------------------------------------------------------ in the app
@@ -133,12 +134,12 @@
   function showPause() {
     if (pbox || !pauseOn() || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     if (EA.lite && EA.lite()) return;
-    var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && framePage(cfg.banner, window.location.origin || 'null') ? cfg.banner : null;
+    var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
     if (!it && !bn) return;
     if (it && bn && Math.random() < 0.5) it = null;                                    // both set: they take turns
     if (!it) {                                                                          // network banner: shown from the ad page in a frame with NO popups and NO top navigation, in an origin of its own
       var box = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
-      var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', 'allow-scripts allow-same-origin');   // same-origin = the ad page's OWN origin, not the app's
+      var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', frameSandbox(bn, window.location.origin));   // never the app's own origin: the website gets a no-origin sandbox, the TV / Android app the ad page's own origin
       f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.src = bn.page;
       box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
       box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';            // invisible until the network really delivered an ad: no black box, no note without an ad

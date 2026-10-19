@@ -66,16 +66,16 @@ test('network banner: strict key / https checks', () => {
   assert.ok(!S.validBanner(Object.assign({}, b, { width: 5000 })));
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8').replace(/\/\/.*$/gm, '');
   assert.ok(!/allow-popups|allow-top-navigation/.test(sp), 'frame sandbox never grants popups or navigation');
-  assert.ok(/framePage\(cfg\.banner/.test(sp), 'the banner is only used when it can have an origin of its own');
+  assert.ok(/frameSandbox\(cfg\.banner/.test(sp));
 });
 
-test('ad page frame: only from another origin than the app (never share an origin with the ad script)', () => {
+test('ad page frame: never shares the app\'s origin', () => {
   const b = { page: 'https://site.example/adframe.html' };
-  assert.strictEqual(S.framePage(b, 'null'), b.page);                    // file:// TV / Android package
-  assert.strictEqual(S.framePage(b, 'http://localhost:3222'), b.page);
-  assert.strictEqual(S.framePage(b, 'https://site.example'), null);      // the website itself: strict frame instead
-  assert.strictEqual(S.framePage({ page: 'http://site.example/x' }, 'null'), null);
-  assert.strictEqual(S.framePage({}, 'null'), null);
+  assert.strictEqual(S.frameSandbox(b, 'null'), 'allow-scripts allow-same-origin');          // file:// TV / Android package: the page has its own origin
+  assert.strictEqual(S.frameSandbox(b, 'http://localhost:3222'), 'allow-scripts allow-same-origin');
+  assert.strictEqual(S.frameSandbox(b, 'https://site.example'), 'allow-scripts');            // the website: opaque origin, no access to the site's storage
+  assert.strictEqual(S.frameSandbox({ page: 'http://site.example/x' }, 'null'), null);
+  assert.strictEqual(S.frameSandbox({}, 'null'), null);
   const page = fs.readFileSync(path.join(root, 'public/adframe.html'), 'utf8');
   assert.ok(page.indexOf('https://bauval.org/22/d318854eb26101d27190496a3f0a4f26') > 0 && !/location\.search|location\.hash|document\.referrer/.test(page), 'fixed snippet, no parameters');
 });
