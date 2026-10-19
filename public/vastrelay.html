@@ -27,6 +27,7 @@
     config(function () {
       if (!allowed[d.url]) { reply({ ok: false, why: 'address not allowed' }); return; }
       fetch(fill(d.url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)); }).then(function (t) {
+        t = String(t || '');
         var re = /<VASTAdTagURI[^>]*>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)/gi, m;
         while ((m = re.exec(t))) allowed[m[1].replace(/&amp;/g, '&')] = 1;                // a wrapper may point to the next answer: allow exactly that address
         reply({ ok: true, text: t });

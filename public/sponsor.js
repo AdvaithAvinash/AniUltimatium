@@ -169,7 +169,7 @@
     getText(url, function (err, t) {
       if (done) return;
       if (err) { vastWhy = 'the request failed: ' + err; fin(null); return; }
-      var v = parseVast(t); if (!v) { vastWhy = 'the ad server answered with no ad (nothing to show right now)'; fin(null); return; }
+      var v = parseVast(t); if (!v) { vastWhy = 'the ad server sent an empty answer (' + (String(t || '').replace(/\s+/g, ' ').slice(0, 90) || 'nothing at all') + ')'; fin(null); return; }
       acc.imps = acc.imps.concat(v.imps); acc.errors = acc.errors.concat(v.errors);
       acc.wtrack = acc.wtrack.concat(v.lin.map(function (c) { return c.track; }));                // a wrapper's tracking events also count
       var pick = chooseLinear(v.lin);
@@ -182,7 +182,10 @@
   function resolveAd(cb) {                                                               // a VAST ad if the tag is set and fills, else one of the owner's own videos, else nothing
     function own() { cb(pickVideo(cfg, Date.now(), Math.random())); }
     var u = vastUrl(); if (!u) { own(); return; }
-    fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) { if (r) cb(r); else own(); });
+    fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) {
+      if (r) { cb(r); return; }
+      setTimeout(function () { vastWhy = ''; fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r2) { if (r2) cb(r2); else own(); }); }, 1200);   // networks often fill the second ask
+    });
   }
   function preroll(a, done) {                                                            // done(true) = go on and play, done(false) = the viewer left
     var kind = kindOf(a), started = false, finished = false, last = 0, lastAt = Date.now(), t0 = Date.now(), it = null, skipAt = 20, timer, sent = {}, vast = null, skipped = false;
@@ -324,7 +327,7 @@
     getConfig(function () {
       lines.push(cfg ? 'Settings file: loaded, ads ' + (cfg.enabled === true ? 'ON' : 'OFF') : 'Settings file: NOT loaded (offline or blocked)'); out();
       var lg = store.get('ea_ad_log', {}) || {}, ago = function (x) { return x ? Math.round((Date.now() - x.t) / 60000) + ' min ago: ' + x.what : 'nothing yet'; };
-      lines.push('Last video ad: ' + ago(lg.video)); lines.push('Last pause banner: ' + ago(lg.banner)); lines.push('Video ad route: ' + (relayUrl() ? 'through the site (app mode)' : 'direct (website mode)'));
+      lines.push('Last video ad: ' + ago(lg.video)); lines.push('Last pause banner: ' + ago(lg.banner)); lines.push('Video ad route: ' + (relayUrl() ? 'through the site (app mode)' : 'direct (website mode)') + ', page: ' + (window.location.origin || 'none')); lines.push('Device: ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90));
       lines.push('Anime ad (this profile): ' + (seen.animeDay === today() ? 'already shown today (next one tomorrow)' : 'due on the next anime play'));
       var u = vastUrl();
       var banner = function () {
