@@ -207,6 +207,7 @@
     function ev(name) { if (!vast || sent[name]) return; sent[name] = 1; (vast.track[name] || []).forEach(beacon); }
     function finish(go, code) {
       if (finished) return; finished = true; clearInterval(timer); document.removeEventListener('keydown', onKey, true);
+      if (go && started) { if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id; }   // the ad only counts once it was watched (or skipped after the minimum): leaving with Back keeps it due
       if (vast && !started && code) vast.errors.forEach(function (u) { beacon(fillMacros(u, code)); });
       if (skipped) ev('skip');
       try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* ignore */ }
@@ -221,7 +222,7 @@
       v.style.display = 'none'; bar.parentNode.style.display = '';
       var card = el('div', 'adqr', '<h3>Sponsored</h3><p>Scan with your phone to see this offer</p><div class="adqr-code"></div>');
       box.appendChild(card); if (EA.qr) EA.qr(card.querySelector('.adqr-code'), u);
-      started = true; if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id;
+      started = true;
       note('video', 'showed the sponsor QR card (no network video)');
       var t0q = Date.now(), need = 20;
       timer = setInterval(function () {
@@ -241,7 +242,6 @@
     box.onclick = function () { if (canSkip()) { skipped = true; finish(true); } };
     v.addEventListener('playing', function () {
       if (started) return; started = true;                                              // only a shown ad counts
-      if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id;
       if (vast) { vast.imps.forEach(beacon); ev('creativeView'); ev('start'); }
       note('video', 'shown');
     });

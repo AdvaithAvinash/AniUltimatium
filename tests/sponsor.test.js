@@ -144,3 +144,9 @@ test('the pre-roll never hangs on "Loading ad": 5 s cap, a video ad fetched ahea
   assert.match(sp, /function prefetch\(\)/);
   assert.match(sp, /if \(done\) \{ if \(r\) ready = \{ r: r, t: Date\.now\(\) \}; return; \}/);
 });
+
+test('an ad only counts once watched: leaving it with Back keeps it due', () => {
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(sp, /if \(go && started\) \{ if \(kind === 'anime'\)/);
+  assert.strictEqual((sp.match(/store\.set\('ea_ad_day'/g) || []).length, 1, 'marked in one place only');
+});
