@@ -8,7 +8,7 @@
 > Hello everyone! ❤️ I’ve been working consistently to improve AniUltimatium and bring you regular updates. It’s been a challenging journey, and honestly, I’m starting to feel exhausted and running low on funds to keep things going.
 I have just one small request: **if you’ve enjoyed using AniUltimatium, please consider giving the project a ⭐ on GitHub!** It may seem like a small gesture, but it means a lot to me. Your support motivates me to keep improving the app and helps more people discover it.
 Thank you to everyone who has used the app, shared feedback, reported bugs, or supported the project in any way. I genuinely appreciate every bit of support. ❤️
-**AniUltimatium will always remain FREE, OPEN SOURCE, and AD-FREE.** These are the values I want this project to stand by, and I’m committed to preserving them.
+**AniUltimatium will always remain FREE and OPENSOURCE.**These are the values I want this project to stand by, and I’m committed to preserving them.
 Thank you for being part of this journey! 🙏
 
 
@@ -42,7 +42,7 @@ Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | **Stability** | Playback guard (frozen / no-picture streams recovered step by step, then a clear panel), server-side stream verification, SourceIQ that learns smoothness and resolution, a start-up safe mode after three failed starts, time limits and one automatic retry on API calls, memory trimming on Android, and a clear recovery screen instead of a black page |
 | **Extra sources** | Optional, in Settings: debrid service (Real-Debrid, AllDebrid, Premiumize, TorBox; the key stays on your device), Stremio / Nuvio add-ons, a CinePro Core server. They play in our own player, so they also work on Tizen 4. Nothing here is required |
 | **Movies & TV** | Movies and TV Shows tabs (seasons, episodes, next episode) with CineSrc, VidFast, VidCore, Videasy, 2Embed, SuperEmbed, VidSrc.to, VidSrc.me, optional VidLink and public-domain films. Hosted players run in a popup-blocking frame (Settings can turn it off). Those hosted players need a 2020+ browser, so on Tizen 4–6 TVs only public-domain films play unless you add a **stream add-on** (Settings), whose plain video files play in our own player; the app tells you instead of hanging |
-| **Cost** | Free. No ads in our own player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
+| **Cost** | Free. No ads in our own player except a banner ad when you pause the player. Hosted on a free Cloudflare Worker, or run it at home with `npm start` |
 | **Install** | Samsung: sideload `Aniultimatium.wgt` with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung/releases) (no store account needed). Android TV / Fire TV: install `Aniultimatium.apk` ([steps](docs/ANDROID.md)) |
 
 ## How Aniultimatium compares
