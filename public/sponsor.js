@@ -40,7 +40,7 @@
   }
   function bannerDoc(b) {                                                              // the page inside the frame: the network's own two-script snippet + a tiny check that tells the app whether an ad really appeared
     var o = { key: b.key, format: 'iframe', height: +b.height, width: +b.width, params: {} };
-    var probe = '(function(){function t(){var f=document.getElementsByTagName("iframe"),ok=false,i;for(i=0;i<f.length;i++)if(f[i].offsetHeight>20)ok=true;if(ok)try{parent.postMessage("ea-ad:ok","*")}catch(e){}}setTimeout(t,1500);setTimeout(t,3500);setTimeout(t,6000)})();';
+    var probe = '(function(){var n=0,sent=false;function t(){if(sent)return;var f=document.getElementsByTagName("iframe"),i;for(i=0;i<f.length;i++)if(f[i].offsetHeight>20){sent=true;try{parent.postMessage("ea-ad:ok","*")}catch(e){}return}if(++n<55)setTimeout(t,150)}t()})();';
     return '<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:transparent"><script>atOptions=' + JSON.stringify(o) + ';<\/script><script src="' + b.src + '"><\/script><script>' + probe + '<\/script></body></html>';
   }
   // Is a pre-roll due for this title? seen = { anime: bool, last: 'kind:id' of the last movie / TV title that got one }
