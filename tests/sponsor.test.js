@@ -54,5 +54,20 @@ test('wired in: loaded by start.js, play() wrapped, pause ads have a setting, no
   assert.match(main, /'ea_pauseads'/);
   assert.match(sp, /You can turn off these pause ads in settings\./);
   assert.ok(!/window\.open|location\.href|\.url\b|<a /.test(sp.replace(/\/\/.*$/gm, '')), 'no click-through');
-  assert.ok(!/createElement\('script'\)|<script/.test(sp), 'no third-party scripts');
+  assert.ok(!/createElement\('script'\)/.test(sp), 'the app itself never injects a script (a network banner runs only inside a sandboxed frame)');
+});
+
+test('network banner: strict key / https checks; the frame document is only the two-script snippet', () => {
+  const b = { key: 'd318854eb26101d27190496a3f0a4f26', src: 'https://bauval.org/22/d318854eb26101d27190496a3f0a4f26', width: 300, height: 250 };
+  assert.ok(S.validBanner(b));
+  assert.ok(!S.validBanner(Object.assign({}, b, { src: 'http://bauval.org/22/' + b.key })));
+  assert.ok(!S.validBanner(Object.assign({}, b, { key: 'zz' })));
+  assert.ok(!S.validBanner(Object.assign({}, b, { src: 'https://evil.example/x.js' })), 'script address must carry the key');
+  assert.ok(!S.validBanner(Object.assign({}, b, { width: 5000 })));
+  const d = S.bannerDoc(b);
+  assert.match(d, /atOptions=\{"key":"d318854eb26101d27190496a3f0a4f26","format":"iframe","height":250,"width":300,"params":\{\}\}/);
+  assert.strictEqual((d.match(/<script/g) || []).length, 2);
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(sp, /setAttribute\('sandbox', 'allow-scripts'\)/);
+  assert.ok(!/allow-popups|allow-top-navigation|allow-same-origin/.test(sp.replace(/\/\/.*$/gm, '')), 'frame sandbox never grants popups, navigation or same-origin');
 });

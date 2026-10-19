@@ -16,3 +16,6 @@ Edit `sponsor.json` in the repository root on GitHub (no new release needed; the
   "pause":   [{ "id": "p", "image": "https://cdn.example/banner.jpg", "alt": "Sponsor", "weight": 1 }] }
 ```
 Videos must be https `.mp4` / `.webm` (H.264 MP4 plays everywhere); pictures https, about 640x360. `weight`, `from` and `to` are optional. `"enabled": false` turns everything off.
+
+## Network banner (optional, e.g. Adsterra "Banner", format iframe)
+Add a `"banner": { "key": "<32 hex>", "src": "https://<network>/<path>/<key>", "width": 300, "height": 250 }` block to `sponsor.json` (the values come from the network's embed code). It is shown as the **pause ad**, in a sandboxed frame that has *no* permission to open windows, navigate the page or read the app's data; if you also list your own pause pictures, the two take turns. The network can see the request its banner makes (like any web ad), so mention that in your privacy text. Use only the *Banner* format: popunder, smartlink and social bar redirect viewers and are not used.
