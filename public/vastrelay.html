@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Ad relay</title></head>
+<body>
+<!-- Video-ad relay for the TV / Android app. The app runs from a local file, so its own ad requests carry no site address and the ad network sends no ad.
+     The app shows this page (from the registered site) in a hidden frame and asks it for the VAST answer. It only fetches the ad tag listed in sponsor.json
+     and the follow-up (wrapper) addresses those answers name: it is not a general proxy. Plain ES5 (Tizen 4). -->
+<script>
+(function () {
+  'use strict';
+  var CFG = 'https://raw.githubusercontent.com/AdvaithAvinash/AniUltimatium/main/sponsor.json';
+  var allowed = {}, ready = false, waiting = [];
+  function config(cb) {
+    if (ready) { cb(); return; }
+    waiting.push(cb); if (waiting.length > 1) return;
+    fetch(CFG, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.vast && typeof j.vast.url === 'string') allowed[j.vast.url] = 1;
+    }).catch(function () {}).then(function () { ready = true; var w = waiting; waiting = []; w.forEach(function (f) { f(); }); });
+  }
+  function fill(u) {
+    var now = String(Date.now());
+    return String(u).replace(/\[(TIMESTAMP|CACHEBUSTING|RANDOM)\]|%5B(TIMESTAMP|CACHEBUSTING|RANDOM)%5D/gi, now).replace(/\[CONTENTPLAYHEAD\]|%5BCONTENTPLAYHEAD%5D/gi, '00:00:00.000');
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data, src = e.source;
+    if (!d || d.t !== 'vast' || typeof d.url !== 'string' || !/^https:\/\//i.test(d.url) || !src) return;
+    function reply(o) { o.t = 'vast-r'; o.id = d.id; try { src.postMessage(o, '*'); } catch (x) { /* ignore */ } }
+    config(function () {
+      if (!allowed[d.url]) { reply({ ok: false, why: 'address not allowed' }); return; }
+      fetch(fill(d.url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)); }).then(function (t) {
+        var re = /<VASTAdTagURI[^>]*>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)/gi, m;
+        while ((m = re.exec(t))) allowed[m[1].replace(/&amp;/g, '&')] = 1;                // a wrapper may point to the next answer: allow exactly that address
+        reply({ ok: true, text: t });
+      }).catch(function (x) { reply({ ok: false, why: String(x && x.message || x) }); });
+    });
+  });
+  try { parent.postMessage({ t: 'vast-ready' }, '*'); } catch (x) { /* ignore */ }
+})();
+</script>
+</body></html>

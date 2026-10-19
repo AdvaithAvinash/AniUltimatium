@@ -2383,7 +2383,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // ======================= Bridge for public/live.js (Live TV) =======================
   var EA = window.EA = { state: state, $: $, el: el, esc: esc, ic: ic, fmt: fmt, store: store, toast: toast, setFocus: setFocus, KEY: KEY, isBackKey: isBackKey, apiBase: apiBase, video: video,
     card: card, keyOf: keyOf, progOf: progOf, getProg: getProg, getHist: getHist, inList: inList, listItem: listItem, openDetail: openDetail, aniQuery: aniQuery, aniMap: aniMap, tname: tname, airIn: airIn, fmtTime: fmtTime, paintAir: paintAir, paintAirBadges: paintAirBadges, makeRow: makeRow, showHero: showHero, refreshDetailTags: refreshDetailTags, ST_LABEL: ST_LABEL, feed: null,
-    hasCls: hasCls, up: up, IS_TV: IS_TV, OLD_ENGINE: OLD_ENGINE, CHROME_V: CHROME_V, lite: function () { return LITE; }, showTab: showTab, paintTabs: paintTabs, live: null };
+    hasCls: hasCls, up: up, IS_TV: IS_TV, OLD_ENGINE: OLD_ENGINE, CHROME_V: CHROME_V, lite: function () { return LITE; }, stopVideo: stopVideo, showTab: showTab, paintTabs: paintTabs, live: null };
 
   // ======================= Init =======================
   try {

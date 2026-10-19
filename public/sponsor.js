@@ -53,16 +53,15 @@
     return seen.last !== kind + ':' + id;
   }
   // VAST: which video file to play. Progressive MP4 (or WebM) over https, the one closest to 720p, MP4 before WebM. No streaming (HLS / DASH) files.
-  function pickMedia(files) {
-    var best = null, bestScore = 1e9;
-    (files || []).forEach(function (f) {
-      if (!f || !httpsUrl(f.url) || String(f.delivery || 'progressive').toLowerCase() === 'streaming') return;
-      var t = String(f.type || '').toLowerCase(); if (!/^video\/(mp4|webm|x-m4v)$/.test(t)) return;
-      var sc = Math.abs((+f.height || 720) - 720) * 10 + (t === 'video/webm' ? 100000 : 0) + (+f.bitrate || 0) / 1000;
-      if (sc < bestScore) { bestScore = sc; best = f; }
-    });
-    return best;
+  function rankMedia(files) {
+    return (files || []).filter(function (f) {
+      return f && httpsUrl(f.url) && String(f.delivery || 'progressive').toLowerCase() !== 'streaming' && /^video\/(mp4|webm|x-m4v)$/.test(String(f.type || '').toLowerCase());
+    }).map(function (f) {
+      var t = String(f.type).toLowerCase();
+      return { f: f, sc: Math.abs((+f.height || 720) - 720) * 10 + (t === 'video/webm' ? 100000 : 0) + (+f.bitrate || 0) / 1000 };
+    }).sort(function (a, b) { return a.sc - b.sc; }).map(function (x) { return x.f; });
   }
+  function pickMedia(files) { return rankMedia(files)[0] || null; }
   // A VAST ad can hold several creatives (e.g. 1:33 and 0:20): use ONE of them, the first with a playable file that is 45 s or shorter, else the shortest. cands: [{ dur (s), media: [...], track: {...} }]
   function chooseLinear(cands) {
     var best = null, bf = null, bs = 1e9;
@@ -71,7 +70,7 @@
       var sc = (c.dur > 45 ? 1000 + c.dur : 0) + i; if (!c.dur) sc = 500 + i;
       if (sc < bs) { bs = sc; best = c; bf = f; }
     });
-    return best ? { cand: best, file: bf } : null;
+    return best ? { cand: best, file: bf, files: rankMedia(best.media) } : null;
   }
   function fillMacros(u, code) {                                                       // the VAST macros a tag or a tracking url may contain
     var now = String(Date.now());
@@ -83,13 +82,14 @@
     if (duration && duration > 2) s = Math.min(s, Math.max(0, Math.floor(duration) - 1));
     return s;
   }
-  var api = { chooseLinear: chooseLinear, pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
+  var api = { rankMedia: rankMedia, chooseLinear: chooseLinear, pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
 
   if (typeof window === 'undefined' || !window.EA) return api;
   // ------------------------------------------------------------------ in the app
   var EA = window.EA, $ = EA.$, el = EA.el, esc = EA.esc, store = EA.store, state = EA.state, video = EA.video;
   var cfg = null, seen = { animeDay: store.get('ea_ad_day', ''), last: '' };
   function today() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function note(kind, what) { var l = store.get('ea_ad_log', {}) || {}; l[kind] = { t: Date.now(), what: what }; store.set('ea_ad_log', l); }
   function beacon(u) { if (!httpsUrl(u)) return; try { new Image().src = fillMacros(u); } catch (e) { /* ignore */ } }      // VAST tracking pixel: what the ad network counts and pays for
 
   function getConfig(cb, force) {
@@ -130,20 +130,54 @@
     return out;
   }
   var vastWhy = '';
+  // In the TV / Android app the page is a local file: an ad request sent from it carries no site address and the network answers with no ad.
+  // There the request goes through vastrelay.html on the registered site (hidden frame, its own origin); on the website it is sent directly.
+  var relay = null, relayQ = {}, relayN = 0;
+  function relayUrl() { var r = cfg && cfg.vast && cfg.vast.relay; return httpsUrl(r) && frameSandbox({ page: r }, window.location.origin) === 'allow-scripts allow-same-origin' ? r : null; }
+  function relayFrame(cb) {
+    var u = relayUrl(); if (!u) { cb(null); return; }
+    if (relay && relay.url === u) { if (relay.ready) cb(relay.f); else relay.wait.push(cb); return; }
+    if (relay && relay.f.parentNode) relay.f.parentNode.removeChild(relay.f);
+    var f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts allow-same-origin'); f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:absolute;left:-9999px;top:0;width:1px;height:1px;border:0;visibility:hidden';
+    relay = { url: u, f: f, ready: false, wait: [cb] };
+    var r0 = relay, fail = setTimeout(function () { if (!r0.ready) { var w = r0.wait; r0.wait = []; if (relay === r0) relay = null; if (f.parentNode) f.parentNode.removeChild(f); w.forEach(function (x) { x(null); }); } }, 8000);
+    r0.go = function () { if (r0.ready) return; r0.ready = true; clearTimeout(fail); var w = r0.wait; r0.wait = []; w.forEach(function (x) { x(f); }); };
+    f.src = u; document.body.appendChild(f);
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data; if (!d || !relay || e.source !== relay.f.contentWindow) return;
+    if (d.t === 'vast-ready' && relay.go) relay.go();
+    if (d.t === 'vast-r' && relayQ[d.id]) { var cb = relayQ[d.id]; delete relayQ[d.id]; cb(d.ok ? null : (d.why || 'failed'), d.text); }
+  });
+  function getText(url, cb) {                                                           // cb(error or null, text)
+    relayFrame(function (f) {
+      if (f) {
+        var id = ++relayN; relayQ[id] = cb;
+        try { f.contentWindow.postMessage({ t: 'vast', id: id, url: url }, '*'); } catch (e) { delete relayQ[id]; cb('relay unavailable'); }
+        return;
+      }
+      if (relayUrl()) { cb('the ad relay page did not load (is vastrelay.html deployed on the site?)'); return; }
+      fetch(fillMacros(url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)); })
+        .then(function (t) { cb(null, t); }).catch(function (e) { cb(String(e && e.message || 'blocked')); });
+    });
+  }
   function fetchVast(url, depth, acc, cb) {
-    var done = false, timer = setTimeout(function () { vastWhy = vastWhy || 'the ad server did not answer in time'; fin(null); }, 6000);
+    var done = false, timer = setTimeout(function () { vastWhy = vastWhy || 'the ad server did not answer in time'; fin(null); }, 9000);
     function fin(r) { if (done) return; done = true; clearTimeout(timer); cb(r); }
-    if (!window.fetch || !window.DOMParser || depth > 3) { vastWhy = 'this browser cannot read VAST'; fin(null); return; }
-    fetch(fillMacros(url), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : Promise.reject(new Error('x')); }).then(function (t) {
+    if (!window.DOMParser || depth > 3) { vastWhy = 'this device cannot read VAST'; fin(null); return; }
+    getText(url, function (err, t) {
+      if (done) return;
+      if (err) { vastWhy = 'the request failed: ' + err; fin(null); return; }
       var v = parseVast(t); if (!v) { vastWhy = 'the ad server answered with no ad (nothing to show right now)'; fin(null); return; }
       acc.imps = acc.imps.concat(v.imps); acc.errors = acc.errors.concat(v.errors);
       acc.wtrack = acc.wtrack.concat(v.lin.map(function (c) { return c.track; }));                // a wrapper's tracking events also count
       var pick = chooseLinear(v.lin);
       if (v.next && !pick) { clearTimeout(timer); done = true; fetchVast(v.next, depth + 1, acc, cb); return; }
       if (!pick) { vastWhy = 'the ad has no playable video file'; fin(null); return; }
-      var track = {}; acc.wtrack.concat([pick.cand.track]).forEach(function (t) { Object.keys(t).forEach(function (e) { track[e] = (track[e] || []).concat(t[e]); }); });
-      fin({ video: pick.file.url, vast: { imps: acc.imps, errors: acc.errors, track: track } });
-    }).catch(function () { vastWhy = vastWhy || 'the request was blocked or failed (ad blocker, network, or the ad server refused it)'; fin(null); });
+      var track = {}; acc.wtrack.concat([pick.cand.track]).forEach(function (tk) { Object.keys(tk).forEach(function (e) { track[e] = (track[e] || []).concat(tk[e]); }); });
+      fin({ video: pick.file.url, files: pick.files, vast: { imps: acc.imps, errors: acc.errors, track: track } });
+    });
   }
   function resolveAd(cb) {                                                               // a VAST ad if the tag is set and fills, else one of the owner's own videos, else nothing
     function own() { cb(pickVideo(cfg, Date.now(), Math.random())); }
@@ -154,7 +188,9 @@
     var kind = kindOf(a), started = false, finished = false, last = 0, lastAt = Date.now(), t0 = Date.now(), it = null, skipAt = 20, timer, sent = {}, vast = null, skipped = false;
     var box = el('div', 'adbox', '<video class="advid" playsinline></video><div class="ad-tag">Ad <span class="ad-left"></span></div><div class="ad-skip">Loading ad…</div><div class="ad-bar"><i></i></div>');
     var v = box.querySelector('video'), left = box.querySelector('.ad-left'), skipEl = box.querySelector('.ad-skip'), bar = box.querySelector('i');
-    ad = box; document.body.appendChild(box); try { video.pause(); } catch (e) { /* ignore */ }
+    ad = box; document.body.appendChild(box);
+    try { if (EA.stopVideo) EA.stopVideo(); else video.pause(); } catch (e) { /* ignore */ }      // Samsung TVs have one video decoder: the app's player must let go of it first
+    var files = [], fi = 0;
     function ev(name) { if (!vast || sent[name]) return; sent[name] = 1; (vast.track[name] || []).forEach(beacon); }
     function finish(go, code) {
       if (finished) return; finished = true; clearInterval(timer); document.removeEventListener('keydown', onKey, true);
@@ -176,17 +212,23 @@
       if (started) return; started = true;                                              // only a shown ad counts
       if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id;
       if (vast) { vast.imps.forEach(beacon); ev('creativeView'); ev('start'); }
+      note('video', 'shown');
     });
     v.addEventListener('ended', function () { ev('complete'); finish(true); });
-    v.addEventListener('error', function () { finish(true, 405); });                      // a broken ad never blocks playback
+    function nextFile(why) {                                                            // this file did not play: try the ad's other sizes / formats before giving up
+      if (finished || started) return;
+      if (++fi < files.length && fi < 4) { t0 = Date.now(); try { v.src = files[fi].url; var p2 = v.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (e) { /* ignore */ } return; }
+      note('video', 'the ad video would not play on this device (' + why + ')'); finish(true, 405);
+    }
+    v.addEventListener('error', function () { nextFile('error ' + (v.error && v.error.code || '')); });      // a broken ad never blocks playback
     resolveAd(function (r) {
       if (finished) return;
-      if (!r) { finish(true, 303); return; }                                              // no ad to show: just play
-      it = r; vast = r.vast || null; t0 = Date.now(); skipAt = skipAfter(it, 0);
+      if (!r) { note('video', 'no ad: ' + (vastWhy || 'nothing set up')); finish(true, 303); return; }   // no ad to show: just play
+      it = r; vast = r.vast || null; t0 = Date.now(); skipAt = skipAfter(it, 0); files = r.files && r.files.length ? r.files : [{ url: r.video }];
       timer = setInterval(function () {
         var t = v.currentTime || 0, d = v.duration || 0;
         if (t !== last) { last = t; lastAt = Date.now(); }
-        if (!started && Date.now() - t0 > 10000) { finish(true, 402); return; }          // never started
+        if (!started && Date.now() - t0 > 15000) { nextFile('did not start in 15 s'); return; }   // never started
         if (started && Date.now() - lastAt > 12000) { finish(true); return; }            // froze
         if (!started) return;
         skipAt = skipAfter(it, d);
@@ -196,7 +238,7 @@
         skipEl.className = 'ad-skip' + (canSkip() ? ' ok' : '');
         skipEl.textContent = canSkip() ? 'Skip ad  (OK)' : 'You can skip in ' + Math.max(0, Math.ceil(skipAt - t)) + 's';
       }, 250);
-      v.src = it.video; var pr = v.play(); if (pr && pr.catch) pr.catch(function () { finish(true, 405); });
+      v.src = files[0].url; var pr = v.play(); if (pr && pr.catch) pr.catch(function (e) { if (!started && v.error) nextFile('play refused: ' + (e && e.name || '')); });
     });
   }
 
@@ -204,14 +246,14 @@
   var pbox = null, ptimer = null, pwait = null, adMsg = null;
   function listenAd(frame, box) {
     if (adMsg) window.removeEventListener('message', adMsg);
-    adMsg = function (e) { if (e.data === 'ea-ad:ok' && frame.contentWindow && e.source === frame.contentWindow && pbox === box) box.style.visibility = 'visible'; };
+    adMsg = function (e) { if (e.data === 'ea-ad:ok' && frame.contentWindow && e.source === frame.contentWindow && pbox === box) { box.style.visibility = 'visible'; note('banner', 'shown'); } };
+    setTimeout(function () { if (pbox === box && box.style.visibility === 'hidden') note('banner', 'the ad page loaded but the network drew no ad inside the frame'); }, 9000);
     window.addEventListener('message', adMsg);
   }
   function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
     if (adMsg) { window.removeEventListener('message', adMsg); adMsg = null; } }
   function showPause() {
     if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
-    if (EA.lite && EA.lite()) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
     if (!it && !bn) return;
     if (it && bn && Math.random() < 0.5) it = null;                                    // both set: they take turns
@@ -242,6 +284,8 @@
     var lines = [], out = function () { var n = $('adChk'); if (n) n.innerHTML = lines.map(esc).join('<br>'); };
     getConfig(function () {
       lines.push(cfg ? 'Settings file: loaded, ads ' + (cfg.enabled === true ? 'ON' : 'OFF') : 'Settings file: NOT loaded (offline or blocked)'); out();
+      var lg = store.get('ea_ad_log', {}) || {}, ago = function (x) { return x ? Math.round((Date.now() - x.t) / 60000) + ' min ago: ' + x.what : 'nothing yet'; };
+      lines.push('Last video ad: ' + ago(lg.video)); lines.push('Last pause banner: ' + ago(lg.banner)); lines.push('Video ad route: ' + (relayUrl() ? 'through the site (app mode)' : 'direct (website mode)'));
       lines.push('Anime ad: ' + (seen.animeDay === today() ? 'already shown today (next one tomorrow)' : 'due on the next anime play'));
       var u = vastUrl();
       var banner = function () {

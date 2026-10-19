@@ -6,7 +6,7 @@ import json, os, re, shutil, subprocess, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 pub, droid = os.path.join(root, 'public'), os.path.join(root, 'android')
 assets = os.path.join(droid, 'app', 'src', 'main', 'assets')
-WEB_ONLY = {'robots.txt', 'sitemap.xml', 'llms.txt', 'og.png', 'link.html', 'about.html', 'add.html', 'adframe.html', 'config.xml'}   # config.xml is the Samsung manifest
+WEB_ONLY = {'robots.txt', 'sitemap.xml', 'llms.txt', 'og.png', 'link.html', 'about.html', 'add.html', 'adframe.html', 'vastrelay.html', 'config.xml'}   # config.xml is the Samsung manifest
 
 ver = json.load(open(os.path.join(root, 'package.json')))['version']                         # e.g. 1.7.0-beta.1
 m = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$', ver)

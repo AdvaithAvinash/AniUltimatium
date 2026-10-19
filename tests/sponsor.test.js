@@ -110,3 +110,16 @@ test('VAST: one creative is used (short ones first), never a mix of two', () => 
   assert.strictEqual(S.chooseLinear([long]).file.url, 'https://cdn.example/long.mp4');
   assert.strictEqual(S.chooseLinear([{ dur: 20, media: [], track: {} }]), null);
 });
+
+test('video ad relay: web-only page that fetches only the tag from sponsor.json and the wrappers it names', () => {
+  const r = fs.readFileSync(path.join(root, 'public/vastrelay.html'), 'utf8');
+  assert.match(r, /if \(!allowed\[d\.url\]\) \{ reply\(\{ ok: false/);
+  assert.match(r, /credentials: 'omit'/, 'the ad server answers with "*", which browsers refuse together with cookies');
+  assert.ok(!/=>|`|\blet |\bconst /.test(r), 'plain ES5 for Tizen 4');
+  for (const f of ['tools/build_wgt.py', 'tools/build_apk.py']) assert.match(fs.readFileSync(path.join(root, f), 'utf8'), /vastrelay\.html/, f + ' keeps it out of the app package');
+  const cfg = JSON.parse(fs.readFileSync(path.join(root, 'sponsor.json'), 'utf8'));
+  assert.ok(S.httpsUrl(cfg.vast.relay));
+  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
+  assert.match(sp, /EA\.stopVideo\(\)/, 'the app player lets go of the TV decoder before the ad');
+  assert.ok(!/EA\.lite && EA\.lite\(\)\) return/.test(sp), 'the pause banner is not switched off in Lite mode');
+});
