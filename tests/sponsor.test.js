@@ -66,7 +66,8 @@ test('network banner: strict key / https checks; the frame document is only the 
   assert.ok(!S.validBanner(Object.assign({}, b, { width: 5000 })));
   const d = S.bannerDoc(b);
   assert.match(d, /atOptions=\{"key":"d318854eb26101d27190496a3f0a4f26","format":"iframe","height":250,"width":300,"params":\{\}\}/);
-  assert.strictEqual((d.match(/<script/g) || []).length, 2);
+  assert.strictEqual((d.match(/<script/g) || []).length, 3, 'config, the network script, and the fill check');
+  assert.ok(d.indexOf('https://bauval.org/22/') > 0 && !/\.src\s*=|createElement/.test(d), 'the page adds no other script');
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
   assert.match(sp, /setAttribute\('sandbox', 'allow-scripts'\)/);
   assert.ok(!/allow-popups|allow-top-navigation|allow-same-origin/.test(sp.replace(/\/\/.*$/gm, '')), 'frame sandbox never grants popups, navigation or same-origin');

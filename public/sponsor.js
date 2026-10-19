@@ -38,9 +38,10 @@
   function validBanner(b) {
     return !!b && /^[0-9a-f]{32}$/i.test(b.key || '') && httpsUrl(b.src) && b.src.indexOf(b.key) > 0 && +b.width >= 100 && +b.width <= 970 && +b.height >= 50 && +b.height <= 600;
   }
-  function bannerDoc(b) {                                                              // the page inside the frame: the network's own two-script snippet
+  function bannerDoc(b) {                                                              // the page inside the frame: the network's own two-script snippet + a tiny check that tells the app whether an ad really appeared
     var o = { key: b.key, format: 'iframe', height: +b.height, width: +b.width, params: {} };
-    return '<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#000"><script>atOptions=' + JSON.stringify(o) + ';<\/script><script src="' + b.src + '"><\/script></body></html>';
+    var probe = '(function(){function t(){var f=document.getElementsByTagName("iframe"),ok=false,i;for(i=0;i<f.length;i++)if(f[i].offsetHeight>20)ok=true;if(ok)try{parent.postMessage("ea-ad:ok","*")}catch(e){}}setTimeout(t,1500);setTimeout(t,3500);setTimeout(t,6000)})();';
+    return '<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:transparent"><script>atOptions=' + JSON.stringify(o) + ';<\/script><script src="' + b.src + '"><\/script><script>' + probe + '<\/script></body></html>';
   }
   // Is a pre-roll due for this title? seen = { anime: bool, last: 'kind:id' of the last movie / TV title that got one }
   function due(seen, kind, id) {
@@ -119,8 +120,14 @@
   }
 
   // ---- pause ad ----
-  var pbox = null, ptimer = null, pwait = null;
-  function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); } }
+  var pbox = null, ptimer = null, pwait = null, adMsg = null;
+  function listenAd(frame, box) {
+    if (adMsg) window.removeEventListener('message', adMsg);
+    adMsg = function (e) { if (e.data === 'ea-ad:ok' && frame.contentWindow && e.source === frame.contentWindow && pbox === box) box.style.visibility = 'visible'; };
+    window.addEventListener('message', adMsg);
+  }
+  function hidePause() { clearTimeout(ptimer); clearTimeout(pwait); if (pbox) { if (pbox.parentNode) pbox.parentNode.removeChild(pbox); pbox = null; document.removeEventListener('keydown', hidePause, true); }
+    if (adMsg) { window.removeEventListener('message', adMsg); adMsg = null; } }
   function showPause() {
     if (pbox || !pauseOn() || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     if (EA.lite && EA.lite()) return;
@@ -128,11 +135,12 @@
     if (!it && !bn) return;
     if (it && bn && Math.random() < 0.5) it = null;                                    // both set: they take turns
     if (!it) {                                                                          // network banner: scripts only run in a frame with NO popups, NO top navigation and NO access to the app's storage
-      pbox = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
-      var f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts'); f.setAttribute('referrerpolicy', 'no-referrer'); f.setAttribute('scrolling', 'no');
+      var box = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card pa-net" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"><span class="ad-tag">Ad</span></div>');
+      var f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts'); f.setAttribute('scrolling', 'no');
       f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.srcdoc = bannerDoc(bn);
-      pbox.querySelector('.pa-card').insertBefore(f, pbox.querySelector('.ad-tag'));
-      pbox.style.width = (+bn.width) + 'px';
+      box.querySelector('.pa-card').insertBefore(f, box.querySelector('.ad-tag'));
+      box.style.width = (+bn.width) + 'px'; box.style.visibility = 'hidden';            // invisible until the network really delivered an ad: no black box, no note without an ad
+      pbox = box; listenAd(f, box);
     } else {
       pbox = el('div', 'pausead', '<p class="pa-note">You can turn off these pause ads in settings.</p><div class="pa-card"><img alt="' + esc(it.alt || 'Sponsor') + '" src="' + esc(it.image) + '"><span class="ad-tag">Ad</span></div>');
       pbox.querySelector('img').onerror = hidePause;
