@@ -62,6 +62,25 @@
     }).sort(function (a, b) { return a.sc - b.sc; }).map(function (x) { return x.f; });
   }
   function pickMedia(files) { return rankMedia(files)[0] || null; }
+  // VAST read with plain text matching: used when the TV's XML reader does not give us the ad (older Samsung browsers). Same result shape as parseVast.
+  function parseVastText(text) {
+    text = String(text || '');
+    var ad = /<Ad(\s[^>]*)?>[\s\S]*?<\/Ad>/i.exec(text); if (!ad) return null; ad = ad[0];
+    var val = function (x) { return String(x || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&amp;/g, '&').replace(/^\s+|\s+$/g, ''); };
+    var all = function (re, src) { var out = [], m; re.lastIndex = 0; while ((m = re.exec(src))) out.push(m); return out; };
+    var attrs = function (tag) { var o = {}; all(/([\w:-]+)\s*=\s*"([^"]*)"/g, tag || '').forEach(function (m) { o[m[1]] = m[2]; }); return o; };
+    var out = { imps: [], errors: [], lin: [], next: '' }, n = /<VASTAdTagURI[^>]*>([\s\S]*?)<\/VASTAdTagURI>/i.exec(ad); if (n) out.next = val(n[1]);
+    all(/<Impression[^>]*>([\s\S]*?)<\/Impression>/gi, ad).forEach(function (m) { out.imps.push(val(m[1])); });
+    all(/<Error[^>]*>([\s\S]*?)<\/Error>/gi, ad).forEach(function (m) { out.errors.push(val(m[1])); });
+    all(/<Linear(\s[^>]*)?>[\s\S]*?<\/Linear>/gi, ad).forEach(function (lm) {
+      var L = lm[0], c = { dur: 0, media: [], track: {} }, d = /<Duration>\s*(\d+):(\d+):(\d+)/i.exec(L);
+      if (d) c.dur = +d[1] * 3600 + +d[2] * 60 + +d[3];
+      all(/<Tracking(\s[^>]*)?>([\s\S]*?)<\/Tracking>/gi, L).forEach(function (m) { var ev = attrs(m[1]).event; if (ev) (c.track[ev] = c.track[ev] || []).push(val(m[2])); });
+      all(/<MediaFile(\s[^>]*)?>([\s\S]*?)<\/MediaFile>/gi, L).forEach(function (m) { var a = attrs(m[1]); c.media.push({ url: val(m[2]), type: a.type, delivery: a.delivery, width: +a.width, height: +a.height, bitrate: +a.bitrate }); });
+      out.lin.push(c);
+    });
+    return out;
+  }
   // A VAST ad can hold several creatives (e.g. 1:33 and 0:20): use ONE of them, the first with a playable file that is 45 s or shorter, else the shortest. cands: [{ dur (s), media: [...], track: {...} }]
   function chooseLinear(cands) {
     var best = null, bf = null, bs = 1e9;
@@ -82,7 +101,7 @@
     if (duration && duration > 2) s = Math.min(s, Math.max(0, Math.floor(duration) - 1));
     return s;
   }
-  var api = { rankMedia: rankMedia, chooseLinear: chooseLinear, pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
+  var api = { parseVastText: parseVastText, rankMedia: rankMedia, chooseLinear: chooseLinear, pickMedia: pickMedia, fillMacros: fillMacros, frameSandbox: frameSandbox, validBanner: validBanner, validVideo: validVideo, validImage: validImage, pickVideo: pickVideo, pickImage: pickImage, due: due, skipAfter: skipAfter, httpsUrl: httpsUrl, CONFIG_URL: CONFIG_URL, PAUSE_MS: PAUSE_MS };
 
   if (typeof window === 'undefined' || !window.EA) return api;
   // ------------------------------------------------------------------ in the app
@@ -114,7 +133,14 @@
   }
   // ---- VAST 2 / 3 (wrappers followed up to 3 deep). Only the video file and the tracking pixels are used: no click-through, no ad scripts, no verification code is run. ----
   function parseVast(text) {
-    var doc; try { doc = new DOMParser().parseFromString(text, 'text/xml'); } catch (e) { return null; }
+    var r = null; try { r = parseVastDom(text); } catch (e) { r = null; }
+    if (r && (r.next || chooseLinear(r.lin))) return r;
+    var t = parseVastText(text);                                                         // older Samsung browsers: read the same answer as plain text
+    return t && (t.next || chooseLinear(t.lin)) ? t : (r || t);
+  }
+  function parseVastDom(text) {
+    if (!window.DOMParser) return null;
+    var doc = new DOMParser().parseFromString(text, 'text/xml');
     var ad0 = doc.getElementsByTagName('Ad')[0]; if (!ad0) return null;
     var txt = function (n) { return String(n.textContent || '').replace(/^\s+|\s+$/g, ''); }, out = { imps: [], errors: [], lin: [], next: '' }, i, n;
     n = ad0.getElementsByTagName('VASTAdTagURI')[0]; if (n) out.next = txt(n);
@@ -166,7 +192,7 @@
   function fetchVast(url, depth, acc, cb) {
     var done = false, timer = setTimeout(function () { vastWhy = vastWhy || 'the ad server did not answer in time'; fin(null); }, 9000);
     function fin(r) { if (done) return; done = true; clearTimeout(timer); cb(r); }
-    if (!window.DOMParser || depth > 3) { vastWhy = 'this device cannot read VAST'; fin(null); return; }
+    if (depth > 3) { vastWhy = 'too many redirects in the ad answer'; fin(null); return; }
     getText(url, function (err, t) {
       if (done) return;
       if (err) { vastWhy = 'the request failed: ' + err; fin(null); return; }
@@ -250,12 +276,12 @@
       if (finished || started) return;
       if (++fi < files.length && fi < 4) { t0 = Date.now(); try { v.src = files[fi].url; var p2 = v.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (e) { /* ignore */ } return; }
       note('video', 'the ad video would not play on this device (' + why + ')');
-      if (!qrCard()) finish(true, 405);
+      finish(true, 405);
     }
     v.addEventListener('error', function () { nextFile('error ' + (v.error && v.error.code || '')); });      // a broken ad never blocks playback
     resolveAd(function (r) {
       if (finished) return;
-      if (!r) { note('video', 'no network ad (' + (vastWhy || 'nothing set up') + ')'); if (!qrCard()) finish(true, 303); return; }   // no network ad: the sponsor QR card, else just play
+      if (!r) { note('video', 'no network ad (' + (vastWhy || 'nothing set up') + ')'); finish(true, 303); return; }   // no network ad: the sponsor QR card, else just play
       it = r; vast = r.vast || null; t0 = Date.now(); skipAt = skipAfter(it, 0); files = r.files && r.files.length ? r.files : [{ url: r.video }];
       timer = setInterval(function () {
         var t = v.currentTime || 0, d = v.duration || 0;
@@ -350,12 +376,10 @@
   function showPause() {
     if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
-    var q = qrUrl();
-    var fallback = function () { return it ? imageBanner(it) : bn ? frameBanner(bn, q) : q ? qrBanner(q) : null; };
-    if (it && (Math.random() < 0.5 || (!vastUrl() && !bn && !q))) pbox = imageBanner(it);   // the owner's own pictures take turns with the network ads
+    var fallback = function () { return it ? imageBanner(it) : bn ? frameBanner(bn, null) : null; };
+    if (it && (Math.random() < 0.5 || (!vastUrl() && !bn))) pbox = imageBanner(it);   // the owner's own pictures take turns with the network ads
     else if (vastUrl() && !SAMSUNG) pbox = videoBanner(fallback);                       // Samsung TVs have one video decoder: a second video while the show is paused could break resuming it
-    else if (bn) pbox = frameBanner(bn, q);                                             // network banner, with the QR card in its place until it draws
-    else if (q) pbox = qrBanner(q);
+    else if (bn) pbox = frameBanner(bn, null);                                          // network banner (Monetag In-Page Push), shown when it draws
     else if (it) pbox = imageBanner(it);
     else return;
     document.body.appendChild(pbox); document.addEventListener('keydown', hidePause, true);   // any key puts it away (the key itself still reaches the player)

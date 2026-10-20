@@ -131,13 +131,6 @@ test('pause screen uses the VAST video ad (muted, labelled) when a tag is set; n
   assert.match(sp, /stopPauseVideo\(\)/);
 });
 
-test('an ad always shows: sponsor QR card when the network has no video (pre-roll, 20 s, continues by itself) and on pause', () => {
-  const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
-  assert.match(sp, /if \(!qrCard\(\)\) finish\(true, 303\)/);
-  assert.match(sp, /if \(t >= need\) finish\(true\)/);
-  assert.match(sp, /else if \(bn\) pbox = frameBanner\(bn, q\);/);
-});
-
 test('the pre-roll never hangs on "Loading ad": 5 s cap, a video ad fetched ahead of time, late answers kept for the next play', () => {
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
   assert.match(sp, /var cap = setTimeout\(function \(\) \{[^}]*own\(\); \}, 5000\);/);
@@ -149,4 +142,18 @@ test('an ad only counts once watched: leaving it with Back keeps it due', () => 
   const sp = fs.readFileSync(path.join(root, 'public/sponsor.js'), 'utf8');
   assert.match(sp, /if \(go && started\) \{ if \(kind === 'anime'\)/);
   assert.strictEqual((sp.match(/store\.set\('ea_ad_day'/g) || []).length, 1, 'marked in one place only');
+});
+
+test('VAST is also read as plain text (older Samsung browsers): same ad, files and tracking as the XML reader', () => {
+  const xml = '<VAST version="3.0" xmlns="http://www.w3.org/2001/XMLSchema"><Ad id="1"><InLine><AdSystem>HilltopAds</AdSystem><Error><![CDATA[https://t.example/e?c=[ERRORCODE]]]></Error><Impression><![CDATA[https://t.example/imp?a=1&amp;b=2]]></Impression><Creatives>'
+    + '<Creative><Linear skipoffset="00:00:15"><Duration>00:01:33</Duration><TrackingEvents><Tracking event="start"><![CDATA[https://t.example/s1]]></Tracking></TrackingEvents><MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="1280" height="720" bitrate="1315"><![CDATA[https://cdn.example/long.mp4]]></MediaFile></MediaFiles></Linear></Creative>'
+    + '<Creative><Linear><Duration>00:00:20</Duration><TrackingEvents><Tracking event="start"><![CDATA[https://t.example/s2]]></Tracking><Tracking event="complete"><![CDATA[https://t.example/c2]]></Tracking></TrackingEvents><MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="854" height="480" bitrate="798"><![CDATA[https://cdn.example/short.mp4]]></MediaFile></MediaFiles></Linear></Creative>'
+    + '</Creatives></InLine></Ad></VAST>';
+  const v = S.parseVastText(xml);
+  assert.deepStrictEqual(v.imps, ['https://t.example/imp?a=1&b=2']);
+  assert.strictEqual(v.lin.length, 2);
+  assert.strictEqual(v.lin[1].dur, 20);
+  assert.deepStrictEqual(v.lin[1].track.complete, ['https://t.example/c2']);
+  assert.strictEqual(S.chooseLinear(v.lin).file.url, 'https://cdn.example/short.mp4');
+  assert.strictEqual(S.parseVastText('<VAST version="3.0"/>'), null, 'an empty answer is no ad');
 });
