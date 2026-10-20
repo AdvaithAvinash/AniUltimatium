@@ -253,16 +253,41 @@
     pinPad({ mode: 'ask', title: 'Enter the PIN for ' + p.name, sub: '', check: function (pin) { return hash(pin, p.id) === p.pin; }, ok: ok, cancel: cancel });
   }
   function picker(chosen, opts) {
-    var l = profiles(), pn = panel('wide'); pn.innerHTML = '<h1>Who\'s watching?</h1><div class="agrid pick"></div>';
+    opts = opts || {};
+    var l = profiles(), edit = !!opts.edit && l.length > 1, pn = panel('wide');
+    pn.innerHTML = edit ? '<h1>Manage profiles</h1><p class="ssub">Choose a profile to remove.</p><div class="agrid pick"></div>' : '<h1>Who\'s watching?</h1><div class="agrid pick"></div>';
     var g = pn.querySelector('.agrid'), row = [], cur = get('ea_profile', 'p1'), startC = 0;
     l.forEach(function (p, i) {
-      var t = el('button', 'atile', '<span class="av">' + avatarOf(p) + (p.pin ? '<s class="lk"></s>' : '') + '</span><b>' + esc(p.name) + '</b>'); if (p.id === cur) startC = i;
-      t.__go = function () { if (p.pin) askPin(p, function () { chosen(p.id); }, function () { picker(chosen, opts); }); else chosen(p.id); };
+      var t = el('button', 'atile' + (edit ? ' rm' : ''), '<span class="av">' + avatarOf(p) + (p.pin ? '<s class="lk"></s>' : '') + (edit ? '<u class="rmx">&times;</u>' : '') + '</span><b>' + esc(p.name) + '</b>' + (edit ? '<i>Remove</i>' : '')); if (p.id === cur) startC = i;
+      t.__go = edit ? function () { confirmRemove(p, function () { picker(chosen, opts); }, function () { if (opts.removed) opts.removed(p.id); if (opts.only && profiles().length < 2) { opts.cancel(); return; } picker(chosen, profiles().length > 1 ? opts : { cancel: opts.cancel }); }); }
+        : function () { if (p.pin) askPin(p, function () { chosen(p.id); }, function () { picker(chosen, opts); }); else chosen(p.id); };
       g.appendChild(t); row.push(t);
     });
-    if (l.length < 6) { var add = el('button', 'atile add', '<span class="av"><em>+</em></span><b>Add profile</b>'); add.__go = function () { createFlow({ first: false, cancel: function () { picker(chosen, opts); } }, function (id) { chosen(id); }); }; g.appendChild(add); row.push(add); }
-    screen([row], { start: [0, startC], back: opts && opts.cancel });
+    if (!edit && l.length < 6) { var add = el('button', 'atile add', '<span class="av"><em>+</em></span><b>Add profile</b>'); add.__go = function () { createFlow({ first: false, cancel: function () { picker(chosen, opts); } }, function (id) { chosen(id); }); }; g.appendChild(add); row.push(add); }
+    var rows = [row];
+    if (l.length > 1) {                                                            // add / remove: "Manage profiles" switches the tiles to remove mode
+      var bar = el('div', 'srow'), mg = btn(edit ? 'Done' : 'Manage profiles', edit && opts.only ? opts.cancel : function () { var o = {}; for (var k in opts) o[k] = opts[k]; o.edit = !edit; picker(chosen, o); });
+      bar.appendChild(mg); pn.appendChild(bar); rows.push([mg]);
+    }
+    screen(rows, { start: [0, startC], back: edit && !opts.only ? function () { var o = {}; for (var k in opts) o[k] = opts[k]; o.edit = false; picker(chosen, o); } : opts.cancel });
   }
+  // Remove one profile (asks its PIN if it has one). Its list, history, progress and AniList link on this device go with it; the last profile cannot be removed.
+  function confirmRemove(p, back, removed) {
+    var pn = panel();
+    pn.innerHTML = '<div class="bigav">' + avatarOf(p) + '</div><h1>Remove ' + esc(p.name) + '?</h1><p class="ssub">Its list, history, progress and AniList link on this TV are deleted. This cannot be undone.</p>';
+    var row = el('div', 'srow'), no = btn('Cancel', back), yes = btn('Remove profile', function () {
+      var go = function () {
+        var wasCurrent = (window.EA_PROFILE || {}).id === p.id;
+        if (!window.EA_PROF.remove(p.id)) { back(); return; }
+        if (wasCurrent) { try { sessionStorage.removeItem('ea_switch'); } catch (e) { /* ignore */ } location.reload(); return; }   // the open profile is gone: start over at "Who's watching?"
+        removed();
+      };
+      if (p.pin) askPin(p, go, back); else go();
+    }, 'pri');
+    row.appendChild(no); row.appendChild(yes); pn.appendChild(row);
+    screen([[no, yes]], { start: [0, 0], back: back });
+  }
+
 
   // ------------------------------------------------------------------ app loading
   function loadApp() {
@@ -295,6 +320,7 @@
     list: profiles, avatar: avatar, avatarOf: avatarOf, avatars: AV, lowEnd: LOWEND,
     current: function () { return byId((window.EA_PROFILE || {}).id) || profiles()[0] || null; },
     switchTo: function () { picker(function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }, { cancel: function () { closeRoot(); } }); },
+    manage: function (done) { picker(function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }, { edit: true, only: true, cancel: function () { closeRoot(); if (done) done(); }, removed: function () { if (done) done(); } }); },
     add: function () { createFlow({ first: false, cancel: function () { closeRoot(); } }, function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }); },
     setPin: function (done) {                                                      // set or change the lock of the current profile
       var p = this.current(); if (!p) return;
@@ -307,7 +333,7 @@
     },
     remove: function (id) {
       var l = profiles().filter(function (x) { return x.id !== id; }); if (!l.length) return false; set('ea_profiles', l);
-      if (id !== 'p1') Object.keys(LS).forEach(function (k) { if (k.slice(-(id.length + 1)) === '@' + id) del(k); });                        // its list, history and progress go with it
+      Object.keys(LS).forEach(function (k) { if (id === 'p1' ? PERP.test(k) : k.slice(-(id.length + 1)) === '@' + id) del(k); });   // its list, history and progress go with it (the first profile keeps them under the plain names)
       if ((window.EA_PROFILE || {}).id === id) set('ea_profile', l[0].id);
       return true;
     },

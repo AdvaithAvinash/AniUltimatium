@@ -1616,8 +1616,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function paintProf() {
     var box = $('setProf'); if (!box || !window.EA_PROF) return; box.innerHTML = '';
     var p = EA_PROF.current(); if (!p) return;
-    var rows = [['switch', 'Profile', p.name, '<span class="pav">' + EA_PROF.avatarOf(p) + '</span>'], ['lock', 'Profile lock (4-digit PIN)', p.pin ? 'On' : 'Off', ''], ['padd', 'Add a profile', '', '']];
-    if (EA_PROF.list().length > 1) rows.push(['pdel', state.pdelAsk ? 'Press again to delete this profile and its list' : 'Delete this profile', '', '']);
+    var rows = [['switch', 'Profile', p.name, '<span class="pav">' + EA_PROF.avatarOf(p) + '</span>'], ['lock', 'Profile lock (4-digit PIN)', p.pin ? 'On' : 'Off', ''], ['padd', 'Add a profile', EA_PROF.list().length >= 6 ? 'Up to 6' : '', '']];
+    if (EA_PROF.list().length > 1 && EA_PROF.manage) rows.push(['pman', 'Remove a profile', EA_PROF.list().length + ' profiles', '']);
     rows.forEach(function (r) { var b = el('button', 'setr focusable', r[3] + '<span>' + esc(r[1]) + '</span><b>' + esc(r[2]) + '</b>'); b.__p = r[0]; box.appendChild(b); });
     paintProfBtn();
   }
@@ -1625,7 +1625,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function profAct(k) {
     if (k === 'switch') { EA_PROF.switchTo(); return; }
     if (k === 'lock') { var p = EA_PROF.current(); if (p.pin) EA_PROF.clearPin(function () { toast('Profile lock off'); paintProf(); }); else EA_PROF.setPin(function () { toast('Profile lock on'); paintProf(); }); return; }
-    if (k === 'padd') { EA_PROF.add(); return; }
+    if (k === 'padd') { if (EA_PROF.list().length >= 6) { toast('Up to 6 profiles — remove one first'); return; } EA_PROF.add(); return; }
+    if (k === 'pman') { EA_PROF.manage(function () { paintProf(); var b = $('setProf').querySelector('button'); if (b) setFocus(b); }); return; }
     if (k === 'pdel') {
       if (!state.pdelAsk) { state.pdelAsk = true; paintProf(); clearTimeout(state.pdelT); state.pdelT = setTimeout(function () { state.pdelAsk = false; paintProf(); }, 4000); return; }
       state.pdelAsk = false; var cur = EA_PROF.current();

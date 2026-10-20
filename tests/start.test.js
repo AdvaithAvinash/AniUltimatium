@@ -35,3 +35,15 @@ test('release files use the aniultimatium.* names everywhere', () => {
   assert.match(read('README.md'), /1881056/);
   assert.ok(!/adb install/.test(read('README.md') + read('docs/ANDROID.md')));
 });
+
+test('profiles can be added and removed: Manage profiles on the picker, Remove a profile in Settings, data goes with it', () => {
+  const start = read('public/start.js'), main = read('public/main.js');
+  assert.match(start, /btn\(edit \? 'Done' : 'Manage profiles'/);
+  assert.match(start, /function confirmRemove\(p, back, removed\)/);
+  assert.match(start, /if \(p\.pin\) askPin\(p, go, back\); else go\(\);/, 'a locked profile needs its PIN to be removed');
+  assert.match(start, /id === 'p1' \? PERP\.test\(k\) : k\.slice/, 'the first profile\'s data (plain key names) is deleted too, so a new p1 starts empty');
+  assert.match(start, /manage: function \(done\)/);
+  assert.match(main, /\['pman', 'Remove a profile'/);
+  assert.match(main, /if \(k === 'pman'\) \{ EA_PROF\.manage\(/);
+  assert.match(start, /if \(!edit && l\.length < 6\) \{ var add = el\('button', 'atile add'/, 'Add profile tile (up to 6)');
+});
