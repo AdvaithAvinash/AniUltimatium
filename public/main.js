@@ -79,7 +79,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
     genre: '', epRange: 0, searchTimer: null, trackUrls: [],
-    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|vidfast|videasy|cinesrc|archive|custom)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
+    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|vidfast|videasy|cinesrc|archive|custom|addon|2embed|superembed|vidsrcto|vidsrcme|vidsrccc|vidzee|vidrock|111movies|vidlink)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
   };
 
   // ======================= Persistence =======================
@@ -909,7 +909,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else CineSrc'], ['cinesrc', 'CineSrc', 'remote control · subtitles · quality'],
                        ['vidfast', 'VidFast', 'remote control · auto quality'], ['vidcore', 'VidCore', 'auto quality up to 4K'],
-                       ['videasy', 'Videasy', 'auto quality'], ['2embed', '2Embed', 'extra player'], ['superembed', 'SuperEmbed', 'extra player'], ['vidsrcto', 'VidSrc.to', 'extra player'], ['vidsrcme', 'VidSrc.me', 'extra player'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
+                       ['videasy', 'Videasy', 'auto quality'], ['2embed', '2Embed', 'extra player'], ['superembed', 'SuperEmbed', 'extra player'], ['vidsrcto', 'VidSrc.to', 'extra player'], ['vidsrcme', 'VidSrc.me', 'extra player'], ['vidsrccc', 'VidSrc.cc', 'extra player'], ['vidzee', 'VidZee', 'extra player'], ['vidrock', 'VidRock', 'extra player'], ['111movies', '111Movies', 'extra player'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   function srcOpts() {
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
@@ -1133,12 +1133,15 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
   var EMBED_NAMES = [[/vidfast/, 'VidFast'], [/videasy/, 'Videasy'], [/cinesrc/, 'CineSrc'], [/vidlink/, 'VidLink'], [/2embed/, '2Embed'], [/multiembed|streamingnow/, 'SuperEmbed'],
-                     [/vidsrc\.to/, 'VidSrc.to'], [/vidsrc\.(me|sh)/, 'VidSrc.me']];
+                     [/vidsrc\.to/, 'VidSrc.to'], [/vidsrc\.(me|sh)/, 'VidSrc.me'], [/vidsrc\.cc/, 'VidSrc.cc'], [/vidzee/, 'VidZee'], [/vidrock/, 'VidRock'], [/111movies/, '111Movies']];
   function embedNameOf(url) { for (var i = 0; i < EMBED_NAMES.length; i++) if (EMBED_NAMES[i][0].test(url)) return EMBED_NAMES[i][1]; return 'VidCore'; }
   // Popup blocking for hosted players: the frame is sandboxed WITHOUT allow-popups and allow-top-navigation, so window.open() and "redirect the whole page" ads are refused by the browser itself
   // (Samsung TV, Android and web). Scripts, cookies, forms and fullscreen still work. Ads drawn inside the player's own picture cannot be removed this way.
   var SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-presentation';
   function popBlockOn() { return store.get('ea_popblock', true) !== false; }
+  // VidSrc (.to / .me / .sh) and VidLink refuse to play inside a sandboxed frame, so they get none. Pop-ups and whole-app redirects from them are still
+  // refused by the Android app itself (MainActivity); in a web browser the browser's own pop-up blocker applies.
+  var NO_SANDBOX = /^https:\/\/([a-z0-9-]+\.)*(vidsrc\.(to|me|sh)|vidlink\.pro)\//i;
   function startEmbed(url, customName) {
     stopVideo();
     state.embed = true; state.embedKind = !customName && /cinesrc\.st/.test(url) ? 'cinesrc' : 'vidcore';   // 'vidcore' = the VidCore/VidFast/Videasy message API (a custom player is treated the same way)
@@ -1147,7 +1150,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.vcNoCmd = false; state.vcChk = null; state.embedHeard = false;
     var f = $('embedFrame');
     f.className = 'show';
-    if (popBlockOn()) f.setAttribute('sandbox', SANDBOX); else f.removeAttribute('sandbox');          // must be set before the address
+    if (popBlockOn() && !NO_SANDBOX.test(url)) f.setAttribute('sandbox', SANDBOX); else f.removeAttribute('sandbox');   // must be set before the address
     f.src = url;
     pmsg('Loading player… (press Enter to focus it, Back to exit)', true);
     f.onload = function () { if (state.embed) pmsg('', false); };

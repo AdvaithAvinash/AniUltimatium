@@ -232,7 +232,7 @@
     var files = [], fi = 0;
     function ev(name) { if (!vast || sent[name]) return; sent[name] = 1; (vast.track[name] || []).forEach(beacon); }
     function finish(go, code) {
-      if (finished) return; finished = true; clearInterval(timer); document.removeEventListener('keydown', onKey, true);
+      if (finished) return; finished = true; clearInterval(timer); document.removeEventListener('keydown', onKey, true); if (banMsg) window.removeEventListener('message', banMsg);
       if (go && started) { if (kind === 'anime') { seen.animeDay = today(); store.set('ea_ad_day', seen.animeDay); } else seen.last = kind + ':' + a.id; }   // the ad only counts once it was watched (or skipped after the minimum): leaving with Back keeps it due
       if (vast && !started && code) vast.errors.forEach(function (u) { beacon(fillMacros(u, code)); });
       if (skipped) ev('skip');
@@ -241,22 +241,31 @@
       ad = null; done(go);
     }
     function canSkip() { return started && v.currentTime >= skipAt; }
-    // Always-available ad: a labelled card with a QR code to the sponsor offer (Monetag link in sponsor.json). Nothing opens on the TV; it continues by itself.
-    function qrCard() {
-      var u = qrUrl(); if (!u || finished) return false;
+    // No video from the network: the network banner (Monetag In-Page Push, from the ad page) in the ad screen instead. Shown for 10 s if it draws within 5 s,
+    // otherwise the show starts. Same frame rules as the pause banner: no popups, no top navigation, never the app's own origin.
+    var banMsg = null;
+    function bannerCard() {
+      var bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
+      if (!bn || finished) return false;
       clearInterval(timer); try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* ignore */ }
-      v.style.display = 'none'; bar.parentNode.style.display = '';
-      var card = el('div', 'adqr', '<h3>Sponsored</h3><p>Scan with your phone to see this offer</p><div class="adqr-code"></div>');
-      box.appendChild(card); if (EA.qr) EA.qr(card.querySelector('.adqr-code'), u);
-      started = true;
-      note('video', 'showed the sponsor QR card (no network video)');
-      var t0q = Date.now(), need = 20;
-      timer = setInterval(function () {
-        var t = (Date.now() - t0q) / 1000;
-        left.textContent = '· ' + Math.max(0, Math.ceil(need - t)) + 's'; bar.style.width = Math.min(100, t / need * 100) + '%';
-        skipEl.className = 'ad-skip'; skipEl.textContent = 'Continues in ' + Math.max(0, Math.ceil(need - t)) + 's';
-        if (t >= need) finish(true);
-      }, 250);
+      v.style.display = 'none'; skipEl.textContent = 'Loading ad…';
+      var wrap = el('div', 'adban', '<div class="adban-card" style="width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px"></div>');
+      var f = document.createElement('iframe'); f.setAttribute('scrolling', 'no'); f.setAttribute('sandbox', frameSandbox(bn, window.location.origin));
+      f.style.cssText = 'border:0;width:' + (+bn.width) + 'px;height:' + (+bn.height) + 'px;display:block'; f.src = bn.page;
+      wrap.firstChild.appendChild(f); wrap.style.visibility = 'hidden'; box.appendChild(wrap);
+      var drew = false, wait = setTimeout(function () { if (!drew && !finished) { note('video', 'no network video and no banner drew'); finish(true); } }, 5000);
+      banMsg = function (e) {
+        if (e.data !== 'ea-ad:ok' || drew || finished || e.source !== f.contentWindow) return;
+        drew = true; clearTimeout(wait); wrap.style.visibility = 'visible'; started = true; note('video', 'showed the network banner (no network video)');
+        var t0b = Date.now(), need = 10;
+        timer = setInterval(function () {
+          var t = (Date.now() - t0b) / 1000;
+          left.textContent = '· ' + Math.max(0, Math.ceil(need - t)) + 's'; bar.style.width = Math.min(100, t / need * 100) + '%';
+          skipEl.className = 'ad-skip'; skipEl.textContent = 'Continues in ' + Math.max(0, Math.ceil(need - t)) + 's';
+          if (t >= need) finish(true);
+        }, 250);
+      };
+      window.addEventListener('message', banMsg);
       return true;
     }
     function onKey(e) {
@@ -276,12 +285,12 @@
       if (finished || started) return;
       if (++fi < files.length && fi < 4) { t0 = Date.now(); try { v.src = files[fi].url; var p2 = v.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (e) { /* ignore */ } return; }
       note('video', 'the ad video would not play on this device (' + why + ')');
-      finish(true, 405);
+      if (!bannerCard()) finish(true, 405);
     }
     v.addEventListener('error', function () { nextFile('error ' + (v.error && v.error.code || '')); });      // a broken ad never blocks playback
     resolveAd(function (r) {
       if (finished) return;
-      if (!r) { note('video', 'no network ad (' + (vastWhy || 'nothing set up') + ')'); finish(true, 303); return; }   // no network ad: the sponsor QR card, else just play
+      if (!r) { note('video', 'no network ad (' + (vastWhy || 'nothing set up') + ')'); if (!bannerCard()) finish(true, 303); return; }   // no network video: the network banner, else just play
       it = r; vast = r.vast || null; t0 = Date.now(); skipAt = skipAfter(it, 0); files = r.files && r.files.length ? r.files : [{ url: r.video }];
       timer = setInterval(function () {
         var t = v.currentTime || 0, d = v.duration || 0;
@@ -373,19 +382,31 @@
     });
     return box;
   }
-  function showPause() {
-    if (pbox || state.view !== 'player' || state.liveOn || state.embed || !video.paused || video.ended || !video.currentTime) return;
+  function showPause(emb) {
+    if (pbox || state.view !== 'player' || state.liveOn) return;
+    if (emb) { if (!state.embed || !state.cin || !state.cin.paused) return; }          // a hosted movie / TV player that reports play and pause (CineSrc, VidFast, VidCore, Videasy)
+    else if (state.embed || !video.paused || video.ended || !video.currentTime) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;
     var fallback = function () { return it ? imageBanner(it) : bn ? frameBanner(bn, null) : null; };
     if (it && (Math.random() < 0.5 || (!vastUrl() && !bn))) pbox = imageBanner(it);   // the owner's own pictures take turns with the network ads
-    else if (vastUrl() && !SAMSUNG) pbox = videoBanner(fallback);                       // Samsung TVs have one video decoder: a second video while the show is paused could break resuming it
+    else if (vastUrl() && !SAMSUNG && !emb) pbox = videoBanner(fallback);                       // Samsung TVs have one video decoder: a second video while the show is paused could break resuming it
     else if (bn) pbox = frameBanner(bn, null);                                          // network banner (Monetag In-Page Push), shown when it draws
     else if (it) pbox = imageBanner(it);
     else return;
     document.body.appendChild(pbox); document.addEventListener('keydown', hidePause, true);   // any key puts it away (the key itself still reaches the player)
     ptimer = setTimeout(hidePause, PAUSE_MS);
   }
-  video.addEventListener('pause', function () { hidePause(); pwait = setTimeout(showPause, 900); });    // a short wait so a seek's brief pause shows nothing
+  // Hosted players: their own play / pause reports (main.js keeps them in state.cin). Only after it really played, so a loading player shows nothing.
+  var embPaused = false, embAt = 0, embDone = false, embPlayed = false;
+  setInterval(function () {
+    var c = state.cin, on = !!(state.embed && state.view === 'player' && state.embedHeard && c);
+    if (!on) { embPlayed = false; embPaused = false; embDone = false; return; }
+    var p = !!c.paused;
+    if (!p) embPlayed = true;
+    if (p !== embPaused) { embPaused = p; embAt = Date.now(); if (!p) { embDone = false; if (pbox) hidePause(); } return; }
+    if (p && embPlayed && !embDone && !pbox && Date.now() - embAt > 900) { embDone = true; showPause(true); }
+  }, 300);
+  video.addEventListener('pause', function () { hidePause(); pwait = setTimeout(function () { showPause(false); }, 900); });    // a short wait so a seek's brief pause shows nothing
   video.addEventListener('play', hidePause);
   video.addEventListener('playing', hidePause);
   video.addEventListener('seeking', hidePause);

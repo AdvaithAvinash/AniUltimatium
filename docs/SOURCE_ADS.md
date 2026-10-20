@@ -40,3 +40,8 @@ Added as hosted players (Auto tries them after CineSrc, VidFast, VidCore and Vid
 
 ## Cyberlockers (Vidplay / Vidsrc Stream, RabbitStream, Filemoon)
 Not added as direct sources. Those hosts hand out streams only through encrypted or obfuscated requests and their own catalogue ids; using them directly would mean decrypting or reverse-engineering their players, which this project does not do. VidSrc and 2Embed pages already load them internally, so they play inside those frames when available.
+
+## Players that refuse the sandbox
+VidSrc (.to / .me / .sh) and VidLink stop with a "sandbox" message inside the popup-blocking frame, so they are loaded without it. In the Android app pop-ups and
+whole-app redirects are still refused by the app itself; in a web browser the browser's pop-up blocker applies; on Samsung TVs an ad in these two players could
+redirect the app (press Back / reopen it). All other hosted players keep the sandbox.
