@@ -19,6 +19,7 @@ try {
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
 const debrid = require('../lib/debrid');
+const kitsu = require('../lib/kitsu');
 const verify = require('../lib/verify');
 const subsLib = require('../lib/subs');
 const turbo = require('../lib/turbo');          // TurboScrape: cache + de-duplication + hedged source race + cancellation
@@ -93,10 +94,18 @@ function mapMedia(m) {
   };
 }
 async function trending() {
+  try { return await trendingAniList(); }
+  catch (e) { const k = await kitsu.trending().catch(() => null); if (k && k.length) return k; throw e; }
+}
+async function trendingAniList() {
   const d = await anilist(`query{Page(perPage:30){media(type:ANIME,sort:TRENDING_DESC,isAdult:false){${MEDIA_FIELDS}}}}`, {});
   return d.Page.media.map(mapMedia);
 }
 async function search(q, genre) {
+  try { return await searchAniList(q, genre); }
+  catch (e) { const k = await kitsu.search(q, genre).catch(() => null); if (k && k.length) return k; throw e; }     // AniList refuses this server: same search on Kitsu
+}
+async function searchAniList(q, genre) {
   const d = await anilist(
     `query($s:String,$g:String,$sort:[MediaSort]){Page(perPage:30){media(type:ANIME,search:$s,genre:$g,sort:$sort,isAdult:false){${MEDIA_FIELDS}}}}`,
     { s: q || undefined, g: genre || undefined, sort: [q ? 'SEARCH_MATCH' : 'POPULARITY_DESC'] });

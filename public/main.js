@@ -282,9 +282,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var ckey = /^(search|trending|movies_search)$/.test(params.action) && !opts.body ? qs : null;
     if (ckey && apiCache[ckey] && Date.now() - apiCache[ckey].t < 120000) return Promise.resolve(apiCache[ckey].d);       // same search again within 2 min
     // A server that AniList blocks (Cloudflare Workers) is skipped for 10 minutes: ask AniList from the device straight away (saves a failing round trip)
-    if (aniAct && Date.now() < (store.get('ea_aldirect', 0) || 0)) return aniDirect(params).catch(function () { return remote(); });
+    if (aniAct && Date.now() < (store.get('ea_aldirect', 0) || 0)) return aniDirect(params).catch(function () { return remote(true); });
+    if (/^(search|trending)$/.test(params.action)) return aniDirect(params).then(function (d) { if (ckey) apiCache[ckey] = { t: Date.now(), d: d }; return d; }, function () { return remote(true); });   // search: the device asks AniList itself; the server (AniList, else Kitsu) is the backup
     return remote();
-    function remote() {
+    function remote(triedDirect) {
       return fetchRetry(apiBase() + '/api?' + qs, init, /^(sources|movie_sources|movie_home|proxy)$/.test(params.action) ? 45000 : 25000).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) {
           if (!r.ok) { var er = new Error(j.error || 'HTTP ' + r.status); er.data = j; er.status = r.status; er.nojson = !Object.keys(j).length; throw er; }
@@ -295,7 +296,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         return j;
       }).catch(function (e) {
         // Some hosts (e.g. Cloudflare Workers) get blocked by AniList: ask AniList straight from the device instead
-        if (aniAct && !(e && e.name === 'AbortError')) {
+        if (aniAct && !triedDirect && !(e && e.name === 'AbortError')) {
           if (/403/.test(e.message || '')) store.set('ea_aldirect', Date.now() + 10 * 60 * 1000);
           return aniDirect(params).catch(function () { throw e; });
         }
@@ -1617,7 +1618,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var box = $('setProf'); if (!box || !window.EA_PROF) return; box.innerHTML = '';
     var p = EA_PROF.current(); if (!p) return;
     var rows = [['switch', 'Profile', p.name, '<span class="pav">' + EA_PROF.avatarOf(p) + '</span>'], ['lock', 'Profile lock (4-digit PIN)', p.pin ? 'On' : 'Off', ''], ['padd', 'Add a profile', EA_PROF.list().length >= 6 ? 'Up to 6' : '', '']];
-    if (EA_PROF.list().length > 1 && EA_PROF.manage) rows.push(['pman', 'Remove a profile', EA_PROF.list().length + ' profiles', '']);
+    if (EA_PROF.list().length > 1 && EA_PROF.manage) rows.push(['pman', 'Remove another profile', EA_PROF.list().length + ' profiles', '']);
+    if (EA_PROF.removeCurrent) rows.push(['pdel', 'Delete this profile', p.name, '']);
     rows.forEach(function (r) { var b = el('button', 'setr focusable', r[3] + '<span>' + esc(r[1]) + '</span><b>' + esc(r[2]) + '</b>'); b.__p = r[0]; box.appendChild(b); });
     paintProfBtn();
   }
@@ -1627,6 +1629,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (k === 'lock') { var p = EA_PROF.current(); if (p.pin) EA_PROF.clearPin(function () { toast('Profile lock off'); paintProf(); }); else EA_PROF.setPin(function () { toast('Profile lock on'); paintProf(); }); return; }
     if (k === 'padd') { if (EA_PROF.list().length >= 6) { toast('Up to 6 profiles — remove one first'); return; } EA_PROF.add(); return; }
     if (k === 'pman') { EA_PROF.manage(function () { paintProf(); var b = $('setProf').querySelector('button'); if (b) setFocus(b); }); return; }
+    if (k === 'pdel' && EA_PROF.removeCurrent) { EA_PROF.removeCurrent(); return; }
     if (k === 'pdel') {
       if (!state.pdelAsk) { state.pdelAsk = true; paintProf(); clearTimeout(state.pdelT); state.pdelT = setTimeout(function () { state.pdelAsk = false; paintProf(); }, 4000); return; }
       state.pdelAsk = false; var cur = EA_PROF.current();

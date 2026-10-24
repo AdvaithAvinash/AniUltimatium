@@ -43,7 +43,9 @@ test('profiles can be added and removed: Manage profiles on the picker, Remove a
   assert.match(start, /if \(p\.pin\) askPin\(p, go, back\); else go\(\);/, 'a locked profile needs its PIN to be removed');
   assert.match(start, /id === 'p1' \? PERP\.test\(k\) : k\.slice/, 'the first profile\'s data (plain key names) is deleted too, so a new p1 starts empty');
   assert.match(start, /manage: function \(done\)/);
-  assert.match(main, /\['pman', 'Remove a profile'/);
+  assert.match(main, /\['pman', 'Remove another profile'/);
+  assert.match(main, /if \(EA_PROF\.removeCurrent\) rows\.push\(\['pdel', 'Delete this profile'/, 'Delete this profile is always offered, even with one profile');
+  assert.match(start, /remove: function \(id, allowLast\)/);
   assert.match(main, /if \(k === 'pman'\) \{ EA_PROF\.manage\(/);
   assert.match(start, /if \(!edit && l\.length < 6\) \{ var add = el\('button', 'atile add'/, 'Add profile tile (up to 6)');
 });

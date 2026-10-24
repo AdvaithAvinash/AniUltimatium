@@ -274,11 +274,13 @@
   // Remove one profile (asks its PIN if it has one). Its list, history, progress and AniList link on this device go with it; the last profile cannot be removed.
   function confirmRemove(p, back, removed) {
     var pn = panel();
-    pn.innerHTML = '<div class="bigav">' + avatarOf(p) + '</div><h1>Remove ' + esc(p.name) + '?</h1><p class="ssub">Its list, history, progress and AniList link on this TV are deleted. This cannot be undone.</p>';
-    var row = el('div', 'srow'), no = btn('Cancel', back), yes = btn('Remove profile', function () {
+    var last = profiles().length < 2;
+    pn.innerHTML = '<div class="bigav">' + avatarOf(p) + '</div><h1>Delete ' + esc(p.name) + '?</h1><p class="ssub">Its list, history, progress and AniList link on this TV are deleted. This cannot be undone.'
+      + (last ? ' It is the only profile: the app starts over and you create a new one.' : '') + '</p>';
+    var row = el('div', 'srow'), no = btn('Cancel', back), yes = btn('Delete profile', function () {
       var go = function () {
-        var wasCurrent = (window.EA_PROFILE || {}).id === p.id;
-        if (!window.EA_PROF.remove(p.id)) { back(); return; }
+        var wasCurrent = (window.EA_PROFILE || {}).id === p.id || last;
+        if (!window.EA_PROF.remove(p.id, true)) { back(); return; }
         if (wasCurrent) { try { sessionStorage.removeItem('ea_switch'); } catch (e) { /* ignore */ } location.reload(); return; }   // the open profile is gone: start over at "Who's watching?"
         removed();
       };
@@ -320,6 +322,7 @@
     list: profiles, avatar: avatar, avatarOf: avatarOf, avatars: AV, lowEnd: LOWEND,
     current: function () { return byId((window.EA_PROFILE || {}).id) || profiles()[0] || null; },
     switchTo: function () { picker(function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }, { cancel: function () { closeRoot(); } }); },
+    removeCurrent: function () { var p = this.current(); if (p) confirmRemove(p, function () { closeRoot(); }, function () { closeRoot(); }); },
     manage: function (done) { picker(function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }, { edit: true, only: true, cancel: function () { closeRoot(); if (done) done(); }, removed: function () { if (done) done(); } }); },
     add: function () { createFlow({ first: false, cancel: function () { closeRoot(); } }, function (id) { set('ea_profile', id); try { sessionStorage.setItem('ea_switch', '1'); } catch (e) { /* ignore */ } location.reload(); }); },
     setPin: function (done) {                                                      // set or change the lock of the current profile
@@ -331,10 +334,10 @@
       var p = this.current(); if (!p || !p.pin) { if (done) done(); return; }
       askPin(p, function () { var l = profiles(); l.forEach(function (x) { if (x.id === p.id) delete x.pin; }); set('ea_profiles', l); closeRoot(); if (done) done(); }, function () { closeRoot(); });
     },
-    remove: function (id) {
-      var l = profiles().filter(function (x) { return x.id !== id; }); if (!l.length) return false; set('ea_profiles', l);
+    remove: function (id, allowLast) {                                             // allowLast: the only profile may go too (the app then starts with a new one)
+      var l = profiles().filter(function (x) { return x.id !== id; }); if (!l.length && !allowLast) return false; set('ea_profiles', l);
       Object.keys(LS).forEach(function (k) { if (id === 'p1' ? PERP.test(k) : k.slice(-(id.length + 1)) === '@' + id) del(k); });   // its list, history and progress go with it (the first profile keeps them under the plain names)
-      if ((window.EA_PROFILE || {}).id === id) set('ea_profile', l[0].id);
+      if ((window.EA_PROFILE || {}).id === id || !l.length) { if (l.length) set('ea_profile', l[0].id); else del('ea_profile'); }
       return true;
     },
     verify: function (done) { var p = this.current(); if (!p || !p.pin) { done(); return; } askPin(p, function () { closeRoot(); done(); }, function () { closeRoot(); }); },
