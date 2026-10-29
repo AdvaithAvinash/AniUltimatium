@@ -79,7 +79,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     view: 'home', tab: 'home', focusEl: null, anime: null, ep: 1, hls: null, token: 0,
     hero: [], heroIdx: 0, heroTimer: null, hudTimer: null, lastSave: 0, returnFocus: null,
     genre: '', epRange: 0, searchTimer: null, trackUrls: [],
-    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|vidfast|videasy|cinesrc|archive|custom|addon|2embed|superembed|vidsrcto|vidsrcme|vidsrccc|vidzee|vidrock|111movies|vidlink)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
+    mode: 'anime', smode: 'anime', speed: 1, audioPref: store.get('ea_audio', 'sub'), srcAudio: 'sub', cache: {}, skip: null, mvia: (function () { var v = store.get('ea_msrc', 'auto'); return /^(auto|vidcore|vidfast|videasy|cinesrc|archive|custom|addon|2embed|superembed|vidsrcto|vidsrcme|vidsrccc|vidzee|vidrock|111movies|cinemaos|nontongo|rive|vidsrcsu|vidlink)$/.test(v) ? v : 'auto'; })(), mq: store.get('ea_mq', 'auto')
   };
 
   // ======================= Persistence =======================
@@ -580,7 +580,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
       tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
-      tabs[i].className = 'tab focusable' + (t === state.tab ? ' active' : '') + (tabs[i] === state.focusEl ? ' focused' : '');
+      var on = catOn(t); tabs[i].style.display = on ? '' : 'none';
+      tabs[i].className = 'tab' + (on ? ' focusable' : '') + (t === state.tab ? ' active' : '') + (tabs[i] === state.focusEl ? ' focused' : '');
       tabs[i].__tab = t;
     }
   }
@@ -801,7 +802,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function buildChips() {
     var tc = $('typeChips'); tc.innerHTML = '';
-    [['anime', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows']].forEach(function (t) { var b = el('button', 'chip focusable', t[1]); b.__stype = t[0]; tc.appendChild(b); });
+    [['anime', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows']].forEach(function (t) { if (!catOn(t[0] === 'anime' ? 'home' : t[0])) return; var b = el('button', 'chip focusable', t[1]); b.__stype = t[0]; tc.appendChild(b); });
     var c = $('chips'); c.innerHTML = '';
     GENRES.forEach(function (g) {
       var b = el('button', 'chip focusable', esc(g)); b.__genre = g; c.appendChild(b);
@@ -910,7 +911,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   var MOVIE_SOURCES = [['auto', 'Auto (best)', 'public domain, else CineSrc'], ['cinesrc', 'CineSrc', 'remote control · subtitles · quality'],
                        ['vidfast', 'VidFast', 'remote control · auto quality'], ['vidcore', 'VidCore', 'auto quality up to 4K'],
-                       ['videasy', 'Videasy', 'auto quality'], ['2embed', '2Embed', 'extra player'], ['superembed', 'SuperEmbed', 'extra player'], ['vidsrcto', 'VidSrc.to', 'extra player'], ['vidsrcme', 'VidSrc.me', 'extra player'], ['vidsrccc', 'VidSrc.cc', 'extra player'], ['vidzee', 'VidZee', 'extra player'], ['vidrock', 'VidRock', 'extra player'], ['111movies', '111Movies', 'extra player'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
+                       ['videasy', 'Videasy', 'auto quality'], ['2embed', '2Embed', 'extra player'], ['superembed', 'SuperEmbed', 'extra player'], ['vidsrcto', 'VidSrc.to', 'extra player'], ['vidsrcme', 'VidSrc.me', 'extra player'], ['vidsrccc', 'VidSrc.cc', 'extra player'], ['vidzee', 'VidZee', 'extra player'], ['vidrock', 'VidRock', 'extra player'], ['111movies', '111Movies', 'extra player'], ['cinemaos', 'CinemaOS', 'extra player'], ['nontongo', 'NontonGo', 'extra player'], ['rive', 'Rive', 'extra player'], ['vidsrcsu', 'VidSrc.su', 'extra player'], ['vidlink', 'VidLink', 'optional · may not work everywhere'], ['archive', 'Public domain', 'our own player']];
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   function srcOpts() {
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
@@ -1134,7 +1135,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   // Hosted embed player (iframe). Used for movies when no direct file exists; Back always exits.
   var EMBED_NAMES = [[/vidfast/, 'VidFast'], [/videasy/, 'Videasy'], [/cinesrc/, 'CineSrc'], [/vidlink/, 'VidLink'], [/2embed/, '2Embed'], [/multiembed|streamingnow/, 'SuperEmbed'],
-                     [/vidsrc\.to/, 'VidSrc.to'], [/vidsrc\.(me|sh)/, 'VidSrc.me'], [/vidsrc\.cc/, 'VidSrc.cc'], [/vidzee/, 'VidZee'], [/vidrock/, 'VidRock'], [/111movies/, '111Movies']];
+                     [/vidsrc\.to/, 'VidSrc.to'], [/vidsrc\.(me|sh)/, 'VidSrc.me'], [/vidsrc\.cc/, 'VidSrc.cc'], [/vidzee/, 'VidZee'], [/vidrock/, 'VidRock'], [/111movies/, '111Movies'], [/cinemaos/, 'CinemaOS'], [/nontongo/, 'NontonGo'], [/rivestream/, 'Rive'], [/vidsrc\.su/, 'VidSrc.su']];
   function embedNameOf(url) { for (var i = 0; i < EMBED_NAMES.length; i++) if (EMBED_NAMES[i][0].test(url)) return EMBED_NAMES[i][1]; return 'VidCore'; }
   // Popup blocking for hosted players: the frame is sandboxed WITHOUT allow-popups and allow-top-navigation, so window.open() and "redirect the whole page" ads are refused by the browser itself
   // (Samsung TV, Android and web). Scripts, cookies, forms and fullscreen still work. Ads drawn inside the player's own picture cannot be removed this way.
@@ -1568,7 +1569,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function applySubStyle() { $('player').setAttribute('data-subpos', String(subPos())); $('player').setAttribute('data-subsize', subSize()); }
   function setSubPos(v) { store.set('ea_subpos', v); applySubStyle(); toast('Subtitle position: ' + SUBPOS[v]); }
   // ----- app settings: one row per setting, OK cycles through the choices -----
-  var ACCENTS = { pink: '255,61,127', cyan: '0,200,230', violet: '150,110,255', green: '61,220,151', orange: '255,150,50' };
+  var ACCENTS = { pink: '255,61,127', cyan: '0,200,230', violet: '150,110,255', green: '61,220,151', orange: '255,150,50', red: '235,64,64', blue: '64,132,255', gold: '240,190,50', teal: '20,184,166', white: '230,230,238' };
   function applyAccent() {
     var k = store.get('ea_accent', 'pink'), rgb = ACCENTS[k] || ACCENTS.pink, p = rgb.split(',');
     var r = document.documentElement.style; r.setProperty('--accent-rgb', rgb); r.setProperty('--accent', 'rgb(' + rgb + ')');
@@ -1585,7 +1586,6 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']], function (v) { UI_MODERN = v === 'modern'; document.body.className = bodyCls(); }],
     ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
-    ['ea_accent', 'Accent colour', 'pink', [['pink', 'Pink'], ['cyan', 'Cyan'], ['violet', 'Violet'], ['green', 'Green'], ['orange', 'Orange']], applyAccent],
     ['ea_autonext', 'Play the next episode automatically', true, [[true, 'On'], [false, 'Off']]],
     ['ea_autoskip', 'Skip intro and outro automatically', false, [[false, 'Off'], [true, 'On']]],
     ['ea_audio', 'Default audio (anime)', 'sub', [['sub', 'Japanese (sub)'], ['dub', 'English (dub)']], function (v) { state.audioPref = v; }],
@@ -1595,18 +1595,43 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_adwarn', 'Show an “Ads” tag on sources with popups', true, [[true, 'Show'], [false, 'Hide']]],
     ['ea_noads', 'Movies and TV: try ad-free sources first', false, [[false, 'Off'], [true, 'On']]]
   ];
+  // ----- Customize: colour, categories (each can be switched off; at least one stays on), ads -----
+  var CATS = [['home', 'ea_c_anime'], ['movies', 'ea_c_movies'], ['tv', 'ea_c_tv'], ['live', 'ea_c_live']];
+  function catOn(tab) {
+    if (tab === 'schedule') return catOn('home');                                  // the airing schedule is anime only
+    for (var i = 0; i < CATS.length; i++) if (CATS[i][0] === tab) return store.get(CATS[i][1], true) !== false;
+    return true;
+  }
+  function firstCat() { for (var i = 0; i < CATS.length; i++) if (catOn(CATS[i][0])) return CATS[i][0]; return 'search'; }
+  function applyCats(v, row) {
+    if (!CATS.some(function (c) { return catOn(c[0]); })) { store.set(row[0], true); toast('Keep at least one category on'); }
+    paintTabs(); buildChips();
+    if (!catOn(state.smode === 'anime' ? 'home' : state.smode)) { state.smode = ['anime', 'movies', 'tv'].filter(function (m) { return catOn(m === 'anime' ? 'home' : m); })[0] || state.smode; paintTypeChips(); }
+    if (!catOn(state.tab) && state.tab !== 'settings') showTab(firstCat(), false);
+  }
+  var SHOWN = [[true, 'Shown'], [false, 'Hidden']];
+  var CUSTOMSET = [
+    ['ea_accent', 'Accent colour', 'pink', [['pink', 'Pink'], ['red', 'Red'], ['orange', 'Orange'], ['gold', 'Gold'], ['green', 'Green'], ['teal', 'Teal'], ['cyan', 'Cyan'], ['blue', 'Blue'], ['violet', 'Violet'], ['white', 'White']], applyAccent],
+    ['ea_c_anime', 'Anime (and its Schedule)', true, SHOWN, applyCats],
+    ['ea_c_movies', 'Movies', true, SHOWN, applyCats],
+    ['ea_c_tv', 'TV Shows', true, SHOWN, applyCats],
+    ['ea_c_live', 'Live TV (IPTV)', true, SHOWN, applyCats],
+    ['ea_ads', 'Ads', true, [[true, 'On · supports the app'], [false, 'Off']], function () { if (EA.sponsor && EA.sponsor.hidePause) EA.sponsor.hidePause(); }]
+  ];
   function setLabel(row) { var cur = store.get(row[0], row[2]), o = row[3].filter(function (x) { return String(x[0]) === String(cur); })[0]; return o ? o[1] : String(cur); }
   function paintSettingsApp() {
+    var cbx = $('setCustomize'); if (cbx) { cbx.innerHTML = ''; CUSTOMSET.forEach(function (row, i) { var b = el('button', 'setr focusable', '<span>' + esc(row[1]) + '</span><b>' + esc(setLabel(row)) + '</b>'); b.__set = 'c' + i; cbx.appendChild(b); }); }
     var box = $('setApp'); if (!box) return; box.innerHTML = '';
     APPSET.forEach(function (row, i) { var b = el('button', 'setr focusable', '<span>' + esc(row[1]) + '</span><b>' + esc(setLabel(row)) + '</b>'); b.__set = i; box.appendChild(b); });
     var c = customSrc(), cb = el('button', 'setr focusable', '<span>Custom movie player</span><b>' + (c ? esc(c.name) : 'None') + '</b>'); cb.__set = 'custom'; box.appendChild(cb);
     $('setCustomHelp').textContent = c ? c.url : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
   }
   function cycleAppSetting(i) {
-    var row = APPSET[i], cur = store.get(row[0], row[2]), opts = row[3], at = 0, k;
+    var cust = typeof i === 'string' && i.charAt(0) === 'c', idx = cust ? +i.slice(1) : i;
+    var row = (cust ? CUSTOMSET : APPSET)[idx], cur = store.get(row[0], row[2]), opts = row[3], at = 0, k;
     for (k = 0; k < opts.length; k++) if (String(opts[k][0]) === String(cur)) at = k;
-    var nv = opts[(at + 1) % opts.length][0]; store.set(row[0], nv); if (row[4]) row[4](nv);
-    paintSettingsApp(); var nb = $('setApp').children[i]; if (nb) setFocus(nb, true);
+    var nv = opts[(at + 1) % opts.length][0]; store.set(row[0], nv); if (row[4]) row[4](nv, row);
+    paintSettingsApp(); var nb = $(cust ? 'setCustomize' : 'setApp').children[idx]; if (nb) setFocus(nb, true);
     if (row[0] === 'ea_hero' && state.hero.length > 1) setHeroList(state.hero);
   }
   function editCustomSource() {
@@ -2407,8 +2432,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   buildChips();
   paintTabs();
   setFocus($('heroPlay'));
-  loadHome();
-  (function () { var st = store.get('ea_start', 'home'); if (/^(movies|tv|live)$/.test(st)) showTab(st, false); })();                       // Settings: Start on
+  (function () {                                                                               // Settings: Start on (a hidden category starts on the first shown one)
+    var st = store.get('ea_start', 'home'); if (!catOn(st)) st = firstCat();
+    if (st === 'home') loadHome(); else showTab(st, false);
+    if (state.smode === 'anime' && !catOn('home')) state.smode = st === 'tv' ? 'tv' : 'movies';
+  })();
   if (auth()) syncNow(false);
   if (alAuth() && !alAuth().id) alLoadViewer().then(function () { state.alRowAt = 0; renderContinue(); }).catch(function () {});
   paintProfBtn();

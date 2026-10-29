@@ -127,8 +127,9 @@
   var ad = null;
   function qrUrl() { var u = cfg && cfg.enabled === true && cfg.support && cfg.support.url; return httpsUrl(u) ? u : null; }
   function vastUrl() { return cfg && cfg.enabled === true && cfg.vast && httpsUrl(cfg.vast.url) ? cfg.vast.url : null; }
+  function adsOn() { return store.get('ea_ads', true) !== false; }                       // Settings -> Customize -> Ads
   function wants(a) {                                                                    // synchronous: the config is fetched at start-up, so a slow network never delays playback
-    if (ad || !cfg || cfg.enabled !== true) return false;
+    if (ad || !cfg || cfg.enabled !== true || !adsOn()) return false;
     return (!!vastUrl() || !!pickVideo(cfg, Date.now(), 0.5)) && due(seen, kindOf(a), a.id, today());
   }
   // ---- VAST 2 / 3 (wrappers followed up to 3 deep). Only the video file and the tracking pixels are used: no click-through, no ad scripts, no verification code is run. ----
@@ -209,6 +210,7 @@
   // A video ad fetched ahead of time, so the pre-roll can start the moment Play is pressed. Fetching is not an impression: tracking only fires when it plays.
   var ready = null, fetching = false, READY_MS = 4 * 60 * 1000;
   function prefetch() {
+    if (!adsOn()) return;
     var u = vastUrl(); if (!u || fetching || (ready && Date.now() - ready.t < READY_MS)) return;
     fetching = true;
     fetchVast(u, 0, { imps: [], errors: [], wtrack: [] }, function (r) { fetching = false; if (r) ready = { r: r, t: Date.now() }; });
@@ -383,7 +385,7 @@
     return box;
   }
   function showPause(emb) {
-    if (pbox || state.view !== 'player' || state.liveOn) return;
+    if (pbox || state.view !== 'player' || state.liveOn || !adsOn()) return;
     if (emb) { if (!state.embed || !state.cin || !state.cin.paused) return; }          // a hosted movie / TV player that reports play and pause (CineSrc, VidFast, VidCore, Videasy)
     else if (state.embed || !video.paused || video.ended || !video.currentTime) return;
     var it = pickImage(cfg, Date.now(), Math.random()), bn = cfg && cfg.enabled === true && validBanner(cfg.banner) && frameSandbox(cfg.banner, window.location.origin) ? cfg.banner : null;

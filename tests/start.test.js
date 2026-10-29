@@ -49,3 +49,13 @@ test('profiles can be added and removed: Manage profiles on the picker, Remove a
   assert.match(main, /if \(k === 'pman'\) \{ EA_PROF\.manage\(/);
   assert.match(start, /if \(!edit && l\.length < 6\) \{ var add = el\('button', 'atile add'/, 'Add profile tile (up to 6)');
 });
+
+test('Customize: colours, each category can be hidden (one always stays), ads switch', () => {
+  const main = read('public/main.js'), sp = read('public/sponsor.js'), html = read('public/index.html');
+  assert.match(html, /id="setCustomize"/);
+  for (const k of ['ea_accent', 'ea_c_anime', 'ea_c_movies', 'ea_c_tv', 'ea_c_live', 'ea_ads']) assert.ok(main.includes("['" + k + "'"), k);
+  assert.match(main, /Keep at least one category on/);
+  assert.match(main, /tabs\[i\]\.className = 'tab' \+ \(on \? ' focusable' : ''\)/, 'a hidden tab cannot be reached with the remote');
+  assert.match(sp, /\|\| !adsOn\(\)\) return false;/, 'the ads switch stops the pre-roll');
+  assert.match(sp, /state\.liveOn \|\| !adsOn\(\)\) return;/, 'and the pause ad');
+});
