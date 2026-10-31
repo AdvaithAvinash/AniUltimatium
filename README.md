@@ -288,6 +288,9 @@ One-time setup (AniList requires an API client): go to https://anilist.co/settin
 Aniultimatium, Redirect URL `https://<your worker>.workers.dev/link.html`, save, and put the client **ID** into
 `wrangler.jsonc` → `"vars": { "ANILIST_CLIENT_ID": "<id>" }` (or the env var for `npm start`). Linking codes are kept in the Worker's Durable Object storage (see Deploy).
 
+If AniList sign-in sends you back to a broken page, the client's Redirect URL still points to an old address (for example the retired Vercel site):
+open https://anilist.co/settings/developer, edit the client and set the Redirect URL to exactly `https://<your worker>.workers.dev/link.html`.
+
 ## Live TV (IPTV)
 A fast IPTV section for your **own** playlist. Aniultimatium does not provide, host or link to any paid channels: you add what your provider gave you, or start with the free public channel lists (community-maintained, availability varies by region).
 

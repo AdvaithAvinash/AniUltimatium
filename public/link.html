@@ -35,8 +35,11 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   function say(t, cls) { $('msg').textContent = t; $('msg').className = cls || ''; }
-  function store(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} }
-  function read(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+  // The TV code survives the trip to AniList even when AniList's sign-in opens in another tab or app (kept 30 minutes in this browser)
+  function store(k, v) { try { if (v == null) { sessionStorage.removeItem(k); localStorage.removeItem('link_' + k); } else { sessionStorage.setItem(k, v); localStorage.setItem('link_' + k, JSON.stringify({ v: v, t: Date.now() })); } } catch (e) {} }
+  function read(k) {
+    try { var s = sessionStorage.getItem(k); if (s) return s; var l = JSON.parse(localStorage.getItem('link_' + k) || 'null'); return l && Date.now() - l.t < 30 * 60000 ? l.v : null; } catch (e) { return null; }
+  }
   var q = new URLSearchParams(location.search), local = q.get('local') === '1';
   if (q.get('code')) $('code').value = q.get('code').toUpperCase();
   if (local) { $('lead').textContent = 'Sign in with AniList to link it to this browser.'; $('code').style.display = 'none'; }
@@ -53,12 +56,17 @@
       setTimeout(function () { location.href = '/'; }, 800);
       return;
     }
+    if (!code) { $('form').style.display = ''; $('code').style.display = ''; say('Signed in. Now enter the 6-character code from your TV once more and press the button.', 'bad'); $('go').onclick = function () { var c = $('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); if (c.length !== 6) { say('Enter the 6-character code from your TV.', 'bad'); return; } send(c, token, exp); }; return; }
+    send(code, token, exp);
+    return;
+  }
+  function send(code, token, exp) {
+    $('form').style.display = 'none';
     say('Linking your TV…');
     fetch('/api?action=al_put', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code, token: token, expiresIn: exp }) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; }); })
       .then(function () { store('al_code', null); say('Done! Your TV is now linked to AniList. You can close this page.', 'ok'); })
       .catch(function (e) { say('Could not link: ' + e.message, 'bad'); });
-    return;
   }
   if (h.get('error')) say('AniList sign-in was cancelled.', 'bad');
 
