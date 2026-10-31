@@ -59,3 +59,12 @@ test('Customize: colours, each category can be hidden (one always stays), ads sw
   assert.match(sp, /\|\| !adsOn\(\)\) return false;/, 'the ads switch stops the pre-roll');
   assert.match(sp, /state\.liveOn \|\| !adsOn\(\)\) return;/, 'and the pause ad');
 });
+
+test('Back on the first screen asks "Exit Aniultimatium?" (No by default, Back means No) instead of closing straight away', () => {
+  const main = read('public/main.js');
+  assert.match(main, /else askExit\(\);/);
+  assert.match(main, /Exit Aniultimatium\?/);
+  assert.match(main, /var prev = state\.focusEl, sel = 1;/, 'No is selected first');
+  assert.match(main, /else if \(isBackKey\(k\) \|\| k === KEY\.STOP\) \{ close\(\); return; \}/);
+  assert.ok(!/else if \(IS_TV && window\.tizen && tizen\.application\) tizen\.application\.getCurrentApplication\(\)\.exit\(\);\n/.test(main.split('function goBack')[1].split('function canExit')[0]), 'goBack itself never exits');
+});

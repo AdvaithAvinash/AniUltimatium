@@ -2332,9 +2332,34 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (state.view === 'detail' && anyDropOpen()) { closeDrops(true); return; }
     if (state.view === 'player') closePlayer();
     else if (state.view === 'detail') closeDetail();
-    else if (state.tab !== 'home') showTab('home', true);
-    else if (IS_TV && window.tizen && tizen.application) tizen.application.getCurrentApplication().exit();
+    else if (state.tab !== firstCat()) showTab(firstCat(), true);                                   // first the first shown category (Anime, unless hidden)
+    else askExit();
+  }
+  // Back on the first screen: "Exit Aniultimatium?" Yes / No. No is chosen by default and Back means No, so a stray Back never closes the app.
+  var exitBox = null;
+  function canExit() { return !!((IS_TV && window.tizen && tizen.application) || (window.AniNative && AniNative.exit)); }
+  function doExit() {
+    if (IS_TV && window.tizen && tizen.application) tizen.application.getCurrentApplication().exit();
     else if (window.AniNative && AniNative.exit) AniNative.exit();                                   // Android TV / Fire TV app
+  }
+  function askExit() {
+    if (exitBox) { exitBox.__close(); return; }
+    if (!canExit()) return;                                                                          // a web page cannot close itself
+    var prev = state.focusEl, sel = 1;
+    exitBox = el('div', 'exitask', '<div class="ex-box"><h3>Exit Aniultimatium?</h3><p>Are you sure you want to exit?</p><div class="ex-btns"><button class="btn ex-yes">Yes, exit</button><button class="btn ex-no">No</button></div></div>');
+    var yes = exitBox.querySelector('.ex-yes'), no = exitBox.querySelector('.ex-no');
+    function paint() { yes.className = 'btn ex-yes' + (sel === 0 ? ' focused' : ''); no.className = 'btn primary ex-no' + (sel === 1 ? ' focused' : ''); }
+    function close() { document.removeEventListener('keydown', onKey, true); if (exitBox && exitBox.parentNode) exitBox.parentNode.removeChild(exitBox); exitBox = null; if (prev && document.body.contains(prev)) setFocus(prev, true); }
+    function onKey(e) {
+      e.preventDefault(); e.stopPropagation(); var k = e.keyCode; state.lastBack = Date.now();
+      if (k === KEY.LEFT || k === KEY.UP) sel = 0;
+      else if (k === KEY.RIGHT || k === KEY.DOWN) sel = 1;
+      else if (k === KEY.ENTER) { if (sel === 0) doExit(); else close(); return; }
+      else if (isBackKey(k) || k === KEY.STOP) { close(); return; }
+      paint();
+    }
+    yes.onclick = function () { doExit(); }; no.onclick = function () { close(); };
+    exitBox.__close = close; document.body.appendChild(exitBox); document.addEventListener('keydown', onKey, true); paint();
   }
 
   document.addEventListener('keydown', function (e) {
