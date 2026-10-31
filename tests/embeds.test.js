@@ -57,3 +57,12 @@ test('VidSrc and VidLink play without the sandbox (they refuse it); every other 
   for (const u of ['https://vidsrc.cc/v2/embed/movie/550', 'https://www.2embed.cc/embed/550', 'https://cinesrc.st/embed/movie/550', 'https://evil.example/vidsrc.to/', 'https://vidsrc.to.evil.example/']) assert.ok(!re.test(u), u);
   assert.match(main, /if \(popBlockOn\(\) && !NO_SANDBOX\.test\(url\)\) f\.setAttribute\('sandbox', SANDBOX\)/);
 });
+
+test('Auto: a hosted player that never gets the film moving is replaced by the next source after 1 minute; a picked source is kept', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'public/main.js'), 'utf8');
+  assert.match(main, /state\.embedStall = setTimeout\(function \(\) \{/);
+  assert.match(main, /if \(state\.mvia && state\.mvia !== 'auto'\) return;/);
+  assert.match(main, /did not start in 1 minute — trying/);
+  assert.match(main, /\}, 60000\);/);
+  assert.match(main, /clearTimeout\(state\.embedStall\); clearInterval\(state\.embedMoveIv\);/, 'stopped when the player closes');
+});

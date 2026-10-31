@@ -1171,13 +1171,30 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       }
       else toast('Player not responding? Press Up, then Source, to try another player' + (popBlockOn() ? ' — or switch off "Block popups in hosted players" in Settings if it stays blank' : ''));
     }, OLD_ENGINE ? 20000 : 30000);
+    // Auto: a player that answers but never gets the film moving (stuck on its loading circle) is replaced after 1 minute by the next source in the list.
+    // "Moving" = its playback clock went forward; players that never report their clock cannot be judged, so they are left alone (Source menu to change).
+    clearTimeout(state.embedStall); clearInterval(state.embedMoveIv);
+    state.embedMoved = false; state.embedLastT = null;
+    state.embedMoveIv = setInterval(function () {
+      var t = state.cin ? +state.cin.t || 0 : 0;
+      if (state.embedLastT !== null && t > state.embedLastT + 0.5) state.embedMoved = true;
+      state.embedLastT = t;
+    }, 1000);
+    state.embedStall = setTimeout(function () {
+      if (etk !== state.token || !state.embed || state.embedMoved || OLD_ENGINE) return;
+      if (state.mvia && state.mvia !== 'auto') return;                                 // a source the viewer picked is kept
+      if (!state.embedHeard) return;                                                   // silent players: the 30 s watchdog above handles the ones that should talk
+      var nx = state.embeds && state.embeds[(state.embedIdx || 0) + 1];
+      if (!nx) { toast(state.embedName + ' is still not playing — press Up, then Source, to pick another'); return; }
+      state.embedIdx = (state.embedIdx || 0) + 1; toast(state.embedName + ' did not start in 1 minute — trying ' + nx.name); startEmbed(nx.url);
+    }, 60000);
     startSubLoop();                                  // OpenSubtitles overlay, locked to the player clock
     osFetchList(function () { subAuto(); });
   }
   function hideEmbed() {
     state.embed = false; state.embedKind = null; $('player').removeAttribute('data-embed');
     $('embedSubs').textContent = ''; $('embedCtl').className = 'hidden'; state.ebar = { open: false, idx: 2 };
-    clearInterval(state.ebarTick); clearInterval(state.vcPoll); clearTimeout(state.ebarHide); clearTimeout(state.embedDog);
+    clearInterval(state.ebarTick); clearInterval(state.vcPoll); clearTimeout(state.ebarHide); clearTimeout(state.embedDog); clearTimeout(state.embedStall); clearInterval(state.embedMoveIv);
     var f = $('embedFrame');
     if (f.className !== '') { f.className = ''; f.removeAttribute('src'); }
   }
