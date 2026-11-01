@@ -792,7 +792,8 @@ function startBadTime(a,v){
  G.banner={text:'BAD TIME',t:0,dur:70,color:'#3a8bff',big:true}; G.projs=[]; G.bls=[]; G.hitstop=0; dualCheck(a,v);
 }
 function endBT(){ const b=G.bt; if(!b) return; btFade(); G.bls=G.bls.filter(q=>!q.ring); G.bt=null; G.lightT=null; if(b.rs){ CAM=null; for(const f of G.p) f.hidden=false; } if(btScene) btScene.visible=false; btBones.forEach(g=>g.visible=false); }
-function btHurt(O,S,dmg,k,inv){ if(O.invuln>0||O.hp<=0||G.phase!=='fight') return false; const blk=O.state==='block'||O.state==='blockstun';
+function btMul(S,O){ return (S&&S.def&&S.def.sans&&S.p2&&O&&O.awk)?clamp(O.def.hp/1250,1,6):1; }
+function btHurt(O,S,dmg,k,inv){ if(O.invuln>0||O.hp<=0||G.phase!=='fight') return false; dmg*=btMul(S,O); const blk=O.state==='block'||O.state==='blockstun';
  if(blk){ dmg*=.25; k=0; sfx('block'); } else sfx('bonefire');
  O.hp=Math.max(0,O.hp-dmg); S.dealt+=dmg; O.flash=5; O.invuln=inv||40; if(k) O.karma=Math.min(S.def.karmaCap||1125,O.karma+k);
  popText(O.x,O.y+120,O.z,Math.round(dmg),'#bfe8ff',1); spark(O.x,O.y+60,O.z,10,'#8fd8ff',7); G.shake=Math.max(G.shake,9);
@@ -963,7 +964,7 @@ function applyHit(a,v,m,dirF,isProj){
  if(a.def.backstab&&!isProj&&(v.facing===dirF||v.state==='stun')){ dmg*=a.def.backstab; popText(hx,hy+56,hz,'BACKSTAB','#ff5d7a',1.1); }
  dmg*=(a.boost||1)*(a.boost2>0?1.35:1)*Math.max(.45,1-v.comboTaken*.08);
  if(m.pct) dmg=v.def.hp*m.pct;
- if(m.fixed!==undefined) dmg=m.fixed;
+ if(m.fixed!==undefined) dmg=m.fixed*btMul(a,v);
  if(a.weak>0) dmg=Math.min(dmg,10);
  v.hp-=dmg; a.dealt+=dmg; v.comboTaken++; v.comboDmg+=dmg; a.maxCombo=Math.max(a.maxCombo,v.comboTaken);
  if(tag){ const cf=COMBO_FX[tag]; v.comboName=cf.name; v.comboCol=cf.col; }
@@ -2279,7 +2280,7 @@ function cleanClip(c,name){ c=c.clone(); c.name=name;
 function filterClip(c,keep,name){ return new THREE.AnimationClip(name,c.duration,c.tracks.filter(t=>keep(trackBone(t))).map(t=>t.clone())); }
 function poseClip(c,t,name,keep=()=>true){ const tr=[]; for(const k of c.tracks){ if(!keep(trackBone(k))) continue; const v=Array.from(k.createInterpolant().evaluate(Math.min(t,c.duration))); tr.push(new k.constructor(k.name,[0],v)); } return new THREE.AnimationClip(name,1,tr); }
 
-function loadAny(loader,url,onP){ return new Promise((res,rej)=>loader.load(url,res,e=>onP&&onP(url,e),rej)); }
+function loadAny(loader,url,onP,tries=3){ return new Promise((res,rej)=>loader.load(url,res,e=>onP&&onP(url,e),e=>{ if(tries>1) setTimeout(()=>loadAny(loader,url,onP,tries-1).then(res,rej),700*(4-tries)); else rej(new Error('Could not load '+url+(e&&e.target&&e.target.status?' (HTTP '+e.target.status+')':'')+'. Check the connection and reload.')); })); }
 const MODELS={hero:{file:'hero',cape:true},boxer:{file:'boxer',guard:true},assassin:{file:'assassin'},vesper:{file:'vesper'},saiyan:{file:'saiyan',native:true},sans:{file:'sans',native:'sans',strip:['Object_91','Object_95','Object_97']}};
 async function loadAssets(onProgress){
  const gl=new THREE.GLTFLoader(), names=['dummy',...Object.values(MODELS).map(m=>m.file),'knife','kame','sword'];
@@ -2752,7 +2753,7 @@ function start(){
  let ti=0; const tipT=setInterval(()=>{ $('#ldTip').textContent=TIPS[ti++%TIPS.length]; },2200); $('#ldTip').textContent=TIPS[0];
  loadAssets(p=>{ go.textContent='Loading '+Math.round(p*100)+'%'; const q=Math.round(Math.min(.97,p)*100); $('#ldPct').textContent=q+'%'; $('#ldFill').style.width=q+'%'; }).then(()=>{ initPortraits(); makeRigs(); go.disabled=rn.disabled=false; pickTitle();
    $('#ldPct').textContent='100%'; $('#ldFill').style.width='100%'; clearInterval(tipT); setTimeout(()=>{ $('#loading').classList.add('out'); if(!G.running)$('#menu').hidden=false; setTimeout(()=>{ $('#loading').hidden=true; },650); },450); })
-  .catch(e=>{ console.error(e); $('#ldTip').textContent='Load failed. Reload the page.'; go.textContent='Load failed'; $('#pickTitle').textContent='The fighter models could not load. Reload the page to try again.'; });
+  .catch(e=>{ console.error(e); $('#ldTip').textContent=(e&&e.message)||'Load failed. Reload the page.'; go.textContent='Load failed'; $('#pickTitle').textContent='The fighter models could not load. Reload the page to try again.'; });
 }
 start();   /* Aniultimatium: plain start (the Claude-preview hook used syntax older Samsung TVs cannot read) */
 </script>
