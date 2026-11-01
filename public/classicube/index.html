@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- ClassiCube web client (https://github.com/ClassiCube/ClassiCube, BSD 3-clause licence: LICENSE.txt), hosted by Aniultimatium.
+     Page set up as in ClassiCube's doc/hosting-webclient.md, starting straight into singleplayer. tvremote.js adds TV remote buttons; game pads work natively. -->
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<meta name="robots" content="noindex">
+<title>ClassiCube</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; color: #ccc; font: 15px system-ui, sans-serif; }
+  #canvas { display: block; border: 0; padding: 0; background: #000; width: 100%; height: 100%; }
+  #logmsg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  #tvhint { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); padding: 5px 12px; border-radius: 8px; background: rgba(8,10,20,.85); color: #ddd; font-size: 14px; display: none; white-space: nowrap; }
+</style>
+</head><body>
+<!-- the canvas must not have any border or padding, or mouse coords will be wrong -->
+<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+<span id="logmsg"></span>
+<div id="tvhint">◀▲▼▶ walk · OK jump · <b style="color:#ff6a6a">RED</b> break · <b style="color:#6aff8a">GREEN</b> place · <b style="color:#ffe46a">YELLOW</b>/<b style="color:#6ab4ff">BLUE</b> turn · CH+/CH− look · 1–9 block · Play/Pause menu</div>
+<script>
+  var Module = {
+    preRun: [], postRun: [],
+    arguments: ['Player'],                                  // singleplayer, no account or server needed
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.error(t); },
+    canvas: (function () { return document.getElementById('canvas'); })(),
+    setStatus: function (t) { document.getElementById('logmsg').textContent = t || ''; },
+    totalDependencies: 0,
+    monitorRunDependencies: function (left) {
+      this.totalDependencies = Math.max(this.totalDependencies, left);
+      Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '');
+    }
+  };
+  Module.setStatus('Downloading...');
+  window.onerror = function (msg) { Module.setStatus('Something went wrong (' + msg + '). Reload to try again.'); };
+  // keys only reach the game while the page and its canvas have focus (on a TV there is no mouse click to give it)
+  function ccFocus() { try { window.focus(); Module.canvas.focus(); } catch (e) { /* ignore */ } }
+  Module.postRun.push(function () { ccFocus(); setTimeout(ccFocus, 500); });
+  window.addEventListener('load', ccFocus); window.addEventListener('focus', function () { setTimeout(ccFocus, 0); });
+</script>
+<script src="tvremote.js"></script>
+<script async src="ClassiCube.js"></script>
+</body></html>

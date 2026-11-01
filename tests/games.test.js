@@ -28,11 +28,25 @@ test('Gamehub in the app: card + full-screen frame with gamepad/autoplay/fullscr
   assert.match(main, /' — made by ' \+ g\.by \+ ' on YouTube · '/);
   assert.match(main, /\['ea_c_games', 'Gamehub', true, SHOWN, applyCats\]/);
   assert.match(main, /if \(state\.view === 'game'\) \{ closeGame\(\); return; \}/, 'Back leaves the game');
-  assert.match(read('tools/build_wgt.py'), /WEB_ONLY_DIRS = \{"omnirift"\}/);
+  assert.match(read('tools/build_wgt.py'), /WEB_ONLY_DIRS = \{"omnirift", "classicube"\}/);
   assert.match(read('tools/build_apk.py'), /not os\.path\.isfile\(os\.path\.join\(pub, f\)\)/, 'the APK only takes top-level files');
 });
 
 test('TVs open the game in its own TV mode (lighter graphics, remote controls)', () => {
   assert.match(read('public/main.js'), /f\.src = siteBase\(\) \+ x\.path \+ \(IS_TV \? '\?tv=1' : ''\);/);
   assert.match(read('public/omnirift/index.html'), /\/\[\?&\]tv=1\/\.test\(location\.search\)/);
+});
+
+test('ClassiCube: official web build + texture pack + licence on the site, singleplayer, remote adapter, Gamehub card with credit', () => {
+  const page = read('public/classicube/index.html'), js = read('public/classicube/ClassiCube.js'), main = read('public/main.js');
+  assert.match(page, /arguments: \['Player'\]/, 'singleplayer');
+  assert.match(page, /<script src="tvremote\.js"><\/script>\s*<script async src="ClassiCube\.js"><\/script>/);
+  assert.match(js, /var url  = 'default\.zip';/, 'texture pack from the same folder');
+  assert.ok(fs.existsSync(path.join(root, 'public/classicube/default.zip')));
+  assert.match(read('public/classicube/LICENSE.txt'), /Redistribution and use in source and binary forms/);
+  const tv = read('public/classicube/tvremote.js');
+  assert.ok(!/=>|`|\blet |\bconst /.test(tv), 'plain ES5');
+  for (const [k, c] of [['37', 'KeyA'], ['38', 'KeyW'], ['39', 'KeyD'], ['40', 'KeyS'], ['13', 'Space']]) assert.match(tv, new RegExp(k + ": \\['" + c + "'"));
+  assert.match(main, /id: 'classicube', title: 'ClassiCube'/);
+  assert.match(main, /credit: 'ClassiCube — open source \(BSD licence\)/);
 });

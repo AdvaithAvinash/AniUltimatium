@@ -577,9 +577,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // Games run from the website (they are too big for the TV / Android package) in a full-screen frame; the app only lists them and keeps the creator's credit on screen.
   var GAMES = [
     { id: 'omnirift', title: 'OmniRift', tag: '3D anime fighting game', path: '/omnirift/index.html', by: '@unboxingdetective', link: 'https://www.youtube.com/@unboxingdetective', minChrome: 60,
-      help: 'Remote: arrows move · OK light · Red heavy · Green block · Yellow special · Blue jump · 0 or Play/Pause pause (the game shows the buttons on screen). Keyboard, mouse, touch and game pads work too.' }
+      help: 'Remote: arrows move · OK light · Red heavy · Green block · Yellow special · Blue jump · 0 or Play/Pause pause (the game shows the buttons on screen). Keyboard, mouse, touch and game pads work too.' },
+    { id: 'classicube', title: 'ClassiCube', tag: 'Block building sandbox (singleplayer)', path: '/classicube/index.html', by: 'the ClassiCube project', link: 'https://github.com/ClassiCube/ClassiCube', minChrome: 57, credit: 'ClassiCube — open source (BSD licence) by UnknownShadow200 and contributors · github.com/ClassiCube/ClassiCube',
+      help: 'Remote: arrows walk · OK jump · Red break · Green place · Yellow / Blue turn · CH+ / CH− look up / down · 1–9 pick a block · Play/Pause menu. Game pads, keyboard and mouse work too.' }
   ];
-  function creditOf(g) { return g.title + ' — made by ' + g.by + ' on YouTube · ' + g.link.replace(/^https:\/\/(www\.)?/, ''); }
+  function creditOf(g) { return g.credit || (g.title + ' — made by ' + g.by + ' on YouTube · ' + g.link.replace(/^https:\/\/(www\.)?/, '')); }
   function siteBase() { return /^https?:$/.test(location.protocol) ? '' : VERCEL_API_URL.replace(/\/+$/, ''); }      // the TV / Android app runs from a local file: load games from the website
   function renderGames() {
     var g = $('gamesGrid'); if (!g) return; g.innerHTML = '';
