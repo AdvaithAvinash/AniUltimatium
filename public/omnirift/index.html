@@ -1,10 +1,8 @@
 <!doctype html>
-<!-- OmniRift by @unboxingdetective (https://www.youtube.com/@unboxingdetective). Hosted by Aniultimatium; changes: this doctype line, the start() line, and tvremote.js at the end. -->
+<!-- OmniRift by @unboxingdetective (https://www.youtube.com/@unboxingdetective). Hosted by Aniultimatium; changes: this doctype line, three.js and the fonts served from this folder (identical files) instead of CDNs, and the start() line. -->
 <meta charset="utf-8">
 <title>OmniRift</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Chakra+Petch:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout: one full-bleed stage; menus float over it as panels. Single dark arcade look by choice. */
 :root{
@@ -216,9 +214,9 @@ kbd{font:600 12px var(--body);background:#2a2139;border:1px solid var(--line);bo
   <div id="touchBelow"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<script src="lib/three.min.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script src="lib/SkeletonUtils.js"></script>
 <script>
 "use strict";
 /* ============ constants ============ */
@@ -460,6 +458,7 @@ const LV={easy:{react:26,block:.22,think:24,aggr:.35},normal:{react:15,block:.5,
 function newInput(){return {hold:{left:false,right:false,up:false,down:false,block:false},buf:{light:0,heavy:0,special:0,jump:0,dash:0,soul:0,smash:0,counter:0}}}
 const IN=[newInput(),newInput()];
 const keyHeld=[{},{}], touchHeld={}, padHeld=[{},{}];
+const TV=/Tizen|SMART-?TV|Web0S|NetCast/i.test(navigator.userAgent)||!!window.tizen||/[?&]tv=1/.test(location.search), PERF=TV||/[?&]perf=1/.test(location.search); let perfRes=1, perfEma=16, perfT=0;
 
 function makeFighter(def,idx){
  return {def,idx,x:0,z:ZMAX/2,y:0,vx:0,vz:0,vy:0,facing:1,hp:def.hp,hpLag:def.hp,st:def.stMax,meter:0,state:'idle',t:0,mf:0,move:null,kind:null,chain:0,moveHit:false,moveId:0,
@@ -1422,8 +1421,8 @@ function canvasTex(w,h,draw){ const c=document.createElement('canvas'); c.width=
 function seeded(s){ return ()=>(s=(s*16807)%2147483647)/2147483647; }
 
 function init3D(){
- R3=new THREE.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'high-performance'});
- R3.shadowMap.enabled=true; R3.shadowMap.type=THREE.PCFSoftShadowMap;
+ R3=new THREE.WebGLRenderer({canvas:cv,antialias:!PERF,powerPreference:'high-performance'});
+ R3.shadowMap.enabled=!PERF; R3.shadowMap.type=THREE.PCFSoftShadowMap;
  R3.outputEncoding=THREE.sRGBEncoding; R3.toneMapping=THREE.ACESFilmicToneMapping; R3.toneMappingExposure=1.15;
  scene=new THREE.Scene(); scene.fog=new THREE.Fog(C('#6a3450'),1600,7000);
  cam3=new THREE.PerspectiveCamera(30,16/9,5,20000);
@@ -1444,12 +1443,12 @@ function init3D(){
 
  // lights
  hemiLight=new THREE.HemisphereLight(C('#c49ad8'),C('#2a1622'),.75); scene.add(hemiLight);
- keyLight=new THREE.DirectionalLight(C('#ffe6cc'),1.35); keyLight.position.set(350,900,950); keyLight.castShadow=true;
+ keyLight=new THREE.DirectionalLight(C('#ffe6cc'),1.35); keyLight.position.set(350,900,950); keyLight.castShadow=!PERF;
  keyLight.shadow.mapSize.set(2048,2048); const sc=keyLight.shadow.camera; sc.left=-900;sc.right=900;sc.top=700;sc.bottom=-700;sc.near=100;sc.far=3200; keyLight.shadow.bias=-0.0006; keyLight.shadow.radius=3;
  scene.add(keyLight); scene.add(keyLight.target);
  rimLight=new THREE.DirectionalLight(C('#ff8040'),1.9); rimLight.position.set(-400,260,-1100); scene.add(rimLight);
  hitLight=new THREE.PointLight(C('#ffd08a'),0,520,2); scene.add(hitLight);
- for(let i=0;i<3;i++){ const l=new THREE.PointLight(C('#ff7a30'),0,700,2); scene.add(l); projLights.push(l); }
+ for(let i=0;i<3;i++){ const l=new THREE.PointLight(C('#ff7a30'),0,700,2); scene.add(l); projLights.push(l); if(PERF) l.visible=false; }
 
  const concrete=new THREE.MeshStandardMaterial({color:C('#3d3140'),roughness:.95});
  const add=(geo,mat,x,y,z,shadow=true)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=shadow; m.receiveShadow=true; scene.add(m); return m; };
@@ -2261,7 +2260,7 @@ function render(){
 
 /* ---- menu portraits (one shared renderer) ---- */
 function initPortraits(){
- PR=new THREE.WebGLRenderer({antialias:true,alpha:true}); PR.setSize(240,240,false); PR.setPixelRatio(1);
+ PR=new THREE.WebGLRenderer({antialias:!PERF,alpha:true}); PR.setSize(240,240,false); PR.setPixelRatio(1);
  PR.outputEncoding=THREE.sRGBEncoding; PR.toneMapping=THREE.ACESFilmicToneMapping; PR.toneMappingExposure=1.2;
  pScene=new THREE.Scene(); pScene.add(new THREE.HemisphereLight(C('#c49ad8'),C('#2a1622'),.9));
  const k=new THREE.DirectionalLight(C('#ffe6cc'),1.5); k.position.set(200,300,400); pScene.add(k);
@@ -2585,8 +2584,8 @@ function layout(){
  if(portrait&&touchOn){ sh=Math.min(vh*.62,vw*1.0); if(touch.parentElement!==tb){ tb.appendChild(touch); } touch.classList.add('below'); tb.style.cssText=`flex:1;width:100%;display:flex;`; }
  else { if(touch.parentElement!==stage) stage.appendChild(touch); touch.classList.remove('below'); tb.style.cssText='display:none'; }
  stage.style.width=sw+'px'; stage.style.height=sh+'px';
- W=sw; H=sh; DPR=Math.min(2,devicePixelRatio||1); hud.width=W*DPR|0; hud.height=H*DPR|0;
- if(R3){ R3.setPixelRatio(Math.min(DPR,1.75)); R3.setSize(W,H,false); cam3.aspect=W/H; cam3.updateProjectionMatrix(); }
+ W=sw; H=sh; DPR=PERF?Math.min(1,1280*perfRes/W):Math.min(2,devicePixelRatio||1); hud.width=W*DPR|0; hud.height=H*DPR|0;
+ if(R3){ R3.setPixelRatio(PERF?DPR:Math.min(DPR,1.75)); R3.setSize(W,H,false); cam3.aspect=W/H; cam3.updateProjectionMatrix(); }
  base=Math.min(H/600,W/780);
 }
 addEventListener('resize',layout);
@@ -2630,15 +2629,54 @@ function pollPads(){
   prev.b=gp.buttons.map(b=>b.pressed); prev.l=left; prev.r=right;
  });
 }
+/* ============ TV remote support ============ */
+const TVK={13:'KeyJ',403:'KeyK',404:'KeyF',405:'KeyE',406:'Space',49:'KeyJ',50:'KeyK',51:'KeyF',52:'KeyE',53:'KeyU',54:'Space',55:'KeyR',56:'KeyT',57:'KeyB',412:'KeyU',48:'Escape',415:'Escape',19:'Escape',10252:'Escape'};
+const TVN={37:'ArrowLeft',38:'ArrowUp',39:'ArrowRight',40:'ArrowDown'};
+function visBtns(root,sel){ return Array.from((root||document).querySelectorAll(sel||'button')).filter(b=>b.offsetParent&&!b.disabled&&!b.hidden); }
+function menuRows(){ const r=[visBtns($('#segMode')),visBtns($('#segDiff')),null,visBtns(document,'#btnEvo'),visBtns(document,'#btnRandom,#btnGo,#btnBack')].filter(x=>x===null||x.length); return r; }
+function seekRow(rows,el){ for(let i=0;i<rows.length;i++) if(rows[i]&&rows[i].includes(el)) return i; return -1; }
+function tvMove(e){
+ const k=e.code; if(!/^Arrow/.test(k)) return false;
+ const ae=document.activeElement, isBtn=ae&&ae.tagName==='BUTTON';
+ const ov=!$('#pause').hidden?$('#pause'):!$('#result').hidden?$('#result'):null;
+ if(ov){ const bs=visBtns(ov); if(!bs.length) return false; let i=bs.indexOf(ae); if(k==='ArrowUp'||k==='ArrowLeft') i=i<=0?bs.length-1:i-1; else i=i<0||i>=bs.length-1?0:i+1; bs[i].focus(); return true; }
+ if($('#menu').hidden) return false;
+ const rows=menuRows(); let ri=isBtn?seekRow(rows,ae):rows.findIndex(x=>x===null);
+ if(ri<0) ri=rows.findIndex(x=>x===null);
+ if(k==='ArrowUp'||k==='ArrowDown'){ const nr=clamp(ri+(k==='ArrowDown'?1:-1),0,rows.length-1); const row=rows[nr]; if(row===null){ if(isBtn) ae.blur(); } else { const col=isBtn&&rows[ri]?Math.min(rows[ri].indexOf(ae),row.length-1):0; row[Math.max(0,col)].focus(); } return true; }
+ if(isBtn&&rows[ri]){ const row=rows[ri]; if(row.length>1){ const i=row.indexOf(ae), n=clamp(i+(k==='ArrowRight'?1:-1),0,row.length-1); row[n].focus(); } return true; }
+ return false; }
+addEventListener('keydown',e=>{ if(e.isTrusted===false) return; const kc=e.keyCode;
+ if(TVN[kc]&&!e.repeat&&tvMove({code:TVN[kc]})){ e.preventDefault(); e.stopImmediatePropagation(); return; }
+ if(TVN[kc]&&tvMove({code:TVN[kc]})){ e.preventDefault(); e.stopImmediatePropagation(); return; }
+ if(!$('#menu').hidden){ // menu colour keys
+  const clickNext=id=>{ const bs=visBtns($(id)); const i=bs.findIndex(b=>b.getAttribute('aria-pressed')==='true'); (bs[(i+1)%bs.length]||{click(){}}).click(); };
+  if(kc===403){ const b=$('#btnEvo'); if(b&&b.offsetParent) b.click(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if(kc===404){ $('#btnRandom').click(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if(kc===405){ clickNext('#segMode'); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if(kc===406){ clickNext('#segDiff'); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  return; }
+ if(G.running&&$('#pause').hidden&&$('#result').hidden&&TVK[kc]&&(TV||kc>=403||kc===415||kc===19)){ e.preventDefault(); e.stopImmediatePropagation(); dispatchEvent(new KeyboardEvent('keydown',{code:TVK[kc],repeat:e.repeat,bubbles:true})); return; }
+ if(!$('#pause').hidden&&(kc===415||kc===19)){ e.preventDefault(); e.stopImmediatePropagation(); togglePause(); }
+},true);
+addEventListener('keyup',e=>{ if(e.isTrusted===false) return; const kc=e.keyCode; if(G.running&&TVK[kc]&&(TV||kc>=403)){ dispatchEvent(new KeyboardEvent('keyup',{code:TVK[kc],bubbles:true})); } },true);
+let tvHintEl=null, tvHintOn=null;
+function tvUI(){ if(!TV) return; if(!tvHintEl){ tvHintEl=document.createElement('div'); tvHintEl.style.cssText='position:fixed;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(8,10,22,.88);border:1px solid #4a5a9a;border-radius:10px;padding:6px 14px;font:600 15px system-ui,sans-serif;color:#dfe6ff;z-index:90;pointer-events:none;white-space:nowrap'; document.body.appendChild(tvHintEl); }
+ const m=!$('#menu').hidden, ps=!$('#pause').hidden, rs=!$('#result').hidden, k=m?'m':ps?'p':rs?'r':G.frame<420&&G.running?'g':'';
+ if(k!==tvHintOn){ tvHintOn=k; tvHintEl.style.display=k?'block':'none';
+  tvHintEl.innerHTML=k==='m'?'<b style="color:#ff6a6a">RED</b> Evo &nbsp; <b style="color:#6aff8a">GREEN</b> Random &nbsp; <b style="color:#ffe46a">YELLOW</b> Mode &nbsp; <b style="color:#6ab4ff">BLUE</b> Difficulty &nbsp; ◀ ▶ Fighter &nbsp; ▲ ▼ Buttons &nbsp; OK Lock in &nbsp; BACK Back':k==='g'?'Arrows move &nbsp; OK Light &nbsp; <b style="color:#ff6a6a">RED</b> Heavy &nbsp; <b style="color:#6aff8a">GREEN</b> Block &nbsp; <b style="color:#ffe46a">YELLOW</b> Special &nbsp; <b style="color:#6ab4ff">BLUE</b> Jump &nbsp; 5 Dash &nbsp; 7 R · 8 T · 9 B &nbsp; PLAY Pause':'▲ ▼ Select &nbsp; OK Confirm'; } }
 function loop(now){
  try{ pollPads(); }catch(e){}
  let dt=Math.min(.05,(now-last)/1000); last=now;
+ if(PERF&&G.running&&!G.paused){ perfEma=perfEma*.96+dt*1000*.04; if(++perfT>=120){ perfT=0; if(perfEma>22&&perfRes>.52){ perfRes=Math.max(.5,perfRes-.15); layout(); } else if(perfEma<15.5&&perfRes<1){ perfRes=Math.min(1,perfRes+.1); layout(); } } }
  if(G.running&&!G.paused&&G.phase!=='over'){
   const ts=G.slow>0?.35:1; if(G.slow>0) G.slow--;
   acc+=dt*60*ts; let n=0; while(acc>=1&&n<4){ gameStep(); acc-=1; n++; } if(n>=4) acc=0;
  } else if(!G.running){ G.frame++; for(const a of G.ash){ a.y+=a.vy; if(a.y>1.05){a.y=-.05;} } }
- render();
- if(!$('#menu').hidden) drawPortraits();
+ if(PERF&&G.running&&perfRes<=.55&&perfEma>30&&(G.frame&1)) { /* very slow device: draw every other frame */ } else if(!PERF||G.running||(G.frame&1)===0) render();
+ if(PERF&&G.fx.length>110) G.fx.splice(0,G.fx.length-110);
+ if(!$('#menu').hidden&&(!PERF||G.frame%3===0)) drawPortraits();
+ tvUI();
  requestAnimationFrame(loop);
 }
 
@@ -2757,4 +2795,3 @@ function start(){
 }
 start();   /* Aniultimatium: plain start (the Claude-preview hook used syntax older Samsung TVs cannot read) */
 </script>
-<script src="tvremote.js"></script>

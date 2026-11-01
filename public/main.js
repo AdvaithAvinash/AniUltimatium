@@ -577,7 +577,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // Games run from the website (they are too big for the TV / Android package) in a full-screen frame; the app only lists them and keeps the creator's credit on screen.
   var GAMES = [
     { id: 'omnirift', title: 'OmniRift', tag: '3D anime fighting game', path: '/omnirift/index.html', by: '@unboxingdetective', link: 'https://www.youtube.com/@unboxingdetective', minChrome: 60,
-      help: 'Arrows move · OK jump · 1 / Red light · 2 / Green heavy · 3 / Blue block · 4 / Yellow special · 5 dash · Play/Pause pauses. Keyboard, mouse, touch and game pads work too.' }
+      help: 'Remote: arrows move · OK light · Red heavy · Green block · Yellow special · Blue jump · 0 or Play/Pause pause (the game shows the buttons on screen). Keyboard, mouse, touch and game pads work too.' }
   ];
   function creditOf(g) { return g.title + ' — made by ' + g.by + ' on YouTube · ' + g.link.replace(/^https:\/\/(www\.)?/, ''); }
   function siteBase() { return /^https?:$/.test(location.protocol) ? '' : VERCEL_API_URL.replace(/\/+$/, ''); }      // the TV / Android app runs from a local file: load games from the website
@@ -596,7 +596,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.gameBack = state.view; state.view = 'game'; state.game = x;
     $('gameCredit').textContent = creditOf(x);
     $('gameView').className = '';
-    f.src = siteBase() + x.path;
+    f.src = siteBase() + x.path + (IS_TV ? '?tv=1' : '');                                     // TVs (Samsung and the Android TV app): the game's own TV mode, lighter graphics and remote controls
     setFocus($('gameExit'));
     var give = function () { try { f.focus(); if (f.contentWindow) f.contentWindow.focus(); } catch (e) { /* ignore */ } };   // keys go to the game
     f.onload = give; setTimeout(give, 300);

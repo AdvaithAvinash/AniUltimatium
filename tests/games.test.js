@@ -10,7 +10,9 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 test('OmniRift files are on the site: the game page, the remote adapter and every asset it loads', () => {
   const page = read('public/omnirift/index.html');
   assert.match(page, /^<!doctype html>/i);
-  assert.match(page, /<script src="tvremote\.js"><\/script>\s*$/);
+  for (const f of ['lib/three.min.js', 'lib/GLTFLoader.js', 'lib/SkeletonUtils.js', 'fonts/fonts.css']) { assert.ok(page.includes('"' + f + '"'), f); assert.ok(fs.existsSync(path.join(root, 'public/omnirift', f)), f); }
+  assert.ok(!/<script src="https?:|fonts\.googleapis/.test(page), 'nothing loaded from other servers');
+  assert.ok(!fs.existsSync(path.join(root, 'public/omnirift/tvremote.js')), 'the game has its own remote support now');
   assert.ok(!/\?\.|\?\?/.test(page.split('<script>').slice(-1)[0].split('start();')[1] || ''), 'no syntax older TVs cannot read in the start line');
   const want = new Set();
   (page.match(/'assets\/[a-z_]+\.mp3'/g) || []).forEach(m => want.add(m.slice(8, -1)));
@@ -30,10 +32,7 @@ test('Gamehub in the app: card + full-screen frame with gamepad/autoplay/fullscr
   assert.match(read('tools/build_apk.py'), /not os\.path\.isfile\(os\.path\.join\(pub, f\)\)/, 'the APK only takes top-level files');
 });
 
-test('TV remote adapter: number / colour / Play-Pause buttons become the game keys, without double presses', () => {
-  const src = read('public/omnirift/tvremote.js');
-  assert.ok(!/=>|`|\blet |\bconst /.test(src), 'plain ES5');
-  for (const [k, c] of [[49, 'Comma'], [50, 'Period'], [51, 'Slash'], [52, 'Semicolon'], [403, 'Comma'], [406, 'Slash'], [10252, 'Escape']]) assert.match(src, new RegExp(k + ": '" + c + "'"));
-  assert.match(src, /if \(!c \|\| e\.__aniu\) return null;/, 'its own events are not mapped again');
-  assert.match(src, /if \(NAMED_ONLY\[e\.keyCode\] && e\.code\) return null;/, 'normal arrows / Enter are left to the game');
+test('TVs open the game in its own TV mode (lighter graphics, remote controls)', () => {
+  assert.match(read('public/main.js'), /f\.src = siteBase\(\) \+ x\.path \+ \(IS_TV \? '\?tv=1' : ''\);/);
+  assert.match(read('public/omnirift/index.html'), /\/\[\?&\]tv=1\/\.test\(location\.search\)/);
 });
