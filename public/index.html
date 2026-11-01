@@ -64,6 +64,7 @@
       <button class="tab focusable" data-tab="tv"></button>
       <button class="tab focusable" data-tab="live"></button>
       <button class="tab focusable" data-tab="schedule"></button>
+      <button class="tab focusable" data-tab="games"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
       <button class="tab focusable" data-tab="history"></button>
@@ -145,6 +146,12 @@
     <div id="listChips" class="chips"></div>
     <div id="listMsg" class="msg"></div>
     <div id="listGrid" class="cards"></div>
+  </main>
+
+  <main id="viewGames" class="view hidden">
+    <div class="pagehead"><h2>Gamehub</h2></div>
+    <p class="hint gh-lead">Games you can play right here. They load from the internet; a game pad works too.</p>
+    <div id="gamesGrid" class="gh-grid"></div>
   </main>
 
   <main id="viewHistory" class="view hidden">
@@ -272,6 +279,11 @@
       <div id="dEps"></div>
       <div id="dMore"></div>
     </div>
+  </section>
+
+  <section id="gameView" class="hidden">
+    <iframe id="gameFrame" title="Game" allow="gamepad; autoplay; fullscreen" allowfullscreen></iframe>
+    <div id="gameBar"><button id="gameExit" class="focusable">&#9664; Back: leave the game</button><span id="gameCredit"></span></div>
   </section>
 
   <section id="player" class="hidden">

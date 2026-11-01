@@ -23,6 +23,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z', list: 'M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z',
     gear: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
     film: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
+    game: 'M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
     history: 'M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
     person: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
     tv: 'M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z',
@@ -572,11 +573,45 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     setTimeout(paint, 380);
   }
 
+  // ======================= Gamehub =======================
+  // Games run from the website (they are too big for the TV / Android package) in a full-screen frame; the app only lists them and keeps the creator's credit on screen.
+  var GAMES = [
+    { id: 'omnirift', title: 'OmniRift', tag: '3D anime fighting game', path: '/omnirift/index.html', by: '@unboxingdetective', link: 'https://www.youtube.com/@unboxingdetective', minChrome: 60,
+      help: 'Arrows move · OK jump · 1 / Red light · 2 / Green heavy · 3 / Blue block · 4 / Yellow special · 5 dash · Play/Pause pauses. Keyboard, mouse, touch and game pads work too.' }
+  ];
+  function creditOf(g) { return g.title + ' — made by ' + g.by + ' on YouTube · ' + g.link.replace(/^https:\/\/(www\.)?/, ''); }
+  function siteBase() { return /^https?:$/.test(location.protocol) ? '' : VERCEL_API_URL.replace(/\/+$/, ''); }      // the TV / Android app runs from a local file: load games from the website
+  function renderGames() {
+    var g = $('gamesGrid'); if (!g) return; g.innerHTML = '';
+    GAMES.forEach(function (x) {
+      var old = x.minChrome && CHROME_V > 0 && CHROME_V < x.minChrome;
+      var b = el('button', 'gh-card focusable', '<div class="gh-art"><b>' + esc(x.title) + '</b><i>' + esc(x.tag) + '</i></div><div class="gh-info"><span>' + (old ? 'Needs a 2019 or newer TV' : 'Play') + '</span>'
+        + '<em>' + esc(x.help) + '</em></div><div class="gh-credit">' + esc(creditOf(x)) + '</div>');
+      b.__game = x; g.appendChild(b);
+    });
+  }
+  function openGame(x) {
+    if (x.minChrome && CHROME_V > 0 && CHROME_V < x.minChrome) { toast(x.title + ' needs a 2019 or newer TV (this TV\'s browser is too old for it)'); return; }
+    var f = $('gameFrame');
+    state.gameBack = state.view; state.view = 'game'; state.game = x;
+    $('gameCredit').textContent = creditOf(x);
+    $('gameView').className = '';
+    f.src = siteBase() + x.path;
+    setFocus($('gameExit'));
+    var give = function () { try { f.focus(); if (f.contentWindow) f.contentWindow.focus(); } catch (e) { /* ignore */ } };   // keys go to the game
+    f.onload = give; setTimeout(give, 300);
+  }
+  function closeGame() {
+    var f = $('gameFrame'); f.onload = null; f.removeAttribute('src');
+    $('gameView').className = 'hidden'; state.view = state.gameBack || 'games'; state.game = null;
+    var b = $('gamesGrid').querySelector('.focusable'); if (b) setFocus(b);
+  }
+
   // ======================= Tabs =======================
-  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', schedule: 'viewSchedule', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
-  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', schedule: 'cal', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
+  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', schedule: 'viewSchedule', games: 'viewGames', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
+  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', schedule: 'cal', games: 'game', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
   function paintTabs() {
-    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', schedule: 'Schedule', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
+    var tabs = document.querySelectorAll('.tab'), names = { home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', schedule: 'Schedule', games: 'Gamehub', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
       tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
@@ -592,7 +627,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'movies') state.mode = 'movies';
     if (t === 'tv') state.mode = 'tv';
     var shown = VIEW_OF[t];
-    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive', 'viewSchedule'].forEach(function (id) {
+    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive', 'viewSchedule', 'viewGames'].forEach(function (id) {
       $(id).className = 'view' + (id === shown ? '' : ' hidden');
     });
     $('nav').className = t === 'live' || activeView().scrollTop > 40 ? 'solid' : '';
@@ -611,6 +646,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'schedule' && EA.feed) EA.feed.show(focusContent);
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
+    if (t === 'games') { renderGames(); if (focusContent) { var g0 = $('gamesGrid').querySelector('.focusable'); if (g0) setFocus(g0); } }
     if (t === 'account') renderAccount();
     if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); paintExtras(); paintProf(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('setApp').firstChild || $('serverInput')); }
     if (focusContent && isHomeTab(t)) setFocus($('heroPlay'));
@@ -1613,7 +1649,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_noads', 'Movies and TV: try ad-free sources first', false, [[false, 'Off'], [true, 'On']]]
   ];
   // ----- Customize: colour, categories (each can be switched off; at least one stays on), ads -----
-  var CATS = [['home', 'ea_c_anime'], ['movies', 'ea_c_movies'], ['tv', 'ea_c_tv'], ['live', 'ea_c_live']];
+  var CATS = [['home', 'ea_c_anime'], ['movies', 'ea_c_movies'], ['tv', 'ea_c_tv'], ['live', 'ea_c_live'], ['games', 'ea_c_games']];
   function catOn(tab) {
     if (tab === 'schedule') return catOn('home');                                  // the airing schedule is anime only
     for (var i = 0; i < CATS.length; i++) if (CATS[i][0] === tab) return store.get(CATS[i][1], true) !== false;
@@ -1633,6 +1669,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_c_movies', 'Movies', true, SHOWN, applyCats],
     ['ea_c_tv', 'TV Shows', true, SHOWN, applyCats],
     ['ea_c_live', 'Live TV (IPTV)', true, SHOWN, applyCats],
+    ['ea_c_games', 'Gamehub', true, SHOWN, applyCats],
     ['ea_ads', 'Ads', true, [[true, 'On · supports the app'], [false, 'Off']], function () { if (EA.sponsor && EA.sponsor.hidePause) EA.sponsor.hidePause(); }]
   ];
   function setLabel(row) { var cur = store.get(row[0], row[2]), o = row[3].filter(function (x) { return String(x[0]) === String(cur); })[0]; return o ? o[1] : String(cur); }
@@ -2224,6 +2261,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.tagName === 'INPUT') { e.focus(); return; }
     if (e.__live && EA.live) { EA.live.activate(e); return; }
     if (e.id && /^live[A-Z]/.test(e.id) && EA.live) { EA.live.activate(e); return; }
+    if (e.__game) { openGame(e.__game); return; }
+    if (e.id === 'gameExit') { closeGame(); return; }
     if (e.__tab) { showTab(e.__tab, e.__tab !== 'search'); if (e.__tab === 'search') setFocus($('searchInput')); return; }
     if (e.__stype) { state.smode = e.__stype; paintTypeChips(); $('searchGrid').innerHTML = ''; runSearch(); return; }
     if (e.id === 'heroPlay') { var h = state.hero[state.heroIdx]; if (h) { state.returnFocus = e; var p = progOf(h); state.anime = h;
@@ -2323,6 +2362,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function paintTipsBtn() { var off = store.get('ea_notice_off', false); $('setTips').innerHTML = (off ? '✕ Startup tips: Off' : '✔ Startup tips: On'); }
   function goBack() {
+    if (state.view === 'game') { closeGame(); return; }                                    // Gamehub: Back leaves the game
     if (state.liveOn && EA.live) { EA.live.back(); return; }                           // Live TV player: its own Back
     if (state.view === 'notice') { hideNotice(false); return; }
     if (state.view === 'modal' && EA.live) { EA.live.closeModal(); return; }
@@ -2364,6 +2404,12 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
 
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode;
+    if (state.view === 'game') {                                                          // keys reach the app only when the game frame is not focused
+      if (isBackKey(k) || k === KEY.STOP) { e.preventDefault(); state.lastBack = Date.now(); closeGame(); return; }
+      if (k === KEY.ENTER && state.focusEl === $('gameExit')) { e.preventDefault(); closeGame(); return; }
+      try { $('gameFrame').focus(); if ($('gameFrame').contentWindow) $('gameFrame').contentWindow.focus(); } catch (er) { /* ignore */ }
+      return;
+    }
     if (EA.live && EA.live.key(e)) return;                                            // Live TV: its own lists, zapping and player keys
     if (state.view === 'player' && state.oldEng) { oldEngKey(e); return; }
     if (state.view === 'player') {
