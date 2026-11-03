@@ -154,10 +154,10 @@ You can hide the tab in Settings → Customize.
 
 | Game | What it is | Remote | Credit |
 |---|---|---|---|
-| **OmniRift** | 3D anime fighting game: VS CPU, 2 players, training | arrows move · OK light · Red heavy · Green block · Yellow special · Blue jump · 0 / Play-Pause pause (on-screen hints) | Made by [@unboxingdetective](https://www.youtube.com/@unboxingdetective) on YouTube |
+| **OmniRift** | 3D anime fighting game: VS CPU, 2 players, training | arrows move · OK tap light, hold heavy · hold away to block · OK + ▲ special · OK + ▼ jump · OK + ◀ dash · Back pause (on-screen hints) | Made by [@unboxingdetective](https://www.youtube.com/@unboxingdetective) on YouTube |
 | **ClassiCube** | Block-building sandbox (singleplayer, Classic-style) | arrows walk · OK jump · Red break · Green place · Yellow / Blue turn · CH+ / CH− look · 1–9 pick a block · Play-Pause menu | [ClassiCube](https://github.com/ClassiCube/ClassiCube), open source (BSD licence) by UnknownShadow200 and contributors |
 
-Game pads (PlayStation, Xbox and other standard controllers), keyboard, mouse and touch work too. Back on the remote, or *Back: leave the game*, returns to the app.
+Game pads (PlayStation, Xbox and other standard controllers), keyboard, mouse and touch work too. Back on the remote pauses a game; press Back twice (or choose *Back: leave the game*) to return to the app.
 OmniRift runs on 2019 and newer Samsung TVs (Tizen 5+); TVs open it in its lighter TV mode.
 
 ## Install on Android TV and Fire TV

@@ -577,7 +577,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // Games run from the website (they are too big for the TV / Android package) in a full-screen frame; the app only lists them and keeps the creator's credit on screen.
   var GAMES = [
     { id: 'omnirift', title: 'OmniRift', tag: '3D anime fighting game', path: '/omnirift/index.html', by: '@unboxingdetective', link: 'https://www.youtube.com/@unboxingdetective', minChrome: 60,
-      help: 'Remote: arrows move · OK light · Red heavy · Green block · Yellow special · Blue jump · 0 or Play/Pause pause (the game shows the buttons on screen). Keyboard, mouse, touch and game pads work too.' },
+      help: 'Remote: arrows move · OK tap light, hold heavy · hold away to block · OK + ▲ special · OK + ▼ jump · OK + ◀ dash · Back pause (twice to leave). The game shows the buttons on screen. Keyboard, mouse, touch and game pads work too.' },
     { id: 'classicube', title: 'ClassiCube', tag: 'Block building sandbox (singleplayer)', path: '/classicube/index.html', by: 'the ClassiCube project', link: 'https://github.com/ClassiCube/ClassiCube', minChrome: 57, credit: 'ClassiCube — open source (BSD licence) by UnknownShadow200 and contributors · github.com/ClassiCube/ClassiCube',
       help: 'Remote: arrows walk · OK jump · Red break · Green place · Yellow / Blue turn · CH+ / CH− look up / down · 1–9 pick a block · Play/Pause menu. Game pads, keyboard and mouse work too.' }
   ];
@@ -602,6 +602,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     setFocus($('gameExit'));
     var give = function () { try { f.focus(); if (f.contentWindow) f.contentWindow.focus(); } catch (e) { /* ignore */ } };   // keys go to the game
     f.onload = give; setTimeout(give, 300);
+  }
+  function gameBack() {                                                                     // games use Back as their pause button: a second Back within 2.5 s leaves
+    var now = Date.now();
+    if (now - (state.gameBackAt || 0) < 2500) { state.gameBackAt = 0; closeGame(); return; }
+    state.gameBackAt = now; toast('Press Back again to leave the game');
   }
   function closeGame() {
     var f = $('gameFrame'); f.onload = null; f.removeAttribute('src');
@@ -2364,7 +2369,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function paintTipsBtn() { var off = store.get('ea_notice_off', false); $('setTips').innerHTML = (off ? '✕ Startup tips: Off' : '✔ Startup tips: On'); }
   function goBack() {
-    if (state.view === 'game') { closeGame(); return; }                                    // Gamehub: Back leaves the game
+    if (state.view === 'game') { gameBack(); return; }                                      // Gamehub: Back pauses the game, Back again leaves it
     if (state.liveOn && EA.live) { EA.live.back(); return; }                           // Live TV player: its own Back
     if (state.view === 'notice') { hideNotice(false); return; }
     if (state.view === 'modal' && EA.live) { EA.live.closeModal(); return; }
@@ -2407,7 +2412,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode;
     if (state.view === 'game') {                                                          // keys reach the app only when the game frame is not focused
-      if (isBackKey(k) || k === KEY.STOP) { e.preventDefault(); state.lastBack = Date.now(); closeGame(); return; }
+      if (isBackKey(k) || k === KEY.STOP) { e.preventDefault(); state.lastBack = Date.now(); gameBack(); return; }
       if (k === KEY.ENTER && state.focusEl === $('gameExit')) { e.preventDefault(); closeGame(); return; }
       try { $('gameFrame').focus(); if ($('gameFrame').contentWindow) $('gameFrame').contentWindow.focus(); } catch (er) { /* ignore */ }
       return;

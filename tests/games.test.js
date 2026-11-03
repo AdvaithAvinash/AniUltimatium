@@ -27,7 +27,8 @@ test('Gamehub in the app: card + full-screen frame with gamepad/autoplay/fullscr
   assert.match(main, /by: '@unboxingdetective', link: 'https:\/\/www\.youtube\.com\/@unboxingdetective'/);
   assert.match(main, /' — made by ' \+ g\.by \+ ' on YouTube · '/);
   assert.match(main, /\['ea_c_games', 'Gamehub', true, SHOWN, applyCats\]/);
-  assert.match(main, /if \(state\.view === 'game'\) \{ closeGame\(\); return; \}/, 'Back leaves the game');
+  assert.match(main, /if \(state\.view === 'game'\) \{ gameBack\(\); return; \}/, 'Back pauses, Back again leaves');
+  assert.match(main, /if \(now - \(state\.gameBackAt \|\| 0\) < 2500\) \{ state\.gameBackAt = 0; closeGame\(\); return; \}/);
   assert.match(read('tools/build_wgt.py'), /WEB_ONLY_DIRS = \{"omnirift", "classicube"\}/);
   assert.match(read('tools/build_apk.py'), /not os\.path\.isfile\(os\.path\.join\(pub, f\)\)/, 'the APK only takes top-level files');
 });
@@ -49,4 +50,10 @@ test('ClassiCube: official web build + texture pack + licence on the site, singl
   for (const [k, c] of [['37', 'KeyA'], ['38', 'KeyW'], ['39', 'KeyD'], ['40', 'KeyS'], ['13', 'Space']]) assert.match(tv, new RegExp(k + ": \\['" + c + "'"));
   assert.match(main, /id: 'classicube', title: 'ClassiCube'/);
   assert.match(main, /credit: 'ClassiCube — open source \(BSD licence\)/);
+});
+
+test('OmniRift update: the SSJ head model (CC BY-NC-ND) is optional and not hosted; everything else still loads', () => {
+  const page = read('public/omnirift/index.html');
+  assert.match(page, /n==='ssjhead'\?loadAny\(gl,'assets\/'\+n\+'\.json',P,1\)\.catch\(\(\)=>null\)/);
+  assert.ok(!fs.existsSync(path.join(root, 'public/omnirift/assets/ssjhead.json')));
 });
