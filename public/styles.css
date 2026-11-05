@@ -749,8 +749,8 @@ body.ui-modern .si-st.soon{color:#fff}
 .ex-box p{margin:0 0 1.8rem;font-size:1.25rem;color:#b8b8c4}
 .ex-btns .btn{margin:0 .6rem}
 /* ---- Gamehub ---- */
-.gh-lead{margin:0 0 1.4rem}
-.gh-grid{display:flex;flex-wrap:wrap}
+.gh-lead{margin:0 0 1.4rem;padding:0 3rem}
+.gh-grid{display:flex;flex-wrap:wrap;padding:1rem 3rem}
 .gh-card{width:44rem;max-width:100%;margin:0 1.6rem 1.6rem 0;text-align:left;border-radius:1.2rem;overflow:hidden;background:var(--card);border:.15rem solid transparent;color:var(--text)}
 .gh-card.focused{border-color:#fff;transform:scale(1.02)}
 .gh-art{position:relative;height:16rem;padding:1.6rem 1.8rem;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(135deg,#2a0b3a 0%,#0b1a3a 55%,rgba(var(--accent-rgb),.55) 100%)}
@@ -766,6 +766,78 @@ body.ui-modern .si-st.soon{color:#fff}
 #gameBar{position:absolute;left:0;right:0;bottom:0;height:2.8rem;display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;background:#0b0b12;color:#c8c8d4;font-size:1rem}
 #gameExit{padding:.3rem .9rem;border-radius:.5rem;background:rgba(255,255,255,.1);color:#fff;font-size:1rem}
 #gameExit.focused{background:#fff;color:#0b0b12}
+/* ---------- Cinematic look (Settings -> Look -> Cinematic): Apple TV style. Builds on the Modern look's components (buttons, chips, settings, detail page); its layout rules are replaced here. ---------- */
+body.ui-cine{--bg:#08080a;--bg2:#111114;--card:#17171b;--text:#f5f5f7;--muted:#9a9aa6;--nav:6.2rem;--rail:0rem}
+body.ui-cine #nav{top:1.3rem;bottom:auto;left:50%;right:auto;width:auto;max-width:calc(100% - 3rem);height:3.9rem;-webkit-transform:translateX(-50%);transform:translateX(-50%);flex-direction:row;align-items:center;justify-content:center;gap:.25rem;padding:0 .55rem;border:.07rem solid rgba(255,255,255,.14);border-radius:2.2rem;background:rgba(34,34,40,.86);box-shadow:0 1rem 2.6rem rgba(0,0,0,.5)}
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){body.ui-cine #nav{background:rgba(44,44,52,.46);-webkit-backdrop-filter:blur(28px) saturate(1.5);backdrop-filter:blur(28px) saturate(1.5)}body.ui-cine #nav.solid{background:rgba(36,36,42,.72)}}
+body.ui-cine #nav.solid{background:rgba(30,30,36,.94);box-shadow:0 1rem 2.6rem rgba(0,0,0,.55)}
+body.ui-cine .brand{display:none}
+body.ui-cine #tabs{flex:0 1 auto;flex-direction:row;align-items:center;width:auto;gap:.15rem;overflow-x:auto}
+body.ui-cine .tab{flex-direction:row;justify-content:center;margin:0;padding:.6rem .95rem;font-size:1rem;font-weight:600;color:#b4b4be;background:transparent;border-radius:2rem;text-align:left}
+body.ui-cine .tab svg.ic{width:1.3rem;height:1.3rem;margin:0}
+body.ui-cine .tab .tl{display:none;margin-left:.5rem}
+body.ui-cine .tab.active .tl,body.ui-cine .tab.focused .tl{display:inline}
+body.ui-cine .tab.active{color:#fff;background:rgba(255,255,255,.17)}
+body.ui-cine .tab.active:before{display:none}
+body.ui-cine .tab.focused{color:#0a0a0c;background:#fff;box-shadow:0 .3rem 1.2rem rgba(0,0,0,.4)}
+body.ui-cine .tab.focused svg.ic{fill:#0a0a0c}
+body.ui-cine #navProf{flex:none;margin:0 0 0 .35rem;width:2.8rem;height:2.8rem}
+body.ui-cine .view{left:0}
+body.ui-cine .view::-webkit-scrollbar{display:none}
+body.ui-cine .pagehead{padding:calc(var(--nav) + .4rem) 3rem .5rem}
+body.ui-cine .pagehead h2{font-size:2.6rem}
+/* hero: full bleed, big title, one meta line, white pill buttons, dots + arrows bottom right */
+body.ui-cine #hero{height:84vh;min-height:30rem}
+body.ui-cine #heroBg{-webkit-transform:scale(1.02);transform:scale(1.02)}
+body.ui-cine #heroShade{background:linear-gradient(0deg,var(--bg) 0,rgba(8,8,10,.8) 14%,rgba(8,8,10,0) 48%),linear-gradient(90deg,rgba(8,8,10,.66) 0,rgba(8,8,10,.2) 46%,rgba(8,8,10,0) 74%),linear-gradient(180deg,rgba(8,8,10,.6) 0,rgba(8,8,10,0) 20%)}
+body.ui-cine #heroBody{left:4rem;bottom:4.4rem;width:60%;max-width:52rem}
+body.ui-cine #heroTags{margin-bottom:.6rem}
+body.ui-cine #heroTags:empty{display:none}
+body.ui-cine #heroTitle{font-size:5rem;line-height:1;font-weight:800;letter-spacing:-.03em;text-shadow:0 .3rem 2.2rem rgba(0,0,0,.55);-webkit-line-clamp:2}
+body.ui-cine #heroMeta{margin:1.05rem 0 .75rem;font-size:1.1rem;font-weight:500;color:#d8d8e0;gap:0}
+body.ui-cine #heroMeta>span+span:before{content:"\2022";margin:0 .7rem;color:#8a8a96}
+body.ui-cine #heroMeta .score{color:#ffd54a;font-weight:700}
+body.ui-cine .imdb{font-weight:700;color:#fff}
+body.ui-cine .imdb b{display:inline-block;margin-right:.45rem;padding:.04rem .38rem;border-radius:.3rem;background:#f5c518;color:#000;font-size:.82rem;font-weight:900}
+body.ui-cine #heroDesc{max-width:39rem;margin-bottom:1.4rem;font-size:1.15rem;line-height:1.5;color:#e4e4ec;-webkit-line-clamp:2}
+body.ui-cine .btn{height:3.3rem;padding:0 1.7rem;border-radius:2rem;font-size:1.1rem;font-weight:600;background:rgba(255,255,255,.2);color:#fff;-webkit-transition:-webkit-transform .15s,background .15s;transition:transform .15s,background .15s}
+body.ui-cine .btn.primary{background:#fff;color:#0a0a0c}
+body.ui-cine .btn.focused{-webkit-transform:scale(1.06);transform:scale(1.06);background:#fff;color:#0a0a0c;box-shadow:0 .7rem 2.2rem rgba(0,0,0,.5)}
+body.ui-cine .btn.primary.focused{box-shadow:0 0 0 .22rem rgba(255,255,255,.5),0 .8rem 2.4rem rgba(0,0,0,.55)}
+body.ui-cine #heroDots{right:9.2rem;bottom:4.95rem;gap:.55rem}
+body.ui-cine #heroDots i{width:.55rem;height:.55rem;background:rgba(255,255,255,.32);-webkit-transition:width .25s;transition:width .25s}
+body.ui-cine #heroDots i.on{width:2.6rem;background:#fff}
+#heroArrows{display:none}
+body.ui-cine #heroArrows{position:absolute;right:3.6rem;bottom:4.35rem;display:-webkit-flex;display:flex}
+body.ui-cine .harr{width:2.2rem;height:2.2rem;margin-left:.2rem;border-radius:50%;font-size:2rem;line-height:1.7rem;text-align:center;color:#fff;background:transparent}
+body.ui-cine .harr:hover{background:rgba(255,255,255,.18)}
+/* rows */
+body.ui-cine .rowhead{padding:0 4rem}
+body.ui-cine .rowhead h3{font-size:1.9rem;font-weight:700;letter-spacing:-.015em}
+body.ui-cine .track{padding-left:4rem;padding-right:4rem}
+body.ui-cine .poster{border-radius:1.1rem;box-shadow:0 .5rem 1.6rem rgba(0,0,0,.4)}
+body.ui-cine .card.focused{-webkit-transform:scale(1.07);transform:scale(1.07)}
+body.ui-cine .card.focused .poster{box-shadow:0 0 0 .17rem rgba(255,255,255,.95),0 1.5rem 3.4rem rgba(0,0,0,.7)}
+body.ui-cine .ct{margin-top:.7rem;font-size:1.05rem;font-weight:600;color:#e9e9ef}
+body.ui-cine .badge{padding:.2rem .65rem;border-radius:.55rem;font-size:.92rem;font-weight:700;color:#fff;background:rgba(12,12,14,.62);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+body.ui-cine .badge.ep{background:rgba(12,12,14,.66);color:#fff}
+body.ui-cine .pbar{left:1rem;right:1rem;bottom:.85rem;height:.32rem;border-radius:1rem;background:rgba(255,255,255,.3)}
+body.ui-cine .pbar i{border-radius:1rem;background:#fff}
+body.ui-cine .row.cont .card{width:25rem}
+body.ui-cine .row.cont .poster{height:14.06rem;aspect-ratio:auto}
+body.ui-cine .row.cont .poster img{object-position:center 22%}
+.noar body.ui-cine .row.cont .poster{height:0;padding-top:56.25%}
+body.ui-cine .chip{border-radius:2rem}
+body.ui-cine #searchInput{border-radius:1.4rem}
+body.ui-cine .setr{border-radius:1rem}
+body.ui-cine #detail{background:var(--bg)}
+body.ui-cine #dTitle{font-size:3.6rem;font-weight:800;letter-spacing:-.025em}
+/* look picker preview */
+.mock.cine .m-nav{left:3.2rem;right:3.2rem;top:.7rem;height:1.2rem;border-radius:1rem;background:#26262e}
+.mock.cine .m-hero{left:0;right:0;top:0;height:8.6rem;background:linear-gradient(0deg,#0b0b10 6%,rgba(11,11,16,0) 62%),linear-gradient(90deg,#2b1f3d,#3d2b2b 55%,#1d2a40)}
+.mock.cine .m-title{left:1rem;top:5.2rem;width:7rem;height:1rem;background:#f2f2f6;border-radius:.2rem}
+.mock.cine .m-btn{left:1rem;top:7rem;width:3.6rem;height:1.1rem;border-radius:1rem;background:#fff}
+.mock.cine .m-row{left:1rem;right:1rem;top:9.9rem;height:3.4rem;background:repeating-linear-gradient(90deg,#2a2a33 0,#2a2a33 4.3rem,transparent 4.3rem,transparent 4.8rem);border-radius:.4rem}
 /* ===== Old-engine compatibility (generated by tools/gen_compat_css.py) ===== */
 /* index.html adds html.nogap / .nogrid / .noar when the browser lacks flex gap, CSS grid or aspect-ratio */
 .nogap #nav>*+*{margin-left:1.6rem}
@@ -810,6 +882,10 @@ body.ui-modern .si-st.soon{color:#fff}
 .nogap #tabs>*+*{margin-left:.3rem}
 .nogap #nav>*+*{margin-left:1.1rem}
 .nogap body.ui-modern #nav>*+*{margin-top:0}
+.nogap body.ui-cine #nav>*+*{margin-left:.25rem}
+.nogap body.ui-cine #tabs>*+*{margin-left:.15rem}
+.nogap body.ui-cine #heroMeta>*+*{margin-left:0}
+.nogap body.ui-cine #heroDots>*+*{margin-left:.55rem}
 @media (max-width:820px){.nogap #nav>*+*{margin-left:1rem}}
 .noar .poster{height:0;padding-top:150%}
 .noar .poster img{position:absolute;top:0;left:0}

@@ -65,8 +65,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // Lite mode: no animations / banner rotation, smaller pictures. Default on for the oldest engines (Chromium < 63: Tizen 4)
   var LITE = store.get('ea_lite', null); if (LITE === null) LITE = OLD_ENGINE && CHROME_V > 0 && CHROME_V < 63;
 
-  var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';
-  function bodyCls() { var pz = store.get('ea_pz', 'normal'); return (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : '') + (UI_MODERN ? ' ui-modern' : '') + (pz === 'small' ? ' pz-s' : pz === 'large' ? ' pz-l' : ''); }
+  var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';          // side rail look (its remote navigation differs)
+  var UI_CINE = store.get('ea_ui', 'classic') === 'cine';              // Cinematic look: Apple TV style, floating top bar (navigates like Classic)
+  function bodyCls() { var pz = store.get('ea_pz', 'normal'); return (IS_TV ? 'tv' : 'desktop') + (LITE ? ' lite' : '') + (UI_MODERN || UI_CINE ? ' ui-modern' : '') + (UI_CINE ? ' ui-cine' : '') + (pz === 'small' ? ' pz-s' : pz === 'large' ? ' pz-l' : ''); }
   document.body.className = bodyCls();
   // One layout, scaled to any window: 1080p TV -> 20px root, 1366x768 laptop -> ~14px root
   function applyScale() {
@@ -410,17 +411,26 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
 
   // ======================= Cards & rows =======================
+  function runtimeOf(r) {                                                             // "109 min" -> "1h 49m"
+    var m = /^(\d+)\s*min/i.exec(String(r || '')); if (!m) return r || '';
+    var t = +m[1]; return t >= 60 ? Math.floor(t / 60) + 'h ' + (t % 60) + 'm' : t + 'm';
+  }
+  function leftLabel(sec) {                                                           // "52m left", "1h 33m left"
+    var m = Math.max(1, Math.round(sec / 60)), h = Math.floor(m / 60);
+    return (h ? h + 'h ' + (m % 60) + 'm' : m + 'm') + ' left';
+  }
   function card(a, extra) {
     var c = el('div', 'card focusable');
     var p = el('div', 'poster');
     var img = el('img'); img.alt = '';
     img.onload = function () { img.className = 'ld'; };
     img.onerror = function () { if (img.__alt) { var u = img.__alt; img.__alt = null; img.src = u; } else img.style.display = 'none'; };
-    lazyImg(img, (a.coverSm && a.coverSm !== a.cover) ? a.coverSm : a.cover, a.cover);
+    if (UI_CINE && extra && extra.cont && a.banner) lazyImg(img, a.banner, a.cover);           // Cinematic: Continue Watching is a row of wide pictures
+    else lazyImg(img, (a.coverSm && a.coverSm !== a.cover) ? a.coverSm : a.cover, a.cover);
     p.appendChild(img);
     var movie = a.kind === 'movie';
     if (extra && extra.cont) {
-      p.appendChild(el('div', 'badge ep', movie ? 'RESUME' : epLabel(a, extra.ep)));
+      p.appendChild(el('div', 'badge ep', UI_CINE && extra.dur > 60 ? leftLabel(extra.dur - extra.time) : movie ? 'RESUME' : epLabel(a, extra.ep)));
       if (extra.dur) p.appendChild(el('div', 'pbar', '<i style="width:' + Math.min(100, extra.time / extra.dur * 100) + '%"></i>'));
     } else if (extra && extra.rel) {
       p.appendChild(el('div', 'badge ep', esc(extra.rel)));
@@ -545,6 +555,12 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (isHomeTab(state.view) && state.view === state.tab) showHero((state.heroIdx + 1) % state.hero.length);
     }, 9000);
   }
+  function stepHero(d) {
+    var n = state.hero.length; if (n < 2) return;
+    showHero((state.heroIdx + d + n) % n);
+    clearInterval(state.heroTimer);
+    if (!LITE && store.get('ea_hero', true) !== false) state.heroTimer = setInterval(function () { if (isHomeTab(state.view) && state.view === state.tab) showHero((state.heroIdx + 1) % state.hero.length); }, 9000);
+  }
   function showHero(i, instant) {
     var a = state.hero[i]; if (!a) return;
     var body = $('heroBody'), bg = $('heroBg');
@@ -553,17 +569,24 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       bg.style.backgroundImage = 'url("' + (a.banner || a.cover) + '")';
       if (!a.banner) bg.style.backgroundPosition = 'center 20%';
       var movie = isVid(a);
+      var airTag = a.next && airBadgeOn() && a.next.at * 1000 - Date.now() < 4 * 86400000 ? '<span class="tag air">New episode ' + a.next.ep + ' ' + airIn(a.next.at) + '</span>' : '';
+      $('heroTitle').textContent = tname(a);
+      if (UI_CINE) {                                                                  // Cinematic: one clean line, "Movie • Horror • 1h 35m • 2026 • IMDb 7.5"
+        var parts = [movie ? (isTv(a) ? 'TV Show' : 'Movie') : 'Anime'].concat((a.genres || []).slice(0, 2), [movie ? runtimeOf(a.runtime) : (a.episodes ? a.episodes + ' eps' : ''), a.year]).filter(Boolean);
+        $('heroTags').innerHTML = airTag;
+        $('heroMeta').innerHTML = parts.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + (a.score ? (movie ? '<span class="imdb"><b>IMDb</b>' + esc(a.score) + '</span>' : '<span class="score">★ ' + esc(a.score) + '</span>') : '');
+      } else {
       $('heroTags').innerHTML = '<span class="tag hot">#' + (i + 1) + (movie ? ' Popular' : ' Trending') + '</span>' +
         (a.next && airBadgeOn() && a.next.at * 1000 - Date.now() < 4 * 86400000 ? '<span class="tag air">New episode ' + a.next.ep + ' ' + airIn(a.next.at) + '</span>' : '') +
         (a.genres || []).slice(0, 3).map(function (g) { return '<span class="tag">' + esc(g) + '</span>'; }).join('');
-      $('heroTitle').textContent = tname(a);
       $('heroMeta').innerHTML = (a.score ? '<span class="score">★ ' + esc(a.score) + '</span>' : '') +
         [a.format, a.year, movie ? a.runtime : (a.episodes ? a.episodes + ' eps' : '')].filter(Boolean).map(esc).map(function (x) { return '<span>' + x + '</span>'; }).join('') +
         (movie ? '' : '<span class="tag">ENG SUB</span>');
+      }
       $('heroDesc').textContent = a.description;
       var p = progOf(a);
       $('heroPlay').innerHTML = ic('play') + (isTv(a) ? (p ? 'Continue ' + epLabel(a, p.ep) : 'Play S1 E1') : movie ? (p ? 'Resume' : 'Play Movie') : (p ? 'Continue EP ' + p.ep : 'Play EP 1'));
-      $('heroInfo').innerHTML = ic('info') + 'More Info';
+      $('heroInfo').innerHTML = ic('info') + (UI_CINE ? 'View Details' : 'More Info');
       var dots = $('heroDots').children;
       for (var k = 0; k < dots.length; k++) dots[k].className = k === i ? 'on' : '';
       body.className = ''; bg.className = '';
@@ -622,6 +645,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
       tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
+      tabs[i].title = names[t];
       var on = catOn(t); tabs[i].style.display = on ? '' : 'none';
       tabs[i].className = 'tab' + (on ? ' focusable' : '') + (t === state.tab ? ' active' : '') + (tabs[i] === state.focusEl ? ' focused' : '');
       tabs[i].__tab = t;
@@ -1643,7 +1667,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_alerts', 'New-episode alerts on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_recs', 'Recommendations on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_popblock', 'Block popups in hosted movie players', true, [[true, 'On'], [false, 'Off']]],
-    ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']], function (v) { UI_MODERN = v === 'modern'; document.body.className = bodyCls(); }],
+    ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking'], ['cine', 'Cinematic · Apple TV style']], function (v) { UI_MODERN = v === 'modern'; UI_CINE = v === 'cine'; document.body.className = bodyCls(); if (state.hero.length) showHero(state.heroIdx, true); if (state.cache[state.mode]) state.rowsDirty = true; }],
     ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
     ['ea_autonext', 'Play the next episode automatically', true, [[true, 'On'], [false, 'Off']]],
@@ -2236,6 +2260,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!cur || !document.body.contains(cur) || cur.offsetParent === null && !$('nav').contains(cur)) {
       var f = candidates()[0]; if (f) setFocus(f); return;
     }
+    if (UI_CINE && isHomeTab(state.view) && state.view === state.tab) {                       // Cinematic: Left on Play = previous title, Right on View Details = next title
+      if (dir === 'left' && cur === $('heroPlay')) { stepHero(-1); return; }
+      if (dir === 'right' && cur === $('heroInfo')) { stepHero(1); return; }
+    }
     var c = center(cur), best = null, bestScore = Infinity, nav = $('nav'), inNav = nav.contains(cur);
     if (UI_MODERN && inNav && dir === 'right') {                      // Modern look: the tabs are a side rail, so Right enters the content (the row that is nearest in height)
       var tgt = null, td = Infinity;
@@ -2488,6 +2516,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   });
   document.addEventListener('click', function (e) {
     if (state.view === 'player') return;
+    var ha = up(e.target, 'harr');
+    if (ha) { stepHero(parseInt(ha.getAttribute('data-hd'), 10)); return; }
     var rb = up(e.target, 'rowbtn');
     if (rb) { var tr = rb.parentNode.parentNode.parentNode.querySelector('.track'); tr.scrollLeft += parseInt(rb.getAttribute('data-dir'), 10) * tr.clientWidth * 0.8; return; }
     if (state.view === 'detail' && anyDropOpen() && !up(e.target, 'dsopt') && e.target.id !== 'dSrcBtn' && e.target.id !== 'dQBtn' && !up(e.target, 'focusable')) closeDrops(false);

@@ -56,7 +56,7 @@ Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | Movies and TV shows | **Yes** | No | No | Only what your provider offers | Yes |
 | Live TV from your own M3U / Xtream playlist | **Yes**, 30,000+ channels without freezing (measured) | No | No | **Yes**, that is their job | No |
 | AniList link | **Yes** | Not found | Yes (also MyAnimeList) | No | No |
-| Profiles, optional PIN, Classic / Modern look | **Yes** | Not found | Not found | Varies | Yes |
+| Profiles, optional PIN, Classic / Modern / Cinematic look | **Yes** | Not found | Not found | Varies | Yes |
 | Free and open source | **Yes** | Free; source on its project pages | Free; source not published in its repo | Mostly paid or ad-supported | Subscription |
 | Still being updated | **Yes** | **Appears to have stopped:** the newest version I found is 2.14.2 (26 Jan 2026, RuStore) | Yes at the time of checking | Varies | Yes |
 
@@ -72,7 +72,7 @@ AnikenTV (a fork of the Anilili app, Android TV / Google TV only, per its own RE
 | New-episode alerts for shows you follow | A home row "New episodes for you" (in-app, no push notifications) | Notifications screen |
 | Library statuses (Watching, Planning, Completed, Paused, Dropped) | Yes, set by hand or automatically while you watch | Yes (per its screenshots, synced with AniList / MAL) |
 | Recommendations / related seasons | "Because you watched …" row, "Seasons & related" and "You may also like" on each show | Related tab on the detail page |
-| Personalization | Profiles with a lock, Classic / Modern look, accent colour, title language, poster size, show / hide / reorder home rows, airing badges, start tab | Not documented |
+| Personalization | Profiles with a lock, Classic / Modern / Cinematic look, accent colour, title language, poster size, show / hide / reorder home rows, airing badges, start tab | Not documented |
 | Playback recovery | Frozen or picture-less streams are detected, then re-fetched, rerouted, switched to the next source, and finally a clear panel (OK retry · Up another source) | Server fallback switching (per its README) |
 | Stream checking | The server reads the playlist, a variant, the key and the first segment before a stream is used; add-on and debrid streams are checked the same way | Not documented |
 | Source ranking | SourceIQ learns from real playback on your device: start success, start time, stalls and resolution | Not documented |
@@ -88,6 +88,7 @@ AnikenTV (a fork of the Anilili app, Android TV / Google TV only, per its own RE
 - **Sources that heal themselves:** SourceIQ learns which anime source really plays on your TV and routes around failing ones.
 - **Optional extras, never required:** debrid services, Stremio / Nuvio add-ons and a CinePro Core server, all kept on your device.
 - **Your data stays yours:** lists, history, playlists and keys live on the device; nothing needs an account.
+- **Three looks to choose from:** **Classic** (light, for low-end TVs), **Modern** (side rail) and **Cinematic**, a clean Apple TV style look: a floating top bar, a full-screen hero with the title and one line of details, wide *Continue Watching* pictures with "52m left", and *Left / Right* on the hero buttons to flip through titles. Change it any time in Settings → Look.
 - **Gamehub:** games you can play right in the app with the TV remote or a game pad: **OmniRift** (3D anime fighting game) and **ClassiCube** (open-source block building). See [Gamehub](#gamehub).
 
 **What it does not do**
@@ -172,7 +173,7 @@ You may need to allow "Install unknown apps" for Downloader / your file manager 
 ## Install on a Samsung TV
 1. Download `Aniultimatium.wgt` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.wgt) (this link always downloads the newest build).
 2. Use apps2samsung: https://github.com/Apps2Samsung/Apps2Samsung/releases to install, use custom wtg file and install. Thanks to apps2samsung without it the project would not have been possible.
-3. Open **Aniultimatium** on the TV. The first start walks you through choosing a profile, an optional 4-digit lock, an optional AniList link and your look (Classic or Modern).
+3. Open **Aniultimatium** on the TV. The first start walks you through choosing a profile, an optional 4-digit lock, an optional AniList link and your look (Classic, Modern or Cinematic).
 
 Samsung TVs need Developer Mode for sideloading (Apps screen, type 12345, Developer mode ON, enter your computer's IP, reboot). Apps2Samsung walks through it.
 

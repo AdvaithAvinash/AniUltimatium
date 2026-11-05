@@ -228,7 +228,8 @@
     function card(kind, title, cap, mock) { var b = el('button', 'look', '<div class="mock ' + kind + '">' + mock + '</div><b>' + title + '</b><i>' + cap + '</i>'); b.__go = function () { set('ea_ui', kind); done(); }; box.appendChild(b); return b; }
     cl = card('classic', 'Classic', 'For low-end devices', '<u class="m-top"></u><u class="m-hero"></u><u class="m-row"></u><u class="m-row"></u>');
     mo = card('modern', 'Modern', 'For a better looking UI', '<u class="m-rail"></u><u class="m-hero"></u><u class="m-row"></u><u class="m-row"></u>');
-    screen([[cl, mo]], { start: [0, LOWEND || get('ea_lite', false) ? 0 : 1], back: function () { listStep(ctx); } });
+    var ci = card('cine', 'Cinematic', 'Apple TV style · newer TVs', '<u class="m-hero"></u><u class="m-nav"></u><u class="m-title"></u><u class="m-btn"></u><u class="m-row"></u>');
+    screen([[cl, mo, ci]], { start: [0, LOWEND || get('ea_lite', false) ? 0 : 1], back: function () { listStep(ctx); } });
   }
 
   // ------------------------------------------------------------------ profile creation flows
