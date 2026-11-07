@@ -54,3 +54,10 @@ test('Look picker on first start offers Cinematic', () => {
   assert.match(start, /screen\(\[\[cl, mo, ci\]\]/);
   assert.match(css, /\.mock\.cine \.m-hero/);
 });
+
+test('Cinematic settings: three-pane layout (categories, options, explanation) is built', () => {
+  const m = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'main.js'), 'utf8');
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'styles.css'), 'utf8');
+  assert.ok(/function cineSettings\(/.test(m) && /function cineMove\(/.test(m) && /id = 'setInfo'/.test(m));
+  assert.ok(/body\.ui-cine #setRail/.test(css) && /body\.ui-cine #setInfo/.test(css));
+});

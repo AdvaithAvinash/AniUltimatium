@@ -589,6 +589,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       $('heroInfo').innerHTML = ic('info') + (UI_CINE ? 'View Details' : 'More Info');
       var dots = $('heroDots').children;
       for (var k = 0; k < dots.length; k++) dots[k].className = k === i ? 'on' : '';
+      if ($('heroCount')) $('heroCount').textContent = (i + 1) + ' / ' + dots.length;
       body.className = ''; bg.className = '';
     }
     if (instant || LITE) return paint();
@@ -679,7 +680,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'history') renderHistory();
     if (t === 'games') { renderGames(); if (focusContent) { var g0 = $('gamesGrid').querySelector('.focusable'); if (g0) setFocus(g0); } }
     if (t === 'account') renderAccount();
-    if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); paintExtras(); paintProf(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; if (focusContent !== false) setFocus($('setApp').firstChild || $('serverInput')); }
+    if (t === 'settings') { paintTipsBtn(); paintSetSubs(); paintSettingsApp(); paintExtras(); paintProf(); $('serverInput').value = store.get('ea_server', ''); $('setUsing').textContent = 'Currently using: ' + apiBase(); $('setSave').innerHTML = ic('check') + 'Save'; $('setTest').innerHTML = ic('play') + 'Test streams'; $('setReset').innerHTML = 'Reset'; cineSettings(); if (focusContent !== false) setFocus((UI_CINE ? $('setCustomize').firstChild : $('setApp').firstChild) || $('serverInput')); }
     if (focusContent && isHomeTab(t)) setFocus($('heroPlay'));
     if (focusContent && t === 'list') { var f = $('listGrid').firstChild; if (f) setFocus(f); }
     if (focusContent && t === 'history') { var hb = $('clearHist'); setFocus($('histGrid').firstChild || hb); }
@@ -1711,6 +1712,78 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var c = customSrc(), cb = el('button', 'setr focusable', '<span>Custom movie player</span><b>' + (c ? esc(c.name) : 'None') + '</b>'); cb.__set = 'custom'; box.appendChild(cb);
     $('setCustomHelp').textContent = c ? c.url : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
   }
+
+  // ----- Cinematic settings: categories on the left, the options of one category in the middle, an explanation on the right -----
+  var SETDESC = {
+    ea_accent: 'The colour of buttons, highlights and progress bars across the whole app.',
+    ea_c_anime: 'Turn off the categories you never watch. They disappear from the top bar. One always stays on.',
+    ea_ads: 'Short sponsor videos and a small banner help keep the app free. Turning them off changes nothing else.',
+    ea_engine: 'Auto uses Samsung AVPlay on 2018 TVs and the standard player elsewhere. Change it only if playback fails.',
+    ea_tlang: 'Show anime titles in English or in Romaji (the Japanese name written in Latin letters).',
+    ea_pz: 'How big the posters are in the rows. Smaller shows more titles at once.',
+    ea_airbadge: 'A small badge on anime that shows the countdown to the next episode.',
+    ea_ui: 'Classic is lightest for older TVs. Modern adds a side rail. Cinematic is the Apple TV style top bar and big banner.',
+    ea_start: 'The page that opens when you start the app.',
+    ea_autonext: 'When an episode ends, the next one starts by itself after a short countdown.',
+    ea_autoskip: 'Jumps over openings and endings when the player knows where they are.',
+    ea_hero: 'The big banner at the top changes title every few seconds. Off keeps it still and saves power.',
+    ea_noads: 'Movies and TV try the sources with fewer popups before the others.',
+    ea_popblock: 'Stops hosted movie players from opening extra windows.'
+  };
+  var cineGroup = 0;
+  function cineKey(e) { var s = e.__set; if (s === undefined) return ''; var c = typeof s === 'string' && s.charAt(0) === 'c' && s !== 'custom'; var row = s === 'custom' ? null : (c ? CUSTOMSET[+s.slice(1)] : APPSET[s]); return row ? row[0] : ''; }
+  function cineDiff() { var n = 0; APPSET.concat(CUSTOMSET).forEach(function (r) { if (String(store.get(r[0], r[2])) !== String(r[2])) n++; }); return n; }
+  function cineSettings() {
+    if (!UI_CINE) return;
+    var v = $('viewSettings'), p = $('setPanel'), kids = p.children, g = -1, names = [], i, k;
+    for (i = 0; i < kids.length; i++) { k = kids[i]; if (k.tagName === 'H3') { g++; names.push(k.textContent.replace(/\s*\(.*\)/, '')); } k.__g = Math.max(g, 0); k.className = k.className.replace(/\s*\bsg\b/g, '') + ' sg'; }
+    var rail = $('setRail'), info = $('setInfo');
+    if (!rail) { rail = el('div', ''); rail.id = 'setRail'; v.appendChild(rail); info = el('div', ''); info.id = 'setInfo'; v.appendChild(info); }
+    if (cineGroup >= names.length) cineGroup = 0;
+    var n = cineDiff();
+    rail.innerHTML = '<div class="srh">Categories</div><div class="srd">' + (n ? n + ' different from default' : 'Everything is on default') + '</div>';
+    names.forEach(function (nm, j) { var b = el('button', 'srb focusable', '<i></i><span>' + esc(nm) + '</span>'); b.__rg = j; b.onclick = function () { cineShow(j); }; rail.appendChild(b); });
+    cineShow(cineGroup);
+  }
+  function cineShow(j) {
+    cineGroup = j; var kids = $('setPanel').children, i, rb = $('setRail').querySelectorAll('.srb');
+    for (i = 0; i < kids.length; i++) kids[i].className = kids[i].className.replace(/\s*\bgon\b/g, '') + (kids[i].__g === j ? ' gon' : '');
+    for (i = 0; i < rb.length; i++) rb[i].className = rb[i].className.replace(/\s*\bon\b/g, '') + (i === j ? ' on' : '');
+  }
+  function cineFocus(e) {
+    var info = $('setInfo'); if (!info) return;
+    var pc = e; while (pc && pc.parentNode && pc.parentNode.id !== 'setPanel') pc = pc.parentNode;
+    if (e.__rg !== undefined) { if (e.__rg !== cineGroup) cineShow(e.__rg); var h = $('setPanel').querySelector('.gon.hint'); info.innerHTML = '<div class="sit">' + esc(e.textContent) + '</div><p>' + esc(h ? h.textContent : '') + '</p><div class="sik">Right: open this category</div>'; return; }
+    if (pc && pc.__g !== undefined && pc.__g !== cineGroup) cineShow(pc.__g);
+    var sp = e.querySelector ? e.querySelector('span') : null, vb = e.querySelector ? e.querySelector('b') : null, key = cineKey(e), h2 = $('setPanel').querySelector('.gon.hint');
+    var title = sp ? sp.textContent : (e.id === 'serverInput' ? 'Stream server address' : e.textContent), val = vb ? vb.textContent : '';
+    var row = null; if (e.__set !== undefined && e.__set !== 'custom') { row = String(e.__set).charAt(0) === 'c' ? CUSTOMSET[+String(e.__set).slice(1)] : APPSET[e.__set]; }
+    var def = ''; if (row) { var d = row[3].filter(function (x) { return String(x[0]) === String(row[2]); })[0]; def = d ? d[1] : ''; }
+    info.innerHTML = '<div class="sit">' + esc(title) + '</div>' + (val ? '<div class="siv">' + esc(val) + '</div>' : '') +
+      '<p>' + esc(SETDESC[key] || (h2 ? h2.textContent : '')) + '</p>' + (def ? '<div class="sid">Default · ' + esc(def) + '</div>' : '') +
+      '<div class="sik"><b>OK</b> change · <b>Back</b> leave</div>';
+  }
+  function cineMove(cur, dir) {
+    var rail = $('setRail'); if (!rail) return false;
+    if (cur.__rg !== undefined) {
+      if (dir === 'right') { var f = $('setPanel').querySelector('.gon.focusable, .gon .focusable'); if (f) { setFocus(f); return true; } return true; }
+      if (dir === 'left') return true;
+      if (dir === 'down' && cur.__rg === rail.querySelectorAll('.srb').length - 1) return true;
+      return false;
+    }
+    if ($('setPanel').contains(cur) && (dir === 'up' || dir === 'down')) {
+      var all = $('setPanel').querySelectorAll('.focusable'), list = [], at = -1;
+      for (var q = 0; q < all.length; q++) if (all[q].offsetParent !== null) { if (all[q] === cur) at = list.length; list.push(all[q]); }
+      if (at >= 0) {
+        var nx = list[at + (dir === 'down' ? 1 : -1)];
+        if (nx) { setFocus(nx); return true; }
+        if (dir === 'up') { var tb = $('tabs').querySelector('.tab.active'); if (tb) setFocus(tb); }
+        return true;
+      }
+    }
+    if (dir === 'left' && $('setPanel').contains(cur) && cur.tagName !== 'INPUT') { var rb = rail.querySelectorAll('.srb')[cineGroup]; if (rb) { setFocus(rb); return true; } }
+    return false;
+  }
   function cycleAppSetting(i) {
     var cust = typeof i === 'string' && i.charAt(0) === 'c', idx = cust ? +i.slice(1) : i;
     var row = (cust ? CUSTOMSET : APPSET)[idx], cur = store.get(row[0], row[2]), opts = row[3], at = 0, k;
@@ -2224,6 +2297,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     state.focusEl = e;
     e.className += ' focused';
     if (hasCls(e, 'card')) warmNear(e);
+    if (UI_CINE && state.view === 'settings') cineFocus(e);
     if (EA.live) EA.live.onFocus(e);
     if (!noScroll) ensureVisible(e);
   }
@@ -2264,6 +2338,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (dir === 'left' && cur === $('heroPlay')) { stepHero(-1); return; }
       if (dir === 'right' && cur === $('heroInfo')) { stepHero(1); return; }
     }
+    if (UI_CINE && state.view === 'settings' && cineMove(cur, dir)) return;
     var c = center(cur), best = null, bestScore = Infinity, nav = $('nav'), inNav = nav.contains(cur);
     if (UI_MODERN && inNav && dir === 'right') {                      // Modern look: the tabs are a side rail, so Right enters the content (the row that is nearest in height)
       var tgt = null, td = Infinity;

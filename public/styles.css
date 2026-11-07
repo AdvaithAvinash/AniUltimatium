@@ -832,6 +832,47 @@ body.ui-cine #searchInput{border-radius:1.4rem}
 body.ui-cine .setr{border-radius:1rem}
 body.ui-cine #detail{background:var(--bg)}
 body.ui-cine #dTitle{font-size:3.6rem;font-weight:800;letter-spacing:-.025em}
+/* Cinematic v2: layout language of a TV-first app (accent Play pill, counter pill, accent focus ring, three-pane settings) */
+#heroCount,#setRail,#setInfo{display:none}
+body.ui-cine #heroDots{display:none}
+body.ui-cine #heroCount{display:block;position:absolute;right:9.2rem;bottom:4.55rem;padding:.3rem .9rem;border-radius:2rem;font-size:1rem;font-weight:700;color:#fff;background:rgba(255,255,255,.14);border:.07rem solid rgba(255,255,255,.18)}
+body.ui-cine #heroPlay.btn{background:var(--accent);color:#fff}
+body.ui-cine #heroPlay.btn.focused{background:#fff;color:#0a0a0c;box-shadow:0 0 0 .22rem var(--accent),0 .8rem 2.4rem rgba(0,0,0,.55)}
+body.ui-cine #heroInfo.btn{background:rgba(255,255,255,.16);border:.07rem solid rgba(255,255,255,.22)}
+body.ui-cine #heroInfo.btn.focused{background:#fff;color:#0a0a0c;box-shadow:0 0 0 .22rem var(--accent),0 .8rem 2.4rem rgba(0,0,0,.55)}
+body.ui-cine .card.focused .poster{box-shadow:0 0 0 .2rem var(--accent),0 1.5rem 3.4rem rgba(0,0,0,.7)}
+body.ui-cine .row.cont .poster{border-radius:1.2rem;background:#15151a}
+body.ui-cine .rowhead h3{font-weight:800}
+body.ui-cine .pbar i{background:var(--accent)}
+body.ui-cine #viewSettings{background:radial-gradient(60rem 40rem at 85% 0,rgba(var(--accent-rgb),.16),rgba(8,8,10,0) 70%),var(--bg)}
+body.ui-cine #viewSettings .pagehead{padding-left:4rem}
+body.ui-cine #setRail{display:block;position:fixed;left:4rem;top:calc(var(--nav) + 6rem);bottom:3rem;width:21rem;overflow:hidden}
+body.ui-cine .srh{font-size:1.8rem;font-weight:800;margin:0 0 .2rem .4rem}
+body.ui-cine .srd{font-size:.95rem;color:var(--muted);margin:0 0 1rem .4rem}
+body.ui-cine .srb{display:-webkit-flex;display:flex;align-items:center;width:100%;height:3.2rem;margin-bottom:.3rem;padding:0 1rem;border-radius:1rem;font-size:1.1rem;font-weight:600;color:#c4c4cf;background:transparent;text-align:left}
+body.ui-cine .srb i{flex:none;width:.7rem;height:.7rem;margin-right:.9rem;border-radius:50%;background:rgba(255,255,255,.25)}
+body.ui-cine .srb.on{color:#fff;background:rgba(255,255,255,.1)}
+body.ui-cine .srb.on i{background:var(--accent)}
+body.ui-cine .srb.focused{color:#0a0a0c;background:#fff;box-shadow:0 0 0 .18rem var(--accent)}
+body.ui-cine #setInfo{display:block;position:fixed;right:4rem;top:calc(var(--nav) + 6rem);width:23rem;padding:1.5rem;border-radius:1.5rem;background:rgba(255,255,255,.07);border:.07rem solid rgba(255,255,255,.1)}
+body.ui-cine .sit{font-size:1.4rem;font-weight:800;margin-bottom:.4rem}
+body.ui-cine .siv{display:inline-block;margin-bottom:.8rem;padding:.2rem .8rem;border-radius:2rem;font-size:1rem;font-weight:700;color:#fff;background:var(--accent)}
+body.ui-cine #setInfo p{margin:0 0 .9rem;font-size:1.05rem;line-height:1.5;color:#c8c8d2}
+body.ui-cine .sid{font-size:.95rem;color:var(--muted);margin-bottom:.8rem}
+body.ui-cine .sik{padding-top:.8rem;border-top:.07rem solid rgba(255,255,255,.1);font-size:.9rem;color:var(--muted)}
+body.ui-cine .sik b{display:inline-block;padding:.05rem .45rem;border-radius:.35rem;background:rgba(255,255,255,.14);color:#fff}
+body.ui-cine #setPanel{margin:0 0 0 27rem;max-width:none;width:calc(100% - 58rem);padding:0 0 4rem}
+body.ui-cine #setPanel .sg{display:none}
+body.ui-cine #setPanel .sg.gon{display:block}
+body.ui-cine #setPanel .sg.gon.setrow{display:-webkit-flex;display:flex}
+body.ui-cine #setPanel .sg.hidden{display:none}
+body.ui-cine #setPanel h3{margin:0 0 .4rem!important;font-size:2rem;font-weight:800}
+body.ui-cine #setPanel .hint{margin-bottom:1.1rem}
+body.ui-cine .setr{height:3.8rem;border-radius:1.1rem;background:rgba(255,255,255,.07);border:.07rem solid rgba(255,255,255,.07)}
+body.ui-cine .setr b{color:#d4d4de}
+body.ui-cine .setr b:after{content:"\203A";margin-left:.7rem;color:#8a8a96}
+body.ui-cine .setr.focused{background:#fff;box-shadow:0 0 0 .2rem var(--accent)}
+body.ui-cine .setr.focused b,body.ui-cine .setr.focused b:after{color:#33333a}
 /* look picker preview */
 .mock.cine .m-nav{left:3.2rem;right:3.2rem;top:.7rem;height:1.2rem;border-radius:1rem;background:#26262e}
 .mock.cine .m-hero{left:0;right:0;top:0;height:8.6rem;background:linear-gradient(0deg,#0b0b10 6%,rgba(11,11,16,0) 62%),linear-gradient(90deg,#2b1f3d,#3d2b2b 55%,#1d2a40)}
