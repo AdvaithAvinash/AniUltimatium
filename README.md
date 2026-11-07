@@ -372,3 +372,6 @@ A fast IPTV section for your **own** playlist. Aniultimatium does not provide, h
   chosen and offset automatically — OpenSubtitles text, with timing locked to your exact release.
 - Menu → **Subtitles** (language: English, Japanese, Malayalam, Hindi, Tamil, Telugu first, then Arabic, Chinese, French, German, Indonesian, Italian, Korean, Portuguese, Russian, Spanish, Turkish, Vietnamese …
   whatever exists for the title), **Subtitle file** (OpenSubtitles #1…#n or the stream's own track) and **Subtitle sync**. Your language is remembered.
+
+## Add-ons (Stremio)
+Torrentio, Comet and Peerflix come preinstalled and on. Settings → Extra sources → Add-ons: OK switches one off; Send from phone (QR) lets you remove or restore them, sign in to your Stremio account (the password goes from your phone straight to Stremio, never to our server) and send your own add-ons to the TV. Pairing uses a Durable Object, not KV, so it stays far under Cloudflare's free limits.

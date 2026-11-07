@@ -572,6 +572,10 @@ async function pairPut(b) {
     const prov = str(b.p, 2), key = str(b.k, 200);
     if (!/^(rd|ad|pm|tb)$/.test(prov) || !/^\S{8,200}$/.test(key)) throw bad('Pick the service and paste the API key');
     data = { type: 'debrid', p: prov, k: key };
+  } else if (b.kind === 'stremio') {                       // add-ons the phone read from the user's own Stremio account (the sign-in happens in the phone's browser; no password or key ever reaches this server)
+    const list = (Array.isArray(b.addons) ? b.addons : []).slice(0, 20).map(x => ({ url: str(x && x.url, 1500), name: str(x && x.name, 60) })).filter(x => /^https:\/\/[^\s]+$/i.test(x.url));
+    const pre = {}; for (const k of ['torrentio', 'comet', 'peerflix']) if (b.pre && typeof b.pre[k] === 'boolean') pre[k] = b.pre[k];
+    data = { type: 'stremio', addons: list, pre };
   } else if (b.kind === 'addon' || b.kind === 'cinepro') {
     const url = str(b.url, 1500);
     if (!/^(https?|stremio):\/\/[^\s]+$/i.test(url)) throw bad('Enter the address (starting with https://)');

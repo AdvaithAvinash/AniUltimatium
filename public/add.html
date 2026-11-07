@@ -35,7 +35,7 @@
   <label for="code">Code from the TV</label>
   <input id="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123">
   <label>What to send</label>
-  <div class="tabs"><button id="tX" class="on" type="button">Xtream login</button><button id="tM" type="button">M3U link</button><button id="tD" type="button">Debrid key</button><button id="tA" type="button">Add-on</button><button id="tC" type="button">CinePro</button></div>
+  <div class="tabs"><button id="tX" class="on" type="button">Xtream login</button><button id="tM" type="button">M3U link</button><button id="tD" type="button">Debrid key</button><button id="tA" type="button">Add-on</button><button id="tC" type="button">CinePro</button><button id="tS" type="button">Stremio account</button></div>
   <div id="fX">
     <label for="srv">Server address</label><input id="srv" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="http://provider.example:8080">
     <label for="usr">Username</label><input id="usr" autocapitalize="none" autocomplete="off" spellcheck="false">
@@ -51,6 +51,15 @@
   <div id="fA" class="hid">
     <label for="au">Add-on address (Stremio or Nuvio)</label><input id="au" type="url" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="https://…/manifest.json">
   </div>
+  <div id="fS" class="hid">
+    <p style="margin:.2rem 0 .8rem">Sign in to your Stremio account here to bring your add-ons to the TV. Your password goes straight from this page to Stremio; Aniultimatium never sees or stores it.</p>
+    <div id="sLogin">
+      <label for="sm">Stremio email</label><input id="sm" type="email" autocapitalize="none" autocomplete="username" spellcheck="false">
+      <label for="sp">Stremio password</label><input id="sp" type="password" autocomplete="current-password">
+      <button id="sGo" class="go" type="button" style="margin-top:.8rem">Sign in to Stremio</button>
+    </div>
+    <div id="sList" class="hid"></div>
+  </div>
   <div id="fN" class="hid">
     <label for="cu">CinePro Core server address</label><input id="cu" type="url" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="https://…">
   </div>
@@ -61,12 +70,31 @@
 </div>
 <script>
 (function () {
-  var $ = function (i) { return document.getElementById(i); }, kind = 'xtream';
+  var $ = function (i) { return document.getElementById(i); }, kind = 'xtream', got = null, PRE = [['torrentio', 'Torrentio'], ['comet', 'Comet'], ['peerflix', 'Peerflix']];
   function say(t, c) { $('msg').textContent = t; $('msg').className = c || ''; }
   var q = new URLSearchParams(location.search); if (q.get('code')) $('code').value = q.get('code').toUpperCase();
-  var TABS = { xtream: ['tX', 'fX'], m3u: ['tM', 'fM'], debrid: ['tD', 'fD'], addon: ['tA', 'fA'], cinepro: ['tC', 'fN'] };
-  function tab(k) { kind = k; Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).className = x === k ? 'on' : ''; $(TABS[x][1]).className = x === k ? '' : 'hid'; }); var pl = k === 'xtream' || k === 'm3u'; $('nm').style.display = $('nmL').style.display = pl ? '' : 'none'; }
+  var TABS = { xtream: ['tX', 'fX'], m3u: ['tM', 'fM'], debrid: ['tD', 'fD'], addon: ['tA', 'fA'], cinepro: ['tC', 'fN'], stremio: ['tS', 'fS'] };
+  function tab(k) { kind = k; Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).className = x === k ? 'on' : ''; $(TABS[x][1]).className = x === k ? '' : 'hid'; }); var pl = k === 'xtream' || k === 'm3u'; $('go').style.display = k === 'stremio' && !got ? 'none' : ''; $('nm').style.display = $('nmL').style.display = pl ? '' : 'none'; }
   Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).onclick = function () { tab(x); }; });
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function stremio(path, body) { return fetch('https://api.strem.io/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error.message || 'Stremio refused that'); return j.result; }); }
+  $('sGo').onclick = function () {
+    var em = $('sm').value.trim(), pw = $('sp').value;
+    if (!em || !pw) { say('Enter your Stremio email and password.', 'bad'); return; }
+    $('sGo').disabled = true; say('Signing in…');
+    stremio('login', { type: 'Login', email: em, password: pw, facebook: false }).then(function (r) { return stremio('addonCollectionGet', { type: 'AddonCollectionGet', authKey: r.authKey, update: true }); }).then(function (r) {
+      $('sp').value = ''; var rows = '<label>Preinstalled add-ons on the TV (untick to remove)</label>';
+      PRE.forEach(function (p) { rows += '<label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" data-pre="' + p[0] + '" checked style="width:auto"> ' + p[1] + '</label>'; });
+      rows += '<label>Your Stremio add-ons (tick the ones to use on the TV)</label>';
+      var n = 0; (r.addons || []).forEach(function (a) {
+        var m = a.manifest || {}, res = (m.resources || []).map(function (x) { return typeof x === 'string' ? x : x && x.name; });
+        if (res.indexOf('stream') < 0 || !/^https:\/\//i.test(a.transportUrl || '')) return;
+        n++; rows += '<label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" data-u="' + esc(a.transportUrl) + '" data-n="' + esc(m.name || '') + '" checked style="width:auto"> ' + esc(m.name || a.transportUrl) + '</label>';
+      });
+      if (!n) rows += '<p>No stream add-ons found in your account. You can add them at web.stremio.com, or add one by address in the Add-on tab.</p>';
+      $('sList').innerHTML = rows; $('sList').className = ''; $('sLogin').className = 'hid'; got = { n: n }; $('go').style.display = ''; $('go').textContent = 'Send to my TV'; say('Signed in. Choose what to send.', 'ok');
+    }).catch(function (e) { $('sGo').disabled = false; say('Could not sign in: ' + e.message, 'bad'); });
+  };
   $('go').onclick = function () {
     var code = $('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length !== 6) { say('Enter the 6-character code from your TV.', 'bad'); return; }
@@ -76,6 +104,12 @@
     else if (kind === 'addon') body.url = $('au').value.trim();
     else if (kind === 'cinepro') body.url = $('cu').value.trim();
     else body.url = $('url').value.trim();
+    if (kind === 'stremio') {
+      if (!got) { say('Sign in to Stremio first.', 'bad'); return; }
+      body.addons = []; body.pre = {};
+      Array.prototype.forEach.call($('sList').querySelectorAll('input[data-u]'), function (c) { if (c.checked) body.addons.push({ url: c.getAttribute('data-u'), name: c.getAttribute('data-n') }); });
+      Array.prototype.forEach.call($('sList').querySelectorAll('input[data-pre]'), function (c) { body.pre[c.getAttribute('data-pre')] = c.checked; });
+    }
     $('go').disabled = true; say('Sending…');
     fetch('/api?action=pair_put', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; }); })

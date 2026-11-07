@@ -955,12 +955,23 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   };
   // ---- Optional extra sources: Stremio / Nuvio add-ons, a debrid account, a CinePro Core server. Everything is stored on this device only. ----
   function hostOf(u) { return String(u || '').replace(/^\w+:\/\//, '').split('/')[0]; }
-  function addonList() {
+  var PRE = [
+    { id: 'torrentio', name: 'Torrentio', url: 'https://torrentio.strem.fun/qualityfilter=480p,720p,other/manifest.json' },
+    { id: 'comet', name: 'Comet', url: 'https://comet.elfhosted.com/eyJtYXhSZXN1bHRzUGVyUmVzb2x1dGlvbiI6MCwibWF4U2l6ZSI6MCwiY2FjaGVkT25seSI6ZmFsc2UsInNvcnRDYWNoZWRVbmNhY2hlZFRvZ2V0aGVyIjpmYWxzZSwicmVtb3ZlVHJhc2giOnRydWUsInJlc3VsdEZvcm1hdCI6WyJhbGwiXSwiZGVicmlkU2VydmljZXMiOltdLCJlbmFibGVUb3JyZW50IjpmYWxzZSwiZGVkdXBsaWNhdGVTdHJlYW1zIjpmYWxzZSwic2NyYXBlRGVicmlkQWNjb3VudFRvcnJlbnRzIjpmYWxzZSwiZGVicmlkU3RyZWFtUHJveHlQYXNzd29yZCI6IiIsImxhbmd1YWdlcyI6eyJyZXF1aXJlZCI6W10sImFsbG93ZWQiOltdLCJleGNsdWRlIjpbXSwicHJlZmVycmVkIjpbXX0sInJlc29sdXRpb25zIjp7InI1NzZwIjpmYWxzZSwicjQ4MHAiOmZhbHNlLCJyMzYwcCI6ZmFsc2UsInIyNDBwIjpmYWxzZX0sIm9wdGlvbnMiOnsicmVtb3ZlX3JhbmtzX3VuZGVyIjotMTAwMDAwMDAwMCwiYWxsb3dfZW5nbGlzaF9pbl9sYW5ndWFnZXMiOmZhbHNlLCJyZW1vdmVfdW5rbm93bl9sYW5ndWFnZXMiOmZhbHNlfX0/manifest.json' },
+    { id: 'peerflix', name: 'Peerflix', url: 'https://addon.peerflix.mov/manifest.json' }
+  ];
+  function preState(id) { var s = store.get('ea_pre', null); return s && (s[id] === 'off' || s[id] === 'gone') ? s[id] : 'on'; }
+  function setPre(id, v) { var s = store.get('ea_pre', null) || {}; if (v === 'on') delete s[id]; else s[id] = v; store.set('ea_pre', s); }
+  function addonList() {                                                          // the add-ons that are used: the preinstalled ones that are on, then your own
+    var l = PRE.filter(function (p) { return preState(p.id) === 'on'; }).map(function (p) { return { url: p.url, name: p.name, pre: p.id }; });
+    return l.concat(userAddons());
+  }
+  function userAddons() {
     var l = store.get('ea_addons', null);
     if (!l) { var old = store.get('ea_addon', ''); l = typeof old === 'string' && /^(https?|stremio):\/\/\S+$/i.test(old) ? [{ url: old, name: hostOf(old) }] : []; }      // the single add-on of the previous version
     return Array.isArray(l) ? l.filter(function (x) { return x && /^(https?|stremio):\/\/\S+$/i.test(x.url || ''); }) : [];
   }
-  function addonsParam() { var l = addonList(); return l.length ? JSON.stringify(l.map(function (x) { return x.url; })) : ''; }
+  function addonsParam() { var l = addonList().slice(0, 12); return l.length ? JSON.stringify(l.map(function (x) { return x.url; })) : ''; }
   function debridCfg() { var d = store.get('ea_debrid', null); return d && /^(rd|ad|pm|tb)$/.test(d.p) && typeof d.k === 'string' && d.k.length >= 8 ? d : null; }
   function debridHdr() { var d = debridCfg(); return d ? { 'x-debrid': d.p + ':' + d.k } : undefined; }        // sent with the request, never stored by the server
   function cineproUrl() { var u = store.get('ea_cinepro', ''); return typeof u === 'string' && /^https?:\/\/\S+$/i.test(u) ? u : ''; }
@@ -1710,6 +1721,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var box = $('setApp'); if (!box) return; box.innerHTML = '';
     APPSET.forEach(function (row, i) { var b = el('button', 'setr focusable', '<span>' + esc(row[1]) + '</span><b>' + esc(setLabel(row)) + '</b>'); b.__set = i; box.appendChild(b); });
     var c = customSrc(), cb = el('button', 'setr focusable', '<span>Custom movie player</span><b>' + (c ? esc(c.name) : 'None') + '</b>'); cb.__set = 'custom'; box.appendChild(cb);
+    if (UI_CINE && cineQ && $('setRail')) cineSearch();
     $('setCustomHelp').textContent = c ? c.url : 'Add a player of your own with an address like https://player.example/movie/{tmdb} ({imdb} {tmdb} {s} {e} are filled in).';
   }
 
@@ -1730,7 +1742,14 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ea_noads: 'Movies and TV try the sources with fewer popups before the others.',
     ea_popblock: 'Stops hosted movie players from opening extra windows.'
   };
-  var cineGroup = 0;
+  var cineGroup = 0, cineQ = '';
+  function cineSearch() {                                                         // Cinematic settings search: while something is typed, every matching option from every category is listed
+    var p = $('setPanel'), q = cineQ.trim().toLowerCase(), rows = p.querySelectorAll('.setr'), i, hit = 0, t;
+    p.className = p.className.replace(/\s*\bsearching\b/g, '') + (q ? ' searching' : '');
+    for (i = 0; i < rows.length; i++) { t = rows[i].textContent.toLowerCase(); var on = q && t.indexOf(q) >= 0; if (on) hit++; rows[i].className = rows[i].className.replace(/\s*\bsmatch\b/g, '') + (on ? ' smatch' : ''); }
+    var no = $('setNone'); if (!no) { no = el('div', 'hint'); no.id = 'setNone'; p.insertBefore(no, p.firstChild); }
+    no.textContent = q ? (hit ? hit + ' result' + (hit > 1 ? 's' : '') + ' for “' + cineQ.trim() + '”' : 'No setting matches “' + cineQ.trim() + '”') : ''; no.style.display = q ? 'block' : 'none';
+  }
   function cineKey(e) { var s = e.__set; if (s === undefined) return ''; var c = typeof s === 'string' && s.charAt(0) === 'c' && s !== 'custom'; var row = s === 'custom' ? null : (c ? CUSTOMSET[+s.slice(1)] : APPSET[s]); return row ? row[0] : ''; }
   function cineDiff() { var n = 0; APPSET.concat(CUSTOMSET).forEach(function (r) { if (String(store.get(r[0], r[2])) !== String(r[2])) n++; }); return n; }
   function cineSettings() {
@@ -1742,8 +1761,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (cineGroup >= names.length) cineGroup = 0;
     var n = cineDiff();
     rail.innerHTML = '<div class="srh">Categories</div><div class="srd">' + (n ? n + ' different from default' : 'Everything is on default') + '</div>';
-    names.forEach(function (nm, j) { var b = el('button', 'srb focusable', '<i></i><span>' + esc(nm) + '</span>'); b.__rg = j; b.onclick = function () { cineShow(j); }; rail.appendChild(b); });
-    cineShow(cineGroup);
+    var SI = { Customize: 'star', Interface: 'tv', Home: 'home', Support: 'heart', Profile: 'person', Extra: 'film', Stream: 'live', Subtitles: 'cc', Performance: 'fs', Tips: 'info' };
+    var sb = el('input', 'focusable'); sb.id = 'setSearch'; sb.type = 'text'; sb.placeholder = 'Search settings'; sb.autocomplete = 'off'; sb.spellcheck = false; sb.value = cineQ; sb.oninput = function () { cineQ = sb.value; cineSearch(); };
+    rail.insertBefore(sb, rail.children[2]);
+    names.forEach(function (nm, j) { var b = el('button', 'srb focusable', ic(SI[nm.split(' ')[0]] || 'gear') + '<span>' + esc(nm) + '</span>'); b.__rg = j; b.onclick = function () { cineShow(j); }; rail.appendChild(b); });
+    cineShow(cineGroup); cineSearch();
   }
   function cineShow(j) {
     cineGroup = j; var kids = $('setPanel').children, i, rb = $('setRail').querySelectorAll('.srb');
@@ -1765,6 +1787,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function cineMove(cur, dir) {
     var rail = $('setRail'); if (!rail) return false;
+    if (cur.id === 'setSearch' && dir === 'right') { var f0 = $('setPanel').querySelector('.setr.smatch, .gon.focusable, .gon .focusable'); if (f0) setFocus(f0); return true; }
     if (cur.__rg !== undefined) {
       if (dir === 'right') { var f = $('setPanel').querySelector('.gon.focusable, .gon .focusable'); if (f) { setFocus(f); return true; } return true; }
       if (dir === 'left') return true;
@@ -1848,13 +1871,13 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     store.set('ea_rows', pr); state.rowsDirty = true; openRows({ i: i, a: r.a });
   }
   function addAddon(url, name) {
-    var l = addonList().filter(function (x) { return x.url !== url; }); l.unshift({ url: url, name: name || hostOf(url) }); store.set('ea_addons', l.slice(0, 8));
+    var l = userAddons().filter(function (x) { return x.url !== url; }); l.unshift({ url: url, name: name || hostOf(url) }); store.set('ea_addons', l.slice(0, 8));
   }
   // ---- Settings -> Extra sources (all optional) ----
   function paintExtras() {
     var box = $('setExtra'); if (!box) return; box.innerHTML = '';
     var d = debridCfg(), l = addonList(), c = cineproUrl();
-    [['debrid', 'Debrid service', d ? debridName(d.p) + ' · connected' : 'None'], ['addons', 'Add-ons (Stremio / Nuvio)', l.length ? l.length + ' added' : 'None'], ['cinepro', 'CinePro Core server', c ? hostOf(c) : 'None']].forEach(function (r) {
+    [['debrid', 'Debrid service', d ? debridName(d.p) + ' · connected' : 'None'], ['addons', 'Add-ons (Stremio / Nuvio)', l.length + ' on' + (userAddons().length ? ' · ' + userAddons().length + ' yours' : ' · preinstalled')], ['cinepro', 'CinePro Core server', c ? hostOf(c) : 'None']].forEach(function (r) {
       var b = el('button', 'setr focusable', '<span>' + r[1] + '</span><b>' + esc(r[2]) + '</b>'); b.__x = r[0]; box.appendChild(b);
     });
   }
@@ -1867,7 +1890,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         '<button id="xProv" class="btn focusable"></button><input id="xKey" class="focusable" type="text" placeholder="API key" autocomplete="off" spellcheck="false">' +
         '<div class="setrow"><button id="xSave" class="btn primary focusable">Save and check</button><button id="xPhone" class="btn focusable">Send from phone</button><button id="xRemove" class="btn focusable">Remove</button><button id="xClose" class="btn focusable">Close</button></div>';
     } else if (kind === 'addons') {
-      h = '<p class="hint">Stremio and Nuvio add-ons both work: paste the add-on\'s address (the link that ends in manifest.json). Add-ons are optional extra sources and are never required to play anything.</p><div id="xList"></div>' +
+      h = '<p class="hint">Torrentio, Comet and Peerflix are <b>already preinstalled</b> and on. Switch one off here with OK, or remove or add it from your phone (Send from phone). Add your own below, or scan the QR code with Send from phone to sign in to your Stremio account and bring your add-ons. Stremio and Nuvio add-ons both work: paste the add-on\'s address (the link that ends in manifest.json). Add-ons are optional extra sources and are never required to play anything.</p><div id="xList"></div>' +
         '<input id="xUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" autocomplete="off" spellcheck="false">' +
         '<div class="setrow"><button id="xSave" class="btn primary focusable">Add</button><button id="xPhone" class="btn focusable">Send from phone</button><button id="xClose" class="btn focusable">Close</button></div>';
     } else {
@@ -1881,7 +1904,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function paintProv() { $('xProv').textContent = 'Service: ' + debridName(state.xProv); }
   function paintAddonList() {
-    var l = addonList(), box = $('xList'); box.innerHTML = '';
+    var l = userAddons(), box = $('xList'); box.innerHTML = '';
+    var gone = 0; PRE.forEach(function (p) { var s = preState(p.id); if (s === 'gone') { gone++; return; } var b = el('button', 'setr focusable', '<span>' + esc(p.name) + ' <small>preinstalled</small></span><b>' + (s === 'on' ? 'On' : 'Off') + '</b>'); b.__pre = p.id; box.appendChild(b); });
+    if (gone) { var rb = el('button', 'setr focusable', '<span>Restore preinstalled add-ons</span><b>' + gone + ' removed</b>'); rb.id = 'xRestore'; box.appendChild(rb); }
     l.forEach(function (x, i) { var b = el('button', 'setr focusable', '<span>' + esc(x.name) + '</span><b>Remove</b>'); b.__xdel = i; box.appendChild(b); });
   }
   function xmsg(t) { var i = $('xInfo'); if (i) i.textContent = t; toast(t); }
@@ -1919,7 +1944,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var kind = state.xk; clearInterval(state.xPoll); $('xInfo').textContent = 'Getting a code…';
     api({ action: 'pair_start' }).then(function (p) {
       if (state.xk !== kind) return;
-      $('xInfo').textContent = 'On your phone open ' + p.url.replace(/^https?:\/\//, '') + ' and enter the code ' + p.code + ' (or scan the QR code), then choose ' + (kind === 'debrid' ? 'Debrid key' : kind === 'addons' ? 'Add-on' : 'CinePro') + '.';
+      $('xInfo').textContent = 'On your phone open ' + p.url.replace(/^https?:\/\//, '') + ' and enter the code ' + p.code + ' (or scan the QR code), then choose ' + (kind === 'debrid' ? 'Debrid key' : kind === 'addons' ? 'Stremio account or Add-on' : 'CinePro') + '.';
       if (EA.qr) EA.qr($('xQr'), p.url + '?code=' + p.code);
       var until = Date.now() + p.expiresIn * 1000;
       state.xPoll = setInterval(function () {
@@ -1930,11 +1955,18 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
           clearInterval(state.xPoll); var d = x.playlist;
           if (d.type === 'debrid') { store.set('ea_debrid', { p: d.p, k: d.k }); xmsg(debridName(d.p) + ' key received'); }
           else if (d.type === 'addon') { addAddon(d.url, hostOf(d.url)); xmsg('Add-on received'); if (state.xk === 'addons') paintAddonList(); }
+          else if (d.type === 'stremio') { applyStremio(d); xmsg('Stremio add-ons received: ' + (d.addons || []).length); if (state.xk === 'addons') paintAddonList(); }
           else if (d.type === 'cinepro') { store.set('ea_cinepro', d.url); xmsg('CinePro Core received'); }
           paintExtras();
         }).catch(function () {});
       }, 3000);
     }).catch(function (e) { $('xInfo').textContent = e.message; });
+  }
+  function applyStremio(d) {                                                      // add-ons from the phone's Stremio sign-in: replace the ones synced last time, keep the ones typed in, never touch Torrentio/Comet/Peerflix except as asked
+    var keep = userAddons().filter(function (x) { return !x.stremio; }), add = [];
+    (d.addons || []).slice(0, 20).forEach(function (x) { if (x && /^https?:\/\/\S+$/i.test(x.url || '') && !PRE.some(function (p) { return p.url === x.url; })) add.push({ url: x.url, name: String(x.name || hostOf(x.url)).slice(0, 60), stremio: 1 }); });
+    store.set('ea_addons', add.concat(keep).slice(0, 12));
+    if (d.pre) PRE.forEach(function (p) { if (d.pre[p.id] === false) setPre(p.id, 'gone'); else if (d.pre[p.id] === true && preState(p.id) === 'gone') setPre(p.id, 'on'); });
   }
   function saveCustomSource() {
     var n = $('setCustomName').value.trim(), u = $('setCustomUrl').value.trim();
@@ -2414,7 +2446,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.__p) { profAct(e.__p); return; }
     if (e.id === 'navProf') { EA_PROF.switchTo(); return; }
     if (e.__x) { openExtra(e.__x); return; }
-    if (e.__xdel !== undefined) { var al = addonList(); al.splice(e.__xdel, 1); store.set('ea_addons', al); paintAddonList(); paintExtras(); if (!hasExtra() && state.mvia === 'addon') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } setFocus($('xUrl')); return; }
+    if (e.__pre !== undefined) { setPre(e.__pre, preState(e.__pre) === 'on' ? 'off' : 'on'); paintAddonList(); paintExtras(); var pb = $('xList').children[PRE.map(function (p) { return p.id; }).filter(function (id) { return preState(id) !== 'gone'; }).indexOf(e.__pre)]; if (pb) setFocus(pb, true); return; }
+    if (e.id === 'xRestore') { PRE.forEach(function (p) { setPre(p.id, 'on'); }); paintAddonList(); paintExtras(); xmsg('Preinstalled add-ons restored'); return; }
+    if (e.__xdel !== undefined) { var al = userAddons(); al.splice(e.__xdel, 1); store.set('ea_addons', al); paintAddonList(); paintExtras(); if (!hasExtra() && state.mvia === 'addon') { state.mvia = 'auto'; store.set('ea_msrc', 'auto'); } setFocus($('xUrl')); return; }
     if (e.id === 'xProv') { var pi = 0; DEBRIDS.forEach(function (d, i) { if (d[0] === state.xProv) pi = i; }); state.xProv = DEBRIDS[(pi + 1) % DEBRIDS.length][0]; paintProv(); return; }
     if (e.id === 'xSave') { saveExtra(); return; }
     if (e.id === 'xRemove') { removeExtra(); return; }
