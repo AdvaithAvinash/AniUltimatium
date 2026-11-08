@@ -42,3 +42,14 @@ test('Direct stream page, P2P switch (on by default), tutorial and Watch on phon
   assert.ok(/function tourShow\(/.test(m) && /function phoneBoot\(/.test(m) && /function directPlay\(/.test(m));
   assert.ok(m.includes("'\u2714 Fast mode: On'") || m.includes('Fast mode: On'));
 });
+
+test('Lite: mandatory sign-in gate after the tutorial, random / first / chosen add-on, side-rail look, no sponsor ads', () => {
+  const m = read('public/main.js'), c = read('public/styles.css'), l = read('lib/lite.js');
+  assert.ok(/function liteGate\(\)/.test(m) && /ea_lite_linked/.test(m));
+  assert.ok(/if \(ED_LITE && !store\.get\('ea_lite_linked', false\)\) \{ state\.view = state\.tab; liteGate\(\); return; \}/.test(m), 'the gate follows the tutorial');
+  assert.ok(!/gSkip|Skip for now/.test(m), 'no way around the gate');
+  assert.ok(/function litePick\(\)/.test(m) && /Math\.random\(\)/.test(m) && /\['rand', 'Random add-on'/.test(m) && /\['first', 'First in list'/.test(m));
+  assert.ok(/pick: lp\.url/.test(m) && /q\.pick/.test(l) && /strict/.test(l));
+  assert.ok(m.includes("store.set('ea_ui', 'modern')") && /body\.ed-lite\.ui-modern #heroCount/.test(c) && /#gate\{/.test(c));
+  assert.ok(/window\.EA_LITE \|\| ad/.test(read('public/sponsor.js')));
+});

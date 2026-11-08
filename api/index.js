@@ -576,7 +576,7 @@ async function pairPut(b) {
     if (!/^(rd|ad|pm|tb)$/.test(prov) || !/^\S{8,200}$/.test(key)) throw bad('Pick the service and paste the API key');
     data = { type: 'debrid', p: prov, k: key };
   } else if (b.kind === 'stremio') {                       // add-ons the phone read from the user's own Stremio account (the sign-in happens in the phone's browser; no password or key ever reaches this server)
-    const list = (Array.isArray(b.addons) ? b.addons : []).slice(0, 20).map(x => ({ url: str(x && x.url, 1500), name: str(x && x.name, 60) })).filter(x => /^https:\/\/[^\s]+$/i.test(x.url));
+    const list = (Array.isArray(b.addons) ? b.addons : []).slice(0, 20).map(x => ({ url: str(x && x.url, 1500), name: str(x && x.name, 60), st: !!(x && x.st), sub: !!(x && x.sub) })).filter(x => /^https:\/\/[^\s]+$/i.test(x.url));
     const pre = {}; for (const k of ['torrentio', 'comet', 'peerflix', 'cinemeta', 'watchhub', 'opensubs', 'submaker', 'pubdomain']) if (b.pre && typeof b.pre[k] === 'boolean') pre[k] = b.pre[k];
     data = { type: 'stremio', addons: list, pre };
   } else if (b.kind === 'addon' || b.kind === 'cinepro') {
@@ -714,7 +714,7 @@ async function handle(req, res) {
       case 'lite_sources': {        // AniUltimatium Lite: the viewer's own add-ons only (lib/lite.js has no hosted players or scrapers)
         const r = await lite.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });
         const base = r.direct ? finish(r.direct, origin) : {};
-        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'p2p', torrents: r.torrents || undefined, ...(r.torrents ? { subtitles: r.subtitles || [] } : {}) }, 'no-store');
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'p2p', fellBack: (r.direct && r.direct.fellBack) || undefined, torrents: r.torrents || undefined, ...(r.torrents ? { subtitles: r.subtitles || [] } : {}) }, 'no-store');
       }
       case 'movie_sources': {
         const r = await movies.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });   // the key is never stored or logged

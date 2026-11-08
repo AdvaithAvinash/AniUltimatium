@@ -129,7 +129,7 @@
   function vastUrl() { return cfg && cfg.enabled === true && cfg.vast && httpsUrl(cfg.vast.url) ? cfg.vast.url : null; }
   function adsOn() { return store.get('ea_ads', true) !== false; }                       // Settings -> Customize -> Ads
   function wants(a) {                                                                    // synchronous: the config is fetched at start-up, so a slow network never delays playback
-    if (ad || !cfg || cfg.enabled !== true || !adsOn()) return false;
+    if (window.EA_LITE || ad || !cfg || cfg.enabled !== true || !adsOn()) return false;                 // AniUltimatium Lite shows no sponsor videos
     return (!!vastUrl() || !!pickVideo(cfg, Date.now(), 0.5)) && due(seen, kindOf(a), a.id, today());
   }
   // ---- VAST 2 / 3 (wrappers followed up to 3 deep). Only the video file and the tracking pixels are used: no click-through, no ad scripts, no verification code is run. ----

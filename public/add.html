@@ -87,11 +87,11 @@
     stremio('login', { type: 'Login', email: em, password: pw, facebook: false }).then(function (r) { return stremio('addonCollectionGet', { type: 'AddonCollectionGet', authKey: r.authKey, update: true }); }).then(function (r) {
       $('sp').value = ''; var rows = '<label>Preinstalled add-ons on the TV (untick to remove)</label>';
       PRE.forEach(function (p) { rows += '<label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" data-pre="' + p[0] + '" checked style="width:auto"> ' + p[1] + '</label>'; });
-      rows += '<label>Your Stremio add-ons (tick the ones to use on the TV)</label>';
+      rows += '<label>Your Stremio add-ons (tick the ones to use on the TV; Stremio and Nuvio add-ons both work)</label>';
       var n = 0; (r.addons || []).forEach(function (a) {
         var m = a.manifest || {}, res = (m.resources || []).map(function (x) { return typeof x === 'string' ? x : x && x.name; });
-        if (res.indexOf('stream') < 0 || !/^https:\/\//i.test(a.transportUrl || '')) return;
-        n++; rows += '<label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" data-u="' + esc(a.transportUrl) + '" data-n="' + esc(m.name || '') + '" checked style="width:auto"> ' + esc(m.name || a.transportUrl) + '</label>';
+        var hasSt = res.indexOf('stream') >= 0, hasSub = res.indexOf('subtitles') >= 0; if ((!hasSt && !hasSub) || !/^https:\/\//i.test(a.transportUrl || '')) return;
+        n++; rows += '<label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" data-u="' + esc(a.transportUrl) + '" data-n="' + esc(m.name || '') + '" data-st="' + (hasSt ? 1 : 0) + '" data-sub="' + (hasSub ? 1 : 0) + '" checked style="width:auto"> ' + esc(m.name || a.transportUrl) + (hasSt ? ' · streams' : '') + (hasSub ? ' · subtitles' : '') + '</label>';
       });
       if (!n) rows += '<p>No stream add-ons found in your account. You can add them at web.stremio.com, or add one by address in the Add-on tab.</p>';
       $('sList').innerHTML = rows; $('sList').className = ''; $('sLogin').className = 'hid'; got = { n: n }; $('go').style.display = ''; $('go').textContent = 'Send to my TV'; say('Signed in. Choose what to send.', 'ok');
@@ -109,7 +109,7 @@
     if (kind === 'stremio') {
       if (!got) { say('Sign in to Stremio first.', 'bad'); return; }
       body.addons = []; body.pre = {};
-      Array.prototype.forEach.call($('sList').querySelectorAll('input[data-u]'), function (c) { if (c.checked) body.addons.push({ url: c.getAttribute('data-u'), name: c.getAttribute('data-n') }); });
+      Array.prototype.forEach.call($('sList').querySelectorAll('input[data-u]'), function (c) { if (c.checked) body.addons.push({ url: c.getAttribute('data-u'), name: c.getAttribute('data-n'), st: c.getAttribute('data-st') === '1', sub: c.getAttribute('data-sub') === '1' }); });
       Array.prototype.forEach.call($('sList').querySelectorAll('input[data-pre]'), function (c) { body.pre[c.getAttribute('data-pre')] = c.checked; });
     }
     $('go').disabled = true; say('Sending…');
