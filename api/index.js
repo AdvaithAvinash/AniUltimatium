@@ -18,6 +18,9 @@ try {
 
 const accounts = require('../lib/accounts');
 const movies = require('../lib/movies');
+const cinemeta = require('../lib/cinemeta');
+const addons = require('../lib/addons');
+const lite = require('../lib/lite');
 const debrid = require('../lib/debrid');
 const kitsu = require('../lib/kitsu');
 const verify = require('../lib/verify');
@@ -701,13 +704,18 @@ async function handle(req, res) {
         return send(res, 200, await debug(q), 'no-store');
       // ---- movies (Cinemeta metadata; Stremio addons + Internet Archive streams) ----
       case 'movies_home':                                  // type=series: TV shows
-        return send(res, 200, await turbo.cached('mh:' + (q.type || ''), 30 * 60 * 1000, () => movies.home(q.type)), 's-maxage=1800');
+        return send(res, 200, await turbo.cached('mh:' + (q.type || ''), 30 * 60 * 1000, () => cinemeta.home(q.type)), 's-maxage=1800');
       case 'movies_search':
         if (!q.q) return send(res, 400, { error: 'q required' }, 'no-store');
-        return send(res, 200, { results: await movies.search(q.q, q.type) }, 's-maxage=600');
+        return send(res, 200, { results: await cinemeta.search(q.q, q.type) }, 's-maxage=600');
       case 'tv_meta':
         if (!/^tt\d+$/.test(q.id || '')) return send(res, 400, { error: 'id required' }, 'no-store');
-        return send(res, 200, await turbo.cached('tvm:' + q.id, 6 * 3600 * 1000, () => movies.seriesMeta(q.id)), 's-maxage=21600');
+        return send(res, 200, await turbo.cached('tvm:' + q.id, 6 * 3600 * 1000, () => cinemeta.seriesMeta(q.id)), 's-maxage=21600');
+      case 'lite_sources': {        // AniUltimatium Lite: the viewer's own add-ons only (lib/lite.js has no hosted players or scrapers)
+        const r = await lite.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });
+        const base = r.direct ? finish(r.direct, origin) : {};
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'p2p', torrents: r.torrents || undefined, ...(r.torrents ? { subtitles: r.subtitles || [] } : {}) }, 'no-store');
+      }
       case 'movie_sources': {
         const r = await movies.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });   // the key is never stored or logged
         // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)
@@ -719,7 +727,7 @@ async function handle(req, res) {
         return send(res, 200, await debrid.check(a.p, a.k), 'no-store');
       }
       case 'addon_check':
-        return send(res, 200, await movies.addonInfo(q.url), 'no-store');
+        return send(res, 200, await addons.addonInfo(q.url), 'no-store');
       case 'subs':
         return send(res, 200, { subtitles: await subsFor(q, origin).catch(() => []) }, 's-maxage=3600');
       case 'skip':

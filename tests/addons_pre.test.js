@@ -27,9 +27,11 @@ test('AniUltimatium Lite: own entry page and package, only non-pirate preinstall
   const m = read('public/main.js'), mv = read('lib/movies.js');
   assert.ok(/var ED_LITE = !!window\.EA_LITE/.test(m));
   const lite = m.slice(m.indexOf('var PRE = ED_LITE ? ['), m.indexOf('] : [', m.indexOf('var PRE = ED_LITE ? [')));
-  ['v3-cinemeta.strem.io', 'watchhub.strem.io', 'opensubtitles-v3.strem.io', 'submaker.elfhosted.com', 'publicdomainmovies'].forEach(u => assert.ok(lite.includes(u), u));
-  ['torrentio', 'comet', 'peerflix'].forEach(u => assert.ok(!lite.includes(u), u));
-  assert.ok(/list = lite \? \[\]/.test(mv) && /const wantEmbed = !lite/.test(mv));
+  ['v3-cinemeta.strem.io', 'watchhub.strem.io', 'opensubtitles-v3.strem.io', 'submaker.elfhosted.com'].forEach(u => assert.ok(lite.includes(u), u));
+  ['torrentio', 'comet', 'peerflix', 'publicdomain'].forEach(u => assert.ok(!lite.includes(u), u));
+  const lj = read('lib/lite.js'); assert.ok(!/require\('\.\/movies'\)|EMBEDS|vidsrc|2embed|videasy|viaArchive/i.test(lj.replace(/^\/\/.*$/mg, '')), 'lib/lite.js uses no hosted players, scrapers or built-in catalogue');
+  assert.ok(m.includes("action: 'lite_sources'") && read('api/index.js').includes("case 'lite_sources'"));
+  const lv = read('public/live.js'); assert.ok(lv.includes("window.EA_LITE && o[0] === 'free'"));
   const b = read('tools/build_wgt.py'); assert.ok(b.includes('--lite') && b.includes('AnUltLite1'));
 });
 

@@ -67,7 +67,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
 
   // AniUltimatium Lite (lite.html / AniultimatiumLite.wgt): no hosted players and no scraped anime; only the viewer's add-ons, public-domain films, IPTV, direct streams and the Gamehub
   var ED_LITE = !!window.EA_LITE;
-  if (ED_LITE && !/^(auto|addon|archive)$/.test(String(store.get('ea_msrc', 'auto')))) store.set('ea_msrc', 'auto');
+  if (ED_LITE) store.set('ea_msrc', 'addon');
   if (ED_LITE && !store.get('ea_ui_lite_set', false)) { store.set('ea_ui', 'cine'); store.set('ea_ui_lite_set', true); }
   var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';          // side rail look (its remote navigation differs)
   var UI_CINE = store.get('ea_ui', 'classic') === 'cine';              // Cinematic look: Apple TV style, floating top bar (navigates like Classic)
@@ -966,8 +966,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     { id: 'cinemeta', name: 'Cinemeta', url: 'https://v3-cinemeta.strem.io/manifest.json', note: 'titles and details' },
     { id: 'watchhub', name: 'WatchHub', url: 'https://watchhub.strem.io/manifest.json', note: 'where it is streaming legally' },
     { id: 'opensubs', name: 'OpenSubtitles v3', url: 'https://opensubtitles-v3.strem.io/manifest.json', note: 'subtitles' },
-    { id: 'submaker', name: 'SubMaker', url: 'https://submaker.elfhosted.com/manifest.json', note: 'subtitles · set it up on its page first' },
-    { id: 'pubdomain', name: 'Public Domain Movies', url: 'https://caching.stremio.net/publicdomainmovies.now.sh/manifest.json', note: 'free classic films (P2P)' }
+    { id: 'submaker', name: 'SubMaker', url: 'https://submaker.elfhosted.com/manifest.json', note: 'subtitles · set it up on its page first' }
   ] : [
     { id: 'torrentio', name: 'Torrentio', url: 'https://torrentio.strem.fun/qualityfilter=480p,720p,other/manifest.json' },
     { id: 'comet', name: 'Comet', url: 'https://comet.elfhosted.com/eyJtYXhSZXN1bHRzUGVyUmVzb2x1dGlvbiI6MCwibWF4U2l6ZSI6MCwiY2FjaGVkT25seSI6ZmFsc2UsInNvcnRDYWNoZWRVbmNhY2hlZFRvZ2V0aGVyIjpmYWxzZSwicmVtb3ZlVHJhc2giOnRydWUsInJlc3VsdEZvcm1hdCI6WyJhbGwiXSwiZGVicmlkU2VydmljZXMiOltdLCJlbmFibGVUb3JyZW50IjpmYWxzZSwiZGVkdXBsaWNhdGVTdHJlYW1zIjpmYWxzZSwic2NyYXBlRGVicmlkQWNjb3VudFRvcnJlbnRzIjpmYWxzZSwiZGVicmlkU3RyZWFtUHJveHlQYXNzd29yZCI6IiIsImxhbmd1YWdlcyI6eyJyZXF1aXJlZCI6W10sImFsbG93ZWQiOltdLCJleGNsdWRlIjpbXSwicHJlZmVycmVkIjpbXX0sInJlc29sdXRpb25zIjp7InI1NzZwIjpmYWxzZSwicjQ4MHAiOmZhbHNlLCJyMzYwcCI6ZmFsc2UsInIyNDBwIjpmYWxzZX0sIm9wdGlvbnMiOnsicmVtb3ZlX3JhbmtzX3VuZGVyIjotMTAwMDAwMDAwMCwiYWxsb3dfZW5nbGlzaF9pbl9sYW5ndWFnZXMiOmZhbHNlLCJyZW1vdmVfdW5rbm93bl9sYW5ndWFnZXMiOmZhbHNlfX0/manifest.json' },
@@ -1008,7 +1007,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   function p2pOn() { return store.get('ea_p2p', true) !== false; }
   function p2pServer() { var u = (store.get('ea_p2psrv', '') || '').trim(); return u ? (/^https?:\/\//i.test(u) ? u : 'http://' + u).replace(/\/+$/, '') : ''; }
   function srcOpts() {
-    if (ED_LITE) return [['auto', 'Auto (best)', 'your add-ons, then public-domain films'], ['addon', 'Your add-ons' + (debridCfg() ? ' + ' + debridName(debridCfg().p) : ''), 'only your add-ons'], ['archive', 'Public-domain archive', 'free classic films']];
+    if (ED_LITE) return [['addon', 'Your add-ons' + (debridCfg() ? ' + ' + debridName(debridCfg().p) : ''), 'the add-ons you added']];
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
     var c = customSrc(); if (c) base.push(['custom', 'Custom: ' + c.name, 'your own player address']);
     if (hasExtra()) base.unshift(['addon', 'Your add-ons' + (debridCfg() ? ' + ' + debridName(debridCfg().p) : ''), 'plays in our own player · works on every TV']);
@@ -1209,7 +1208,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
     var usedPre = false;
-    var req = movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '', addons: addonsParam(), cinepro: ED_LITE ? '' : cineproUrl(), lite: ED_LITE ? 1 : '', p2p: p2pOn() ? 1 : 0 },
+    if (ED_LITE && !movie) { pmsg('Not available in AniUltimatium Lite.   Back: leave', false); return; }
+    var req = ED_LITE ? api(ext({ action: 'lite_sources', id: a.id, quality: state.mq !== 'auto' ? state.mq : '', addons: addonsParam(), p2p: p2pOn() ? 1 : 0 }, isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}), { headers: debridHdr() })
+      : movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '', addons: addonsParam(), cinepro: cineproUrl(), p2p: p2pOn() ? 1 : 0 },
         isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}), { headers: debridHdr() })
       : (function () { var pre = takePrefetch(a, ep); if (pre) { usedPre = true; return pre; } return api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(','), order: iqOrder() }, { signal: state.srcCtl && state.srcCtl.signal }); })();
     req.then(function (d) {
@@ -1975,7 +1976,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         '<input id="xUrl" class="focusable" type="text" placeholder="https://your-addon.example/manifest.json" autocomplete="off" spellcheck="false">' +
         '<div class="setrow"><button id="xSave" class="btn primary focusable">Add</button><button id="xPhone" class="btn focusable">Send from phone</button><button id="xClose" class="btn focusable">Close</button></div>';
     } else if (kind === 'p2psrv') {
-      h = '<p class="hint">P2P titles (torrents, such as the public-domain films) play through a streaming server you run yourself: the free Stremio service on a computer in your home (it listens on port 11470). Enter its address, for example http://192.168.1.20:11470. A debrid service works too and needs no server.</p>' +
+      h = '<p class="hint">P2P titles (torrents from your add-ons) play through a streaming server you run yourself: the free Stremio service on a computer in your home (it listens on port 11470). Enter its address, for example http://192.168.1.20:11470. A debrid service works too and needs no server.</p>' +
         '<input id="xUrl" class="focusable" type="text" placeholder="http://192.168.1.20:11470" autocomplete="off" spellcheck="false">' +
         '<div class="setrow"><button id="xSave" class="btn primary focusable">Save</button><button id="xRemove" class="btn focusable">Remove</button><button id="xClose" class="btn focusable">Close</button></div>';
     } else {
@@ -2597,7 +2598,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // ----- first-run notice (controls) with "Don't show again" -----
   // ----- Navigation tutorial: a few cards with a drawn remote; first start of Lite, and Settings → Tips -----
   var TOUR = [
-    ['Welcome' + (ED_LITE ? ' to AniUltimatium Lite' : ''), ED_LITE ? 'Everything here comes from sources you choose: your add-ons, public-domain films, your IPTV playlists and your own direct streams. This short tour shows how to get around with the remote.' : 'This short tour shows how to get around with the remote.', ''],
+    ['Welcome' + (ED_LITE ? ' to AniUltimatium Lite' : ''), ED_LITE ? 'AniUltimatium Lite comes with nothing to watch built in: it plays what you add — your add-ons, your debrid account, your IPTV playlist and your own direct streams. This short tour shows how to get around with the remote.' : 'This short tour shows how to get around with the remote.', ''],
     ['Move and select', 'The arrow keys move the white highlight. OK opens or plays what is highlighted. Back (Return) goes one step back; on the first page it asks before closing the app.', 'arrows'],
     ['The top bar', 'Press Up until you reach the bar at the top. Left and Right move between pages (Movies, TV Shows, Live TV, ' + (ED_LITE ? 'Direct stream, ' : '') + 'Gamehub, Search, Settings…). Down goes back into the page.', 'up'],
     ['The big banner', 'On Play, Left shows the previous title; on View Details, Right shows the next. Down moves to the rows, where Left and Right scroll through the titles.', 'lr'],

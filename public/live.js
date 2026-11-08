@@ -881,9 +881,9 @@
   function head(box, title, sub) { box.appendChild(el('h2', '', esc(title))); if (sub) box.appendChild(el('p', 'msub', sub)); }
   var SCREENS = {
     add: function (box) {
-      head(box, 'Add a playlist', 'Aniultimatium comes with no channels. Bring your own provider, or start with free public channels.');
+      head(box, 'Add a playlist', window.EA_LITE ? 'AniUltimatium Lite comes with no channels. Add the playlist or login from your own provider.' : 'Aniultimatium comes with no channels. Bring your own provider, or start with free public channels.');
       var g = el('div', 'mopts');
-      [['pair', 'Add with your phone', 'Enter a code on your phone. Easiest, no typing on the remote.', 'rec'], ['xtream', 'Xtream login', 'Server, username and password from your provider.'], ['m3u', 'M3U link', 'A playlist address ending in .m3u or .m3u8.'], ['free', 'Free public channels', 'Community lists by country, category or language.']].forEach(function (o) {
+      [['pair', 'Add with your phone', 'Enter a code on your phone. Easiest, no typing on the remote.', 'rec'], ['xtream', 'Xtream login', 'Server, username and password from your provider.'], ['m3u', 'M3U link', 'A playlist address ending in .m3u or .m3u8.'], ['free', 'Free public channels', 'Community lists by country, category or language.']].filter(function (o) { return !(window.EA_LITE && o[0] === 'free'); }).forEach(function (o) {   // Lite ships no channel list of any kind
         var b = el('button', 'mopt focusable' + (o[3] ? ' rec' : ''), '<b>' + o[1] + '</b><span>' + o[2] + '</span>' + (o[3] ? '<i>Recommended</i>' : '')); b.__live = { act: 'go-' + o[0] }; g.appendChild(b);
       });
       box.appendChild(g);
@@ -929,6 +929,7 @@
       }).catch(function (e) { info.querySelector('.pw').textContent = e.message; });
     },
     free: function (box, c) {
+      if (window.EA_LITE) { head(box, 'Not in Lite', 'AniUltimatium Lite has no built-in channel lists. Add your own playlist.'); return; }
       head(box, 'Free public channels', 'A community-maintained list of free-to-air channels (iptv-org). Which ones play depends on your region.');
       var kind = c.kind || 'country', tabs = el('div', 'mtabs');
       [['country', 'By country'], ['category', 'By category'], ['language', 'By language'], ['all', 'Everything']].forEach(function (t) { var b = mkBtn(t[1], 'free-tab', 'chip' + (kind === t[0] ? ' on' : ''), t[0]); tabs.appendChild(b); });
@@ -1024,9 +1025,9 @@
   }
   function renderEmpty() {
     var b = $('liveEmpty'); b.innerHTML = '';
-    var c = el('div', 'emptybox'); c.innerHTML = '<div class="eicon">' + EA.ic('live') + '</div><h2>Live TV</h2><p>A fast, remote-friendly TV guide for your own IPTV playlist. Aniultimatium does not provide channels: add your provider’s playlist, or try free public channels.</p>';
+    var c = el('div', 'emptybox'); c.innerHTML = '<div class="eicon">' + EA.ic('live') + '</div><h2>Live TV</h2><p>A fast, remote-friendly TV guide for your own IPTV playlist. ' + (window.EA_LITE ? 'AniUltimatium Lite does not provide channels: add your provider’s playlist.' : 'Aniultimatium does not provide channels: add your provider’s playlist, or try free public channels.') + '</p>';
     var r = el('div', 'erow2');
-    [['go-pair', 'Add with phone', 'primary'], ['go-xtream', 'Xtream login', ''], ['go-m3u', 'M3U link', ''], ['go-free', 'Free channels', '']].forEach(function (o) { var x = mkBtn(o[1], o[0].replace('go-', 'go-'), o[2]); x.__live = { act: o[0] }; r.appendChild(x); });
+    [['go-pair', 'Add with phone', 'primary'], ['go-xtream', 'Xtream login', ''], ['go-m3u', 'M3U link', ''], ['go-free', 'Free channels', '']].filter(function (o) { return !(window.EA_LITE && o[0] === 'go-free'); }).forEach(function (o) { var x = mkBtn(o[1], o[0].replace('go-', 'go-'), o[2]); x.__live = { act: o[0] }; r.appendChild(x); });
     c.appendChild(r); b.appendChild(c);
   }
   function deletePlaylist(id) {

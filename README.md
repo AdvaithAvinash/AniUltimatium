@@ -377,12 +377,10 @@ A fast IPTV section for your **own** playlist. Aniultimatium does not provide, h
 Torrentio, Comet and Peerflix come preinstalled and on. Settings → Extra sources → Add-ons: OK switches one off; Send from phone (QR) lets you remove or restore them, sign in to your Stremio account (the password goes from your phone straight to Stremio, never to our server) and send your own add-ons to the TV. Pairing uses a Durable Object, not KV, so it stays far under Cloudflare's free limits.
 
 ## AniUltimatium Lite
-A separate Samsung TV app (`AniultimatiumLite.wgt`, built with `python3 tools/build_wgt.py --lite`; on the web it is `/lite.html`, same server). It has no hosted movie players and no scraped anime: everything comes from sources the viewer sets up.
-- **Preinstalled add-ons (switch off on the TV, remove or restore from the phone):** Cinemeta, WatchHub, OpenSubtitles v3, SubMaker (configure it on its own page first) and Public Domain Movies.
-- **Your own add-ons:** type an address on the TV, or scan the QR code and sign in to your Stremio account on the phone to bring your add-ons.
-- **Debrid:** Real-Debrid, AllDebrid, Premiumize and TorBox.
-- **P2P (on by default, Settings → Extra sources):** torrent-only titles play through your own streaming server (the Stremio service on a computer at home, port 11470) or your debrid service.
-- **Direct stream:** play any .m3u8 / .mp4 address you have the right to watch, typed on the TV or sent from the phone.
-- **Also:** IPTV, the Gamehub, the Cinematic (Nuvio-style) look and a navigation tutorial on first start (Settings → Tips to see it again).
+A separate Samsung TV app in this same repository (`AniultimatiumLite.wgt`, built with `python3 tools/build_wgt.py --lite`; on the web it is `/lite.html`, same server). It ships **no content source**: no hosted players, no scrapers, no built-in channel lists. It only plays what the viewer adds. Its playback goes through `lib/lite.js` (`action=lite_sources`), which uses only the viewer's add-ons (`lib/addons.js`).
+- **Preinstalled add-ons give information only, never video** (switch off on the TV, remove or restore from the phone): Cinemeta (titles and details), WatchHub (links to where a title streams legally), OpenSubtitles v3 and SubMaker (subtitles; configure SubMaker on its own page first).
+- **What plays is yours:** add-ons you type in or bring from your Stremio account (sign in on the phone), your debrid account (Real-Debrid, AllDebrid, Premiumize, TorBox), your IPTV playlist, and direct stream addresses (.m3u8 / .mp4) you enter.
+- **P2P (on by default, Settings → Extra sources):** torrent results from your own add-ons play through your own streaming server (the Stremio service on a computer at home, port 11470) or your debrid service.
+- **Also:** the Gamehub (open-source games), the Cinematic (Nuvio-style) look and a navigation tutorial on first start (Settings → Tips to see it again).
 
 Both apps also have **Watch on phone** on every title page: a QR code that opens the same title in the browser on your phone.
