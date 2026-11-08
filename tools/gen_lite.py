@@ -4,6 +4,7 @@ import os, re
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = open(os.path.join(root, "public", "index.html"), encoding="utf-8").read()
 out = re.sub(r"<title>.*?</title>", "<title>AniUltimatium Lite — your add-ons, IPTV, direct streams and public-domain films for Samsung TVs</title>", src, count=1, flags=re.S)
+out = re.sub(r'<meta (name="description"|property="og:description"|name="twitter:description") content="[^"]*">', lambda m: '<meta ' + m.group(1) + ' content="AniUltimatium Lite: a remote-friendly player for your own Stremio add-ons, debrid account, IPTV playlist and direct streams on Samsung TVs. Nothing built in, everything you add.">', out)
 out = re.sub(r'<script type="application/ld\+json">.*?</script>\n?', "", out, count=1, flags=re.S)
 out = out.replace('<script src="start.js"></script>', '<script>window.EA_LITE = 1;</script>\n<script src="start.js"></script>', 1)
 assert "window.EA_LITE" in out
