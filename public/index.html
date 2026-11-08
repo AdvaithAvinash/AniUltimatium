@@ -65,6 +65,7 @@
       <button class="tab focusable" data-tab="live"></button>
       <button class="tab focusable" data-tab="schedule"></button>
       <button class="tab focusable" data-tab="games"></button>
+      <button class="tab focusable" data-tab="direct"></button>
       <button class="tab focusable" data-tab="search"></button>
       <button class="tab focusable" data-tab="list"></button>
       <button class="tab focusable" data-tab="history"></button>
@@ -147,6 +148,19 @@
     <div id="listChips" class="chips"></div>
     <div id="listMsg" class="msg"></div>
     <div id="listGrid" class="cards"></div>
+  </main>
+
+  <main id="viewDirect" class="view hidden">
+    <div class="pagehead"><h2>Direct stream</h2></div>
+    <div id="dirPanel">
+      <p class="hint">Play any stream you have the right to watch: paste an HLS (.m3u8) or video (.mp4) address. Everything stays on this TV.</p>
+      <input id="dirUrl" class="focusable" type="text" placeholder="https://example.com/live/stream.m3u8" autocomplete="off" spellcheck="false">
+      <input id="dirName" class="focusable" type="text" placeholder="Name (optional)" autocomplete="off" spellcheck="false">
+      <div class="setrow"><button id="dirPlay" class="btn primary focusable">Play</button><button id="dirSave" class="btn focusable">Save</button><button id="dirPhone" class="btn focusable">Send from phone</button></div>
+      <div id="dirInfo" class="hint"></div><div id="dirQr"></div>
+      <h3 style="margin-top:1.4rem">Saved streams</h3>
+      <div id="dirList" class="msets"></div>
+    </div>
   </main>
 
   <main id="viewGames" class="view hidden">
@@ -242,10 +256,10 @@
       <p class="hint">Where subtitles sit on the screen (also in the player: Up, then Subtitle position).</p>
       <div class="setrow"><button id="setSubPos" class="btn focusable"></button><button id="setSubSize" class="btn focusable"></button></div>
       <h3 style="margin-top:1.6rem">Performance</h3>
-      <p class="hint">Lite mode turns off animations and the rotating banner and loads smaller pictures. It is switched on automatically on 2018 (Tizen 4) TVs.</p>
+      <p class="hint">Fast mode turns off animations and the rotating banner and loads smaller pictures. It is switched on automatically on 2018 (Tizen 4) TVs.</p>
       <div class="setrow"><button id="setLite" class="btn focusable"></button></div>
       <h3 style="margin-top:1.6rem">Tips</h3>
-      <div class="setrow"><button id="setTips" class="btn focusable"></button><button id="setResetAll" class="btn focusable">Reset all settings</button></div>
+      <div class="setrow"><button id="setTips" class="btn focusable"></button><button id="setTour" class="btn focusable">Navigation tutorial</button><button id="setResetAll" class="btn focusable">Reset all settings</button></div>
       <pre id="setOut"></pre>
     </div>
   </main>
@@ -272,7 +286,9 @@
             <button id="dStatus" class="btn focusable"></button>
             <button id="dAL" class="btn focusable"></button>
             <button id="dRemove" class="btn focusable"></button>
+            <button id="dPhone" class="btn focusable"></button>
           </div>
+          <div id="dPhoneBox" class="hidden"><div id="dPhoneQr"></div><p id="dPhoneTxt"></p></div>
         </div>
       </div>
       <h3 class="sec">Episodes</h3>

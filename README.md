@@ -84,7 +84,7 @@ AnikenTV (a fork of the Anilili app, Android TV / Google TV only, per its own RE
 
 **What Aniultimatium offers on top**
 - **One app for three jobs:** anime, movies and TV, and your own IPTV playlist, instead of three apps. The same code runs on Samsung (including 2018 TVs), Android TV and Fire TV.
-- **Made for old TVs too:** Tizen 4 gets its own Classic look, Lite mode, Samsung AVPlay and a start-up safe mode; most anime apps skip these TVs.
+- **Made for old TVs too:** Tizen 4 gets its own Classic look, Fast mode, Samsung AVPlay and a start-up safe mode; most anime apps skip these TVs.
 - **Sources that heal themselves:** SourceIQ learns which anime source really plays on your TV and routes around failing ones.
 - **Optional extras, never required:** debrid services, Stremio / Nuvio add-ons and a CinePro Core server, all kept on your device.
 - **Your data stays yours:** lists, history, playlists and keys live on the device; nothing needs an account.
@@ -199,7 +199,7 @@ and that is the gap it is designed to be the best at. Phone/PC apps and website 
 Yes, that is a design goal. Tizen 4 TVs use Chromium 56, which lacks CSS `inset`, flex `gap`, CSS grid and more; the app detects this and uses fallbacks, and
 `python3 tools/check_compat.py` fails the build if newer-only CSS/JS is added. If something still looks wrong, open an issue with your TV model and year.
 Anime plays normally. Movies and TV shows are the exception: they open other sites' players, whose code needs a 2020 or newer browser (Chromium 80+), so on Tizen 4 to 6 only public-domain films play unless you set a stream add-on (Settings → Stream add-on; Stremio protocol, you choose it), which plays in our own player;
-the app shows a message instead of hanging on "fetching media". Tizen 4 also gets Lite mode and lazy-loaded pictures automatically (home page download measured at 22 MB → 0.8 MB).
+the app shows a message instead of hanging on "fetching media". Tizen 4 also gets Fast mode and lazy-loaded pictures automatically (home page download measured at 22 MB → 0.8 MB).
 
 **Does it have English dub?**
 Yes, where a source offers one: open the player menu (Up), then **Audio**, then English dub. In our latest tests 49 of 59 popular and current-season shows had an English dub on at least one source; the rest do not have a dub yet.
@@ -375,3 +375,14 @@ A fast IPTV section for your **own** playlist. Aniultimatium does not provide, h
 
 ## Add-ons (Stremio)
 Torrentio, Comet and Peerflix come preinstalled and on. Settings → Extra sources → Add-ons: OK switches one off; Send from phone (QR) lets you remove or restore them, sign in to your Stremio account (the password goes from your phone straight to Stremio, never to our server) and send your own add-ons to the TV. Pairing uses a Durable Object, not KV, so it stays far under Cloudflare's free limits.
+
+## AniUltimatium Lite
+A separate Samsung TV app (`AniultimatiumLite.wgt`, built with `python3 tools/build_wgt.py --lite`; on the web it is `/lite.html`, same server). It has no hosted movie players and no scraped anime: everything comes from sources the viewer sets up.
+- **Preinstalled add-ons (switch off on the TV, remove or restore from the phone):** Cinemeta, WatchHub, OpenSubtitles v3, SubMaker (configure it on its own page first) and Public Domain Movies.
+- **Your own add-ons:** type an address on the TV, or scan the QR code and sign in to your Stremio account on the phone to bring your add-ons.
+- **Debrid:** Real-Debrid, AllDebrid, Premiumize and TorBox.
+- **P2P (on by default, Settings → Extra sources):** torrent-only titles play through your own streaming server (the Stremio service on a computer at home, port 11470) or your debrid service.
+- **Direct stream:** play any .m3u8 / .mp4 address you have the right to watch, typed on the TV or sent from the phone.
+- **Also:** IPTV, the Gamehub, the Cinematic (Nuvio-style) look and a navigation tutorial on first start (Settings → Tips to see it again).
+
+Both apps also have **Watch on phone** on every title page: a QR code that opens the same title in the browser on your phone.

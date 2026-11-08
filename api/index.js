@@ -574,7 +574,7 @@ async function pairPut(b) {
     data = { type: 'debrid', p: prov, k: key };
   } else if (b.kind === 'stremio') {                       // add-ons the phone read from the user's own Stremio account (the sign-in happens in the phone's browser; no password or key ever reaches this server)
     const list = (Array.isArray(b.addons) ? b.addons : []).slice(0, 20).map(x => ({ url: str(x && x.url, 1500), name: str(x && x.name, 60) })).filter(x => /^https:\/\/[^\s]+$/i.test(x.url));
-    const pre = {}; for (const k of ['torrentio', 'comet', 'peerflix']) if (b.pre && typeof b.pre[k] === 'boolean') pre[k] = b.pre[k];
+    const pre = {}; for (const k of ['torrentio', 'comet', 'peerflix', 'cinemeta', 'watchhub', 'opensubs', 'submaker', 'pubdomain']) if (b.pre && typeof b.pre[k] === 'boolean') pre[k] = b.pre[k];
     data = { type: 'stremio', addons: list, pre };
   } else if (b.kind === 'addon' || b.kind === 'cinepro') {
     const url = str(b.url, 1500);
@@ -712,7 +712,7 @@ async function handle(req, res) {
         const r = await movies.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });   // the key is never stored or logged
         // direct = our own player (best); embeds = hosted iframe players (used when no direct file exists or the user picks it)
         const base = r.direct ? finish(r.direct, origin) : {};
-        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'embed', embeds: r.embeds, tmdb: r.tmdb, addonError: r.addonError || undefined }, 'no-store');
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : r.torrents ? 'p2p' : 'embed', embeds: r.embeds, torrents: r.torrents || undefined, ...(r.torrents ? { subtitles: r.subtitles || [] } : {}), tmdb: r.tmdb, addonError: r.addonError || undefined }, 'no-store');
       }
       case 'debrid_check': {        // is this debrid API key good? (the key arrives in a header and is not stored)
         const a = debrid.parseAuth(req.headers['x-debrid']); if (!a) return send(res, 400, { error: 'Missing or malformed key' }, 'no-store');

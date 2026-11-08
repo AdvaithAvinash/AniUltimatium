@@ -76,6 +76,8 @@
   var TABS = { xtream: ['tX', 'fX'], m3u: ['tM', 'fM'], debrid: ['tD', 'fD'], addon: ['tA', 'fA'], cinepro: ['tC', 'fN'], stremio: ['tS', 'fS'] };
   function tab(k) { kind = k; Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).className = x === k ? 'on' : ''; $(TABS[x][1]).className = x === k ? '' : 'hid'; }); var pl = k === 'xtream' || k === 'm3u'; $('go').style.display = k === 'stremio' && !got ? 'none' : ''; $('nm').style.display = $('nmL').style.display = pl ? '' : 'none'; }
   Object.keys(TABS).forEach(function (x) { $(TABS[x][0]).onclick = function () { tab(x); }; });
+  if (q.get('lite')) PRE = [['cinemeta', 'Cinemeta'], ['watchhub', 'WatchHub'], ['opensubs', 'OpenSubtitles v3'], ['submaker', 'SubMaker'], ['pubdomain', 'Public Domain Movies']];   // AniUltimatium Lite
+  if (q.get('kind') && TABS[q.get('kind')]) tab(q.get('kind'));
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function stremio(path, body) { return fetch('https://api.strem.io/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error.message || 'Stremio refused that'); return j.result; }); }
   $('sGo').onclick = function () {
