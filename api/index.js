@@ -712,9 +712,10 @@ async function handle(req, res) {
         if (!/^tt\d+$/.test(q.id || '')) return send(res, 400, { error: 'id required' }, 'no-store');
         return send(res, 200, await turbo.cached('tvm:' + q.id, 6 * 3600 * 1000, () => cinemeta.seriesMeta(q.id)), 's-maxage=21600');
       case 'lite_sources': {        // AniUltimatium Lite: the viewer's own add-ons only (lib/lite.js has no hosted players or scrapers)
-        const r = await lite.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });
-        const base = r.direct ? finish(r.direct, origin) : {};
-        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'p2p', fellBack: (r.direct && r.direct.fellBack) || undefined, torrents: r.torrents || undefined, ...(r.torrents ? { subtitles: r.subtitles || [] } : {}) }, 'no-store');
+        let r; try { r = await lite.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) }); }
+        catch (e) { if (e.perAddon) e.data = { perAddon: e.perAddon }; throw e; }
+        const base = r.direct ? { ...finish(r.direct, origin), liteId: r.direct.liteId } : {};
+        return send(res, 200, { ...base, mode: r.direct ? 'direct' : 'p2p', unverified: r.unverified || undefined, list: r.list, chosen: r.chosen, perAddon: r.perAddon, torrents: r.torrents || undefined, ...(r.torrents ? { subtitles: r.subtitles || [] } : {}) }, 'no-store');
       }
       case 'movie_sources': {
         const r = await movies.sources(q, { debrid: debrid.parseAuth(req.headers['x-debrid']) });   // the key is never stored or logged
@@ -772,7 +773,7 @@ async function handle(req, res) {
     if (/limit exceeded|KV (GET|PUT|DELETE)|quota|too many requests to storage|storage error 5/i.test(String(e.message))) {
       return send(res, 503, { error: 'The server\'s storage is at its daily limit, so codes cannot be saved right now. Try again later, or add the playlist directly with Xtream login / M3U link on the TV.' }, 'no-store');
     }
-    return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace }, 'no-store');
+    return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace, perAddon: e.perAddon }, 'no-store');
   }
 }
 module.exports = (req, res) => turbo.scope(req.signal, () => handle(req, res), { noCache: !!(req.query && req.query.turbo === '0') });       // cancels this request's outgoing work when the client leaves

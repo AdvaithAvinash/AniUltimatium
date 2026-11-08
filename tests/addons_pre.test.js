@@ -46,8 +46,8 @@ test('Direct stream page, P2P switch (on by default), tutorial and Watch on phon
 test('Lite: mandatory sign-in gate after the tutorial, random / first / chosen add-on, side-rail look, no sponsor ads', () => {
   const m = read('public/main.js'), c = read('public/styles.css'), l = read('lib/lite.js');
   assert.ok(/function liteGate\(\)/.test(m) && /ea_lite_linked/.test(m));
-  assert.ok(/if \(ED_LITE && !store\.get\('ea_lite_linked', false\)\) \{ state\.view = state\.tab; liteGate\(\); return; \}/.test(m), 'the gate follows the tutorial');
-  assert.ok(!/gSkip|Skip for now/.test(m), 'no way around the gate');
+  assert.ok(/if \(ED_LITE && !store\.get\('ea_lite_linked', false\) && !store\.get\('ea_lite_skipped', false\)\) \{ state\.view = state\.tab; liteGate\(\); return; \}/.test(m), 'the gate follows the tutorial');
+  assert.ok(/id=\"gSkip\"[^>]*>Skip for now/.test(m) && /ea_lite_skipped/.test(m), 'Skip for now');
   assert.ok(/function litePick\(\)/.test(m) && /Math\.random\(\)/.test(m) && /\['rand', 'Random add-on'/.test(m) && /\['first', 'First in list'/.test(m));
   assert.ok(/pick: lp\.url/.test(m) && /q\.pick/.test(l) && /strict/.test(l));
   assert.ok(m.includes("store.set('ea_ui', 'modern')") && /body\.ed-lite\.ui-modern #heroCount/.test(c) && /#gate\{/.test(c));

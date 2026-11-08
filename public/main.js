@@ -67,7 +67,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
 
   // AniUltimatium Lite (lite.html / AniultimatiumLite.wgt): no hosted players and no scraped anime; only the viewer's add-ons, public-domain films, IPTV, direct streams and the Gamehub
   var ED_LITE = !!window.EA_LITE;
-  if (ED_LITE && !/^(rand|first|u:)/.test(String(store.get('ea_msrc', 'rand')))) store.set('ea_msrc', 'rand');
+  if (ED_LITE && !/^(best|rand|first|u:)/.test(String(store.get('ea_msrc', 'best')))) store.set('ea_msrc', 'best');
   if (ED_LITE && !store.get('ea_ui_lite2', false)) { store.set('ea_ui', 'modern'); store.set('ea_ui_lite2', true); }      // Lite: side-rail look (the Apple-TV style pill does not suit it)
   if (ED_LITE && store.get('ea_ui', 'modern') === 'cine') store.set('ea_ui', 'modern');
   var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';          // side rail look (its remote navigation differs)
@@ -247,6 +247,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       play(state.anime, state.ep, video.currentTime > 5 ? video.currentTime : state.startAt, true, state.srcSkip);
       return true;
     }
+    if (ED_LITE && liteAdvance('stopped')) return true;
     playFailed();
     return nextSource();
   }
@@ -982,6 +983,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!l) { var old = store.get('ea_addon', ''); l = typeof old === 'string' && /^(https?|stremio):\/\/\S+$/i.test(old) ? [{ url: old, name: hostOf(old) }] : []; }      // the single add-on of the previous version
     return Array.isArray(l) ? l.filter(function (x) { return x && /^(https?|stremio):\/\/\S+$/i.test(x.url || ''); }) : [];
   }
+  function addonNamesParam() { return JSON.stringify(addonList().slice(0, 12).map(function (x) { return x.name; })); }
   function addonsParam() { var l = addonList().slice(0, 12); return l.length ? JSON.stringify(l.map(function (x) { return x.url; })) : ''; }
   function debridCfg() { var d = store.get('ea_debrid', null); return d && /^(rd|ad|pm|tb)$/.test(d.p) && typeof d.k === 'string' && d.k.length >= 8 ? d : null; }
   function debridHdr() { var d = debridCfg(); return d ? { 'x-debrid': d.p + ':' + d.k } : undefined; }        // sent with the request, never stored by the server
@@ -1005,17 +1007,65 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var MOVIE_QUALITIES = [['auto', 'Auto (default)', 'best available'], ['2160', '4K (2160p)', ''], ['1440', '1440p', ''], ['1080', '1080p', ''], ['720', '720p', ''], ['480', '480p', '']];
   function liteStreamList() { return userAddons().filter(function (x) { return x.st !== false; }); }      // your add-ons that give streams (Torrentio, MediaFusion…); the preinstalled ones only give information
   function litePick() {                                                                      // Random add-on / First in list / one add-on you chose
-    var l = liteStreamList(), v = String(state.mvia || 'rand'), i, idx = -1;
+    var l = liteStreamList(), v = String(state.mvia || 'best'), i, idx = -1;
     if (!l.length) return null;
+    if (v === 'best') return { url: '', name: 'Best source' };
     if (v === 'first') idx = 0;
     else if (v.indexOf('u:') === 0) { for (i = 0; i < l.length; i++) if ('u:' + l[i].url === v) idx = i; if (idx < 0) idx = 0; }
     else { idx = Math.floor(Math.random() * l.length); if (l.length > 1 && idx === state.litePrev) idx = (idx + 1 + Math.floor(Math.random() * (l.length - 1))) % l.length; }
     state.litePrev = idx; return l[idx];
   }
+  function sizeText(b) { return !b ? '' : b >= 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : Math.round(b / 1048576) + ' MB'; }
+  function litePerText() { var p = state.litePer || []; return p.length ? ' (asked: ' + p.map(function (x) { return x.name + ' ' + (x.err ? 'no answer' : x.n); }).join(' · ') + ')' : ''; }
+  function paintLiteInfo(d) {                                                           // top-left of the player: title, then where the stream comes from
+    var c = d && d.chosen, sub = $('pSub'); if (!sub) return;
+    sub.textContent = c ? [c.addon, c.res ? c.res + 'p' : '', sizeText(c.size), (c.tags || []).join(' ')].filter(Boolean).join(' · ') + (d.unverified ? ' · unchecked' : '') : '';
+  }
+  function liteAdvance(why) {                                                          // the stream that was playing did not work: skip it, try the next one in the ranked list
+    var a = state.anime; if (!ED_LITE || !a || !state.src || !state.src.liteId) return false;
+    state.liteSkip = (state.liteSkip || []).concat([state.src.liteId]);
+    if (state.liteSkip.length > 6) return false;
+    var at = video.currentTime > 5 ? video.currentTime : state.startAt || 0;
+    toast('That source did not play (' + why + '): trying the next one'); play(a, state.ep, at, true); return true;
+  }
+  // ----- Sources sheet (Lite): every stream your add-ons found for this title, best first; OK plays the one you choose -----
+  function openSources() {
+    var l = state.liteList || []; if (!ED_LITE) return;
+    if (!l.length) { toast('No sources listed yet' + litePerText()); return; }
+    var s = $('srcSheet'); if (!s) { s = el('div', ''); s.id = 'srcSheet'; $('player').appendChild(s); }
+    state.sheetOpen = true; state.sheetIdx = Math.max(0, l.map(function (x) { return x.id; }).indexOf(state.liteChosen && state.liteChosen.id));
+    if (state.menuOpen) closeMenu();
+    s.className = ''; paintSources();
+  }
+  function paintSources() {
+    var l = state.liteList || [], s = $('srcSheet'), n = {}; l.forEach(function (x) { n[x.addon] = 1; });
+    var h = '<div class="ssbox"><div class="sshead"><h3>Sources</h3><span>' + l.length + ' stream' + (l.length === 1 ? '' : 's') + ' from ' + Object.keys(n).length + ' add-on' + (Object.keys(n).length === 1 ? '' : 's') + '</span></div><div id="ssList">';
+    l.forEach(function (x, i) {
+      var cur = state.liteChosen && state.liteChosen.id === x.id, need = x.kind === 'torrent' && !debridCfg();
+      h += '<div class="ssrow' + (i === state.sheetIdx ? ' sel' : '') + (cur ? ' cur' : '') + '" data-i="' + i + '"><div class="ssmain">' + esc(x.label) + '</div><div class="ssmeta">' +
+        '<span class="ssa">' + esc(x.addon) + '</span>' + (x.res ? '<span class="ssq">' + x.res + 'p</span>' : '') + (x.size ? '<span>' + sizeText(x.size) + '</span>' : '') + (x.seeds ? '<span>👤 ' + x.seeds + '</span>' : '') +
+        (x.tags || []).map(function (t) { return '<span class="sst">' + esc(t) + '</span>'; }).join('') + (x.kind === 'torrent' ? '<span class="sst">' + (need ? 'torrent · needs debrid or P2P' : 'torrent') + '</span>' : '') + (cur ? '<span class="ssnow">Playing</span>' : '') + '</div></div>';
+    });
+    s.innerHTML = h + '</div><div class="sshint">Up / Down choose · OK play this one · Back close</div></div>';
+    var sel = s.querySelector('.sel'); if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest' });
+    var rows = s.querySelectorAll('.ssrow'); for (var i = 0; i < rows.length; i++) rows[i].onclick = (function (k) { return function () { state.sheetIdx = k; chooseSource(); }; })(i);
+  }
+  function closeSources() { state.sheetOpen = false; var s = $('srcSheet'); if (s) s.className = 'hidden'; hud(); }
+  function chooseSource() {
+    var x = (state.liteList || [])[state.sheetIdx]; if (!x) return;
+    state.liteOnly = x.id; state.liteSkip = []; closeSources();
+    var a = state.anime, at = video.currentTime > 5 ? video.currentTime : 0; toast('Source: ' + x.addon + (x.res ? ' · ' + x.res + 'p' : '')); play(a, state.ep, at, true);
+  }
+  function sourcesKey(k) {
+    var n = (state.liteList || []).length; if (!n) { closeSources(); return; }
+    if (k === KEY.UP) state.sheetIdx = (state.sheetIdx + n - 1) % n; else if (k === KEY.DOWN) state.sheetIdx = (state.sheetIdx + 1) % n;
+    else if (k === KEY.ENTER) { chooseSource(); return; } else return;
+    paintSources();
+  }
   function p2pOn() { return store.get('ea_p2p', true) !== false; }
   function p2pServer() { var u = (store.get('ea_p2psrv', '') || '').trim(); return u ? (/^https?:\/\//i.test(u) ? u : 'http://' + u).replace(/\/+$/, '') : ''; }
   function srcOpts() {
-    if (ED_LITE) return [['rand', 'Random add-on', 'a different one of your add-ons each time'], ['first', 'First in list', 'your first add-on']].concat(liteStreamList().map(function (x) { return ['u:' + x.url, x.name, 'only this add-on']; }));
+    if (ED_LITE) return [['best', 'Best source', 'asks all your add-ons, checks the best ones'], ['rand', 'Random add-on', 'a different one of your add-ons each time'], ['first', 'First in list', 'your first add-on']].concat(liteStreamList().map(function (x) { return ['u:' + x.url, x.name, 'only this add-on']; }));
     var base = isTv(state.anime) ? MOVIE_SOURCES.filter(function (o) { return o[0] !== 'archive'; }).map(function (o) { return o[0] === 'auto' ? ['auto', 'Auto (best)', 'CineSrc first'] : o; }) : MOVIE_SOURCES.slice();
     var c = customSrc(); if (c) base.push(['custom', 'Custom: ' + c.name, 'your own player address']);
     if (hasExtra()) base.unshift(['addon', 'Your add-ons' + (debridCfg() ? ' + ' + debridName(debridCfg().p) : ''), 'plays in our own player · works on every TV']);
@@ -1200,12 +1250,13 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var tk = ++state.token, movie = isVid(a);
     abortSources(); hideOldEng();                                                               // the previous lookup is not needed any more
     state.srcSkip = skip || [];                                                   // sources already tried for this episode
-    if (!keepVia) { state.dubFailed = false; state.preRetried = false; state.oldTry = false; }
+    if (!keepVia) { state.dubFailed = false; state.preRetried = false; state.oldTry = false; state.liteSkip = []; state.liteOnly = ''; }
     if (!keepVia && state.via && state.anime && state.anime.id !== a.id) state.via = 'auto';
     state.anime = a; state.ep = ep; state.view = 'player'; state.skip = null; hideEmbed();
     if (state.os.key !== osKey()) state.os = newOs(osKey());
     $('player').className = ''; $('player').setAttribute('data-kind', movie ? a.kind : 'anime');
     $('skipBtn').className = 'skipbtn hidden';
+    if ($('pSub')) $('pSub').textContent = '';
     $('pTitle').textContent = a.kind === 'movie' ? a.title : isTv(a) ? a.title + ' — ' + epLabel(a, ep) : a.title + ' — Episode ' + ep;
     if (isTv(a)) loadTvMeta(a).catch(function () {});
     stopVideo();
@@ -1219,8 +1270,9 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (ED_LITE && !movie) { pmsg('Not available in AniUltimatium Lite.   Back: leave', false); return; }
     var lp = ED_LITE ? litePick() : null;
     if (ED_LITE && !lp) { pmsg('None of your add-ons gives streams yet.   Settings → Extra sources → Add-ons: add one such as Torrentio or MediaFusion, or sign in to Stremio from your phone.   Back: leave', false); return; }
-    if (lp) toast('Source: ' + lp.name);
-    var req = ED_LITE ? api(ext({ action: 'lite_sources', id: a.id, quality: state.mq !== 'auto' ? state.mq : '', addons: addonsParam(), pick: lp.url, strict: String(state.mvia || '').indexOf('u:') === 0 ? 1 : 0, p2p: p2pOn() ? 1 : 0 }, isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}), { headers: debridHdr() })
+    if (lp && lp.url) toast('Source: ' + lp.name);
+    var lonly = state.liteOnly || ''; state.liteOnly = '';
+    var req = ED_LITE ? api(ext({ action: 'lite_sources', id: a.id, quality: state.mq !== 'auto' ? state.mq : '', addons: addonsParam(), names: addonNamesParam(), pick: lp.url, strict: String(state.mvia || '').indexOf('u:') === 0 ? 1 : 0, skip: (state.liteSkip || []).join(','), only: lonly, p2p: p2pOn() ? 1 : 0 }, isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}), { headers: debridHdr() })
       : movie ? api(ext({ action: 'movie_sources', via: isTv(a) && state.mvia === 'archive' ? 'auto' : state.mvia || 'auto', id: a.id, title: a.title, year: a.year || '', quality: state.mq !== 'auto' ? state.mq : '', t: startAt > 5 ? Math.floor(startAt) : '', addons: addonsParam(), cinepro: cineproUrl(), p2p: p2pOn() ? 1 : 0 },
         isTv(a) ? { type: 'series', s: tvS(ep), e: tvE(ep) } : {}), { headers: debridHdr() })
       : (function () { var pre = takePrefetch(a, ep); if (pre) { usedPre = true; return pre; } return api({ action: 'sources', via: state.via || 'auto', audio: state.audioPref === 'dub' ? 'dub' : '', id: a.id, title: a.title, alt: a.titleRomaji || '', syn: (a.synonyms || []).join('|'), ep: ep, skip: state.srcSkip.join(','), order: iqOrder() }, { signal: state.srcCtl && state.srcCtl.signal }); })();
@@ -1229,7 +1281,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (!movie && d.trace) iq.recordTrace(d.trace);                             // which sources answered / failed / timed out, as seen by the backend
       if (usedPre) d.pre = true;
       if (movie && d.addonError) toast('Add-on: ' + d.addonError);
-      if (ED_LITE && d.fellBack && lp) toast(lp.name + ' had nothing for this title: used another add-on');
+      if (ED_LITE) { state.liteList = d.list || []; state.liteChosen = d.chosen || null; state.litePer = d.perAddon || []; paintLiteInfo(d);
+        if (d.unverified) toast('Could not check this source from the server: trying it on the TV'); }
       if (movie && d.mode === 'p2p' && d.torrents && d.torrents.length) {             // P2P: torrent-only title, played through the viewer's own streaming server (Stremio service), never ours
         var srv = p2pServer();
         if (!srv) throw new Error('This title is only shared peer-to-peer. Add a debrid service, or a P2P streaming server (the Stremio service on your computer, e.g. http://192.168.1.20:11470) in Settings → Extra sources');
@@ -1261,7 +1314,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         state.dubFailed = true; state.audioPref = 'sub'; toast('No English dub for this episode — using Japanese audio');
         return play(a, ep, startAt, true);
       }
-      if (tk === state.token) { state.playFail = true; state.failAt = startAt || 0; pmsg('Could not start playback: ' + e.message + '.   OK: try again   ·   Up: choose another source   ·   Back: leave', false); }
+      if (ED_LITE && e && e.data && e.data.perAddon) state.litePer = e.data.perAddon;
+      if (tk === state.token) { state.playFail = true; state.failAt = startAt || 0; pmsg('Could not start playback: ' + e.message + (ED_LITE ? litePerText() : '') + '.   OK: try again   ·   Up: choose another source   ·   Back: leave', false); }
     });
   }
   // Sponsor pre-roll (public/sponsor.js): one labelled video before a title, anime once per session, movies / TV once per different title; retries and source switches never show another
@@ -2097,6 +2151,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (k === 'auto') return 'Auto · ' + (SRC_NAMES[iq.order(SRC_KEYS)[0]] || 'AnimeX') + ' first';
       var st = iq.status(k, SRC_KEYS); return (SRC_NAMES[k] || k) + (st && st.short ? ' · ' + st.short : '');
     }
+    var litePre = ED_LITE ? [{ key: 'sources', label: 'Sources', value: (state.liteList || []).length ? (state.liteList.length + ' found') : 'none yet', change: function () { openSources(); } }] : [];
     var srcRow = { key: 'source', label: 'Source', value: srcLabel(vias[vi]),
       change: function (dir) {
         var nv = vias[(vi + dir + vias.length) % vias.length];
@@ -2147,6 +2202,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     rows.push(posRow);
     rows.push({ key: 'speed', label: 'Speed', value: (state.speed || 1) + '×', change: function (dir) {
       var i = Math.max(0, SPEEDS.indexOf(state.speed || 1)); state.speed = SPEEDS[(i + dir + SPEEDS.length) % SPEEDS.length]; video.playbackRate = state.speed; } });
+    if (litePre.length && movie) rows.push(litePre[0]);
     rows.push(srcRow);
     return rows;
   }
@@ -2312,6 +2368,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function retryPlay() {
     state.playFail = false; var a = state.anime; if (!a) return;
+    if (ED_LITE && state.src && state.src.liteId) state.liteSkip = (state.liteSkip || []).concat([state.src.liteId]);
     pmsg('Trying again…', true); state.srcSkip = []; state.triedProxy = false;
     play(a, state.ep, state.failAt || 0, true, []);
   }
@@ -2394,7 +2451,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function playerAct(a) {
     ({ back: closePlayer, toggle: togglePlay, rew: function () { seek(-10); }, ff: function () { seek(10); },
-       prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, menu: function () { state.menuOpen ? closeMenu() : openMenu(); } })[a]();
+       prev: function () { stepEp(-1); }, next: function () { stepEp(1); }, cc: toggleCC, fs: toggleFS, sources: openSources, menu: function () { state.menuOpen ? closeMenu() : openMenu(); } })[a]();
   }
   $('embedCtl').addEventListener('click', function (e) {
     var b = up(e.target, 'ectl'); if (!b) return;
@@ -2534,6 +2591,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.id === 'dSrcBtn' || e.id === 'dQBtn') { var dk = e.id === 'dSrcBtn' ? 'src' : 'q'; openDropKey() === dk ? closeDrops(true) : openDrop(dk); return; }
     if (e.__dropval !== undefined) { pickDrop(e.__drop, e.__dropval); return; }
     if (e.id === 'gNew') { liteGate(); return; }
+    if (e.id === 'gSkip') { store.set('ea_lite_skipped', true); liteGateDone(true); return; }
     if (e.id === 'tourNext') { if (state.tourI >= TOUR.length - 1) tourClose(); else tourShow(state.tourI + 1); return; }
     if (e.id === 'tourPrev') { tourShow(Math.max(0, state.tourI - 1)); return; }
     if (e.id === 'tourSkip') { tourClose(); return; }
@@ -2635,7 +2693,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function tourClose() {
     store.set('ea_tour_done', true); var t = $('tour'); if (t) t.className = 'hidden';
-    if (ED_LITE && !store.get('ea_lite_linked', false)) { state.view = state.tab; liteGate(); return; }
+    if (ED_LITE && !store.get('ea_lite_linked', false) && !store.get('ea_lite_skipped', false)) { state.view = state.tab; liteGate(); return; }
     state.view = state.tourPrev && state.tourPrev !== 'tour' ? state.tourPrev : state.tab;
     if (state.tourFocus && document.body.contains(state.tourFocus)) setFocus(state.tourFocus); else { var f = isHomeTab(state.tab) ? $('heroPlay') : null; if (f) setFocus(f); }
   }
@@ -2647,7 +2705,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     g.innerHTML = '<div class="gbox"><div class="gleft"><div class="gbrand">AniUltimatium <b>Lite</b></div><h1>Connect your add-ons</h1>' +
       '<p>Lite plays only what you add. Scan the code with your phone, sign in to your <b>Stremio</b> account (or send your <b>Nuvio</b> / Stremio add-on addresses) and choose the add-ons to bring here.</p>' +
       '<ol><li>Scan the QR code with your phone camera.</li><li>Sign in to Stremio and tick your add-ons.</li><li>Press <b>Send to my TV</b>. This screen continues by itself.</li></ol>' +
-      '<div id="gMsg" class="gmsg">Getting a code…</div><div class="setrow"><button id="gNew" class="btn primary focusable">New code</button></div></div>' +
+      '<div id="gMsg" class="gmsg">Getting a code…</div><div class="setrow"><button id="gNew" class="btn primary focusable">New code</button><button id="gSkip" class="btn focusable">Skip for now</button></div><div class="gnote">You can connect your add-ons later in Settings → Extra sources → Add-ons.</div></div>' +
       '<div class="gright"><div id="gQr"></div><div id="gCode"></div></div></div>';
     g.className = ''; setFocus($('gNew'));
     api({ action: 'pair_start' }).then(function (p) {
@@ -2664,15 +2722,15 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
           var d = x.playlist;
           if (d.type === 'stremio') applyStremio(d); else if (d.type === 'addon') addAddon(d.url, hostOf(d.url)); else if (d.type === 'debrid') store.set('ea_debrid', { p: d.p, k: d.k }); else return;
           clearInterval(state.gPoll); store.set('ea_lite_linked', true);
-          $('gMsg').textContent = 'Connected.'; setTimeout(liteGateDone, 600);
+          $('gMsg').textContent = 'Connected.'; setTimeout(function () { liteGateDone(); }, 600);
         }).catch(function () {});
       }, 3000);
     }).catch(function (e) { $('gMsg').textContent = 'Could not get a code: ' + e.message + '. Press OK to try again.'; });
   }
-  function liteGateDone() {
+  function liteGateDone(skipped) {
     clearInterval(state.gPoll); var g = $('gate'); if (g) g.className = 'hidden';
     state.view = state.tab; var n = liteStreamList().length;
-    toast(n ? n + ' add-on' + (n > 1 ? 's' : '') + ' ready' : 'Connected. Add an add-on that gives streams (Torrentio, MediaFusion…) in Settings → Extra sources');
+    toast(skipped ? 'Skipped. Nothing will play until you add an add-on: Settings → Extra sources → Add-ons' : n ? n + ' add-on' + (n > 1 ? 's' : '') + ' ready' : 'Connected. Add an add-on that gives streams (Torrentio, MediaFusion…) in Settings → Extra sources');
     if (isHomeTab(state.tab)) { var f = $('heroPlay'); if (f) setFocus(f); }
   }
   function showNotice() {
@@ -2694,6 +2752,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (state.view === 'notice') { hideNotice(false); return; }
     if (state.view === 'modal' && EA.live) { EA.live.closeModal(); return; }
     if (state.view === 'player' && state.oldEng) { hideOldEng(); closePlayer(); return; }
+    if (state.view === 'player' && state.sheetOpen) { closeSources(); return; }
     if (state.view === 'player' && state.menuOpen) { closeMenu(); return; }          // Back closes the settings menu first
     if (state.view === 'player' && state.embed && state.ebar && state.ebar.open) { hideEbar(); return; }
     if (state.view === 'detail' && anyDropOpen()) { closeDrops(true); return; }
@@ -2759,6 +2818,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
         else if (k === KEY.UP || k === 81 || k === 83 || k === 403 || k === 457) openMenu();
         return;
       }
+      if (state.sheetOpen) { if (isBackKey(k)) { state.lastBack = Date.now(); closeSources(); } else sourcesKey(k); return; }
       if (state.menuOpen) { if (isBackKey(k)) { state.lastBack = Date.now(); closeMenu(); } else menuKey(k); return; }
       if (isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); closePlayer(); }
       else if (k === KEY.ENTER && $('skipBtn').className === 'skipbtn show') doSkip();
@@ -2862,7 +2922,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   if (goAl) { showTab('account', false); setTimeout(function () { alStartLink(); }, 300); }                    // chosen on the "Connect to your list!" step
   else if (window.EA_SAFE) toast('Safe mode: the app did not start properly three times, so it is using the Classic look and Fast mode. You can change this in Settings.');
   else if (ED_LITE && !store.get('ea_tour_done', false)) setTimeout(function () { tourShow(0); }, 400);
-  else if (ED_LITE && !store.get('ea_lite_linked', false)) setTimeout(function () { liteGate(); }, 300);
+  else if (ED_LITE && !store.get('ea_lite_linked', false) && !store.get('ea_lite_skipped', false)) setTimeout(function () { liteGate(); }, 300);
   else if (!store.get('ea_notice_off', false)) showNotice();
   phoneBoot();
   window.EA_trim = function () { apiCache = {}; state.hero = state.hero.slice(0, 8); };                          // the Android shell calls this when the system is short of memory
