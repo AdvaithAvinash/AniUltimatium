@@ -89,7 +89,7 @@ AnikenTV (a fork of the Anilili app, Android TV / Google TV only, per its own RE
 - **Optional extras, never required:** debrid services, Stremio / Nuvio add-ons and a CinePro Core server, all kept on your device.
 - **Your data stays yours:** lists, history, playlists and keys live on the device; nothing needs an account.
 - **Three looks to choose from:** **Classic** (light, for low-end TVs), **Modern** (side rail) and **Cinematic**, a clean Apple TV style look: a floating top bar, a full-screen hero with the title and one line of details, wide *Continue Watching* pictures with "52m left", and *Left / Right* on the hero buttons to flip through titles. Change it any time in Settings → Look.
-- **Gamehub:** games you can play right in the app with the TV remote or a game pad: **OmniRift** (3D anime fighting game) and **ClassiCube** (open-source block building). See [Gamehub](#gamehub).
+- **Gamehub:** games you can play right in the app with the TV remote or a game pad: **ClassiCube** (open-source block building). See [Gamehub](#gamehub).
 
 **What it does not do**
 - It is not an official or licensed service, and it hosts no media.
@@ -155,11 +155,9 @@ You can hide the tab in Settings → Customize.
 
 | Game | What it is | Remote | Credit |
 |---|---|---|---|
-| **OmniRift** | 3D anime fighting game: VS CPU, 2 players, training | arrows move · OK tap light, hold heavy · hold away to block · OK + ▲ special · OK + ▼ jump · OK + ◀ dash · Back pause (on-screen hints) | Made by [@unboxingdetective](https://www.youtube.com/@unboxingdetective) on YouTube |
 | **ClassiCube** | Block-building sandbox (singleplayer, Classic-style) | arrows walk · OK jump · Red break · Green place · Yellow / Blue turn · CH+ / CH− look · 1–9 pick a block · Play-Pause menu | [ClassiCube](https://github.com/ClassiCube/ClassiCube), open source (BSD licence) by UnknownShadow200 and contributors |
 
 Game pads (PlayStation, Xbox and other standard controllers), keyboard, mouse and touch work too. Back on the remote pauses a game; press Back twice (or choose *Back: leave the game*) to return to the app.
-OmniRift runs on 2019 and newer Samsung TVs (Tizen 5+); TVs open it in its lighter TV mode.
 
 ## Install on Android TV and Fire TV
 Get `Aniultimatium.apk` from the [latest release](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.apk) (this link always downloads the newest build). Pick whichever way is easiest:
@@ -384,3 +382,6 @@ A separate Samsung TV app in this same repository (`AniultimatiumLite.wgt`, buil
 - **Also:** the Gamehub (ClassiCube only in Lite), the Cinematic (Nuvio-style) look and a navigation tutorial on first start (Settings → Tips to see it again).
 
 Both apps also have **Watch on phone** on every title page: a QR code that opens the same title in the browser on your phone.
+
+## Licence
+Aniultimatium's own code is released under the [MIT licence](LICENSE). Third-party parts keep their own licences: see [NOTICE.md](NOTICE.md).

@@ -45,5 +45,7 @@
     "streaming",
     "cloudflare-workers",
     "hls"
-  ]
+  ],
+  "license": "MIT",
+  "author": "AdvaithAvinash"
 }
