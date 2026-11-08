@@ -381,6 +381,6 @@ A separate Samsung TV app in this same repository (`AniultimatiumLite.wgt`, buil
 - **Preinstalled add-ons give information only, never video** (switch off on the TV, remove or restore from the phone): Cinemeta (titles and details), WatchHub (links to where a title streams legally), OpenSubtitles v3 and SubMaker (subtitles; configure SubMaker on its own page first).
 - **What plays is yours:** add-ons you type in or bring from your Stremio account (sign in on the phone), your debrid account (Real-Debrid, AllDebrid, Premiumize, TorBox), your IPTV playlist, and direct stream addresses (.m3u8 / .mp4) you enter.
 - **P2P (on by default, Settings → Extra sources):** torrent results from your own add-ons play through your own streaming server (the Stremio service on a computer at home, port 11470) or your debrid service.
-- **Also:** the Gamehub (open-source games), the Cinematic (Nuvio-style) look and a navigation tutorial on first start (Settings → Tips to see it again).
+- **Also:** the Gamehub (ClassiCube only in Lite), the Cinematic (Nuvio-style) look and a navigation tutorial on first start (Settings → Tips to see it again).
 
 Both apps also have **Watch on phone** on every title page: a QR code that opens the same title in the browser on your phone.

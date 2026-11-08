@@ -609,6 +609,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     { id: 'classicube', title: 'ClassiCube', tag: 'Block building sandbox (singleplayer)', path: '/classicube/index.html', by: 'the ClassiCube project', link: 'https://github.com/ClassiCube/ClassiCube', minChrome: 57, credit: 'ClassiCube — open source (BSD licence) by UnknownShadow200 and contributors · github.com/ClassiCube/ClassiCube',
       help: 'Remote: arrows walk · OK jump · Red break · Green place · Yellow / Blue turn · CH+ / CH− look up / down · 1–9 pick a block · Play/Pause menu. Game pads, keyboard and mouse work too.' }
   ];
+  if (ED_LITE) GAMES = GAMES.filter(function (g) { return g.id !== 'omnirift'; });        // Lite lists only games whose licence is included (ClassiCube, BSD)
   function creditOf(g) { return g.credit || (g.title + ' — made by ' + g.by + ' on YouTube · ' + g.link.replace(/^https:\/\/(www\.)?/, '')); }
   function siteBase() { return /^https?:$/.test(location.protocol) ? '' : VERCEL_API_URL.replace(/\/+$/, ''); }      // the TV / Android app runs from a local file: load games from the website
   function renderGames() {

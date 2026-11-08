@@ -42,3 +42,7 @@ test('Direct stream page, P2P switch (on by default), tutorial and Watch on phon
   assert.ok(/function tourShow\(/.test(m) && /function phoneBoot\(/.test(m) && /function directPlay\(/.test(m));
   assert.ok(m.includes("'\u2714 Fast mode: On'") || m.includes('Fast mode: On'));
 });
+
+test('Lite Gamehub lists only ClassiCube (OmniRift has no licence file yet)', () => {
+  assert.ok(/if \(ED_LITE\) GAMES = GAMES\.filter\(function \(g\) \{ return g\.id !== 'omnirift'; \}\)/.test(read('public/main.js')));
+});
