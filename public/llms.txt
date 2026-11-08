@@ -10,7 +10,10 @@
 - Movies and TV shows: hosted players (CineSrc, VidFast, VidCore, Videasy) and public-domain films; sources known or seen to open popup ads are tagged "Ads"; the Android app blocks popups.
 - Cost: free and open source. It does not host video. Not affiliated with any streaming service, IPTV provider, AniList, Samsung, Google or Amazon.
 
+- AniUltimatium Lite: a separate sub-project (own Samsung app `AniultimatiumLite.wgt`, same repository) with no built-in content source. It only plays what the user adds: their Stremio add-ons (Stremio account sign-in by QR on the phone), debrid account (Real-Debrid, AllDebrid, Premiumize, TorBox), IPTV playlist and direct stream addresses; P2P on by default. See /about-lite.
+
 ## Links
+- [About AniUltimatium Lite](https://aniultimatium.advaithavinash404.workers.dev/about-lite)
 - [Repository and README](https://github.com/AdvaithAvinash/AniUltimatium): features, IPTV checklist, FAQ, install guides, developer docs
 - [IPTV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/IPTV.md)
 - [Android TV and Fire TV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/ANDROID.md)

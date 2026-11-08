@@ -36,6 +36,11 @@ jobs:
           unzip -l Aniultimatium.wgt
           head -1 public/main.js
 
+      - name: Build AniultimatiumLite.wgt
+        run: |
+          python3 tools/build_wgt.py --lite
+          unzip -l AniultimatiumLite.wgt | tail -1
+
       - name: Build Aniultimatium.apk (Android TV / Fire TV)
         continue-on-error: true            # a Gradle or SDK hiccup must not block the Samsung release
         run: |
@@ -61,5 +66,6 @@ jobs:
           prerelease: ${{ steps.meta.outputs.pre == 'true' }}
           files: |
             Aniultimatium.wgt
+            AniultimatiumLite.wgt
             Aniultimatium.apk
           body_path: RELEASE_NOTES.md

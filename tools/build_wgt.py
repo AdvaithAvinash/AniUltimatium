@@ -4,7 +4,7 @@ import os, sys, zipfile, subprocess
 LITE = "--lite" in sys.argv
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 pub, out = os.path.join(root, "public"), os.path.join(root, "AniultimatiumLite.wgt" if LITE else "Aniultimatium.wgt")
-WEB_ONLY = {"robots.txt", "sitemap.xml", "llms.txt", "og.png", "link.html", "about.html", "add.html", "adframe.html", "vastrelay.html", "lite.html"}      # served by the website only, not needed inside the TV app
+WEB_ONLY = {"robots.txt", "sitemap.xml", "llms.txt", "og.png", "link.html", "about.html", "about-lite.html", "add.html", "adframe.html", "vastrelay.html", "lite.html"}      # served by the website only, not needed inside the TV app
 WEB_ONLY_DIRS = {"omnirift", "classicube"}                                                             # Gamehub games: served by the website only (36 MB)
 if LITE: subprocess.check_call([sys.executable, os.path.join(root, "tools", "gen_lite.py")])
 if os.path.exists(out): os.remove(out)
