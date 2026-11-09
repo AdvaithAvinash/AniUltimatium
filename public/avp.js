@@ -8,7 +8,7 @@
   var video = document.getElementById('video');
   if (!video || !window.HTMLMediaElement) return;
   var UA = navigator.userAgent, TIZEN = /Tizen/i.test(UA), CV = (UA.match(/Chrome\/(\d+)/) || [0, 0])[1] | 0;
-  var failed = false, cur = null, vol = 1, muted = false, rate = 1;
+  var failed = false, cur = null, vol = 1, muted = false, rate = 1, prefer = false;      // prefer: the app asks for AVPlay for this stream (a typed-in address: no CORS, plays TS / HLS / MP4 / MKV)
   var proto = HTMLMediaElement.prototype;
   function nat(n) { return Object.getOwnPropertyDescriptor(proto, n); }
   var natSrc = nat('src'), natCT = nat('currentTime'), natDur = nat('duration'), natPaused = nat('paused'), natRS = nat('readyState'), natBuf = nat('buffered'),
@@ -19,7 +19,7 @@
   }
   function av() { try { return window.webapis && webapis.avplay ? webapis.avplay : null; } catch (e) { return null; } }
   function mode() { try { var m = JSON.parse(localStorage.getItem('ea_engine')); return m === 'html5' || m === 'avplay' ? m : 'auto'; } catch (e) { return 'auto'; } }
-  function use() { var m = mode(); return !failed && !!av() && (m === 'avplay' || (m === 'auto' && TIZEN && CV > 0 && CV < 63)); }   // Auto: Tizen 4 (Chromium 56)
+  function use() { var m = mode(); return !failed && !!av() && m !== 'html5' && (m === 'avplay' || prefer || (m === 'auto' && TIZEN && CV > 0 && CV < 63)); }   // Auto: Tizen 4 (Chromium 56)
   function fire(n) { var e = document.createEvent('Event'); e.initEvent(n, false, false); video.dispatchEvent(e); }
   function rect() { try { av().setDisplayRect(0, 0, window.innerWidth || 1920, window.innerHeight || 1080); } catch (e) { /* ignore */ } }
 
@@ -120,7 +120,7 @@
     try { if (document.hidden) a.suspend(); else { a.restore(); rect(); } } catch (e) { /* ignore */ }
   });
   window.AVP = {
-    use: use, mode: mode, active: function () { return !!cur; },
+    use: use, mode: mode, prefer: function (v) { prefer = !!v; }, active: function () { return !!cur; },
     available: function () { return !!av(); }, failed: function () { return failed; },
     _end: endSession, _reset: function () { failed = false; }
   };

@@ -1126,6 +1126,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!box.firstChild) box.innerHTML = '<p class="hint">Saved streams appear here.</p>';
     if (focusIt !== false) setFocus($('dirUrl'));
   }
+  function directSrc(u) {                                                               // what the player gets for a typed-in address: the address itself, and the server relay as the second route
+    var hls = /\.m3u8(\?|#|$)|m3u8/i.test(u), file = /\.(mp4|m4v|mkv|webm|mov|avi)(\?|#|$)/i.test(u), mixed = location.protocol === 'https:' && /^http:/i.test(u);
+    var px = apiBase() + '/api?action=proxy&ref=&url=' + encodeURIComponent(u);
+    return { url: mixed ? px : u, proxyUrl: mixed ? '' : px, type: hls ? 'hls' : file ? 'file' : 'auto', mp4: file, headers: {}, subtitles: [], quality: 'auto', matched: 'Direct stream', provider: 'direct' };
+  }
   function directPlay(x) { play({ id: 'direct:' + x.url.slice(-40), kind: 'movie', title: x.name, direct: x.url }, 1, 0); }
   function directSave(go) {
     var u = $('dirUrl').value.trim(), n = $('dirName').value.trim();
@@ -1262,8 +1267,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     stopVideo();
     var pr = progOf(a);
     if (startAt == null) startAt = pr && pr.ep === ep ? pr.time : 0;
-    if (!keepVia) { addHist(a, ep); autoStatus(a, ep, false); }
-    if (a.direct) { pmsg('Opening the stream…', true); startVideo({ url: a.direct, mp4: !/\.m3u8(\?|$)|m3u8/i.test(a.direct), headers: {}, subtitles: [], quality: 'auto', matched: 'Direct stream', provider: 'direct' }, startAt || 0, tk); return; }
+    if (!keepVia && !a.direct) { addHist(a, ep); autoStatus(a, ep, false); }
+    if (window.AVP && AVP.prefer) AVP.prefer(!!a.direct);                                  // a typed-in address: the Samsung player first (it has no cross-origin limits and plays HLS, TS, MP4, MKV)
+    $('player').setAttribute('data-direct', a.direct ? '1' : '');
+    if (a.direct) { state.liteList = []; state.liteChosen = null; if ($('pSub')) $('pSub').textContent = 'Direct stream'; pmsg('Opening the stream…', true); startVideo(directSrc(a.direct), startAt || 0, tk); return; }
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
     var usedPre = false;
@@ -2246,6 +2253,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       state.netRetry = 0; state.mediaRetry = 0;
       state.hls.on(Hls.Events.ERROR, function (_, e) {                       // self-heal before giving up
         if (!e.fatal) return;
+        if (state.src && state.src.provider === 'direct' && !state.triedProxy && /manifestLoad|levelLoad/.test(e.details || '') && fallbackToProxy()) return;      // a typed-in address that the browser may not read (no cross-origin permission): the relay at once
         if (e.type === Hls.ErrorTypes.NETWORK_ERROR && state.netRetry++ < 3) { state.hls.startLoad(); return; }
         if (e.type === Hls.ErrorTypes.MEDIA_ERROR && state.mediaRetry++ < 3) { state.hls.recoverMediaError(); return; }
         if (!fallbackToProxy() && !streamDead()) showPlayFail(e.details || 'playback error', video.currentTime);
@@ -2322,8 +2330,22 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     var at = video.currentTime > 5 ? video.currentTime : state.startAt;
     state.startAt = at;
     if (state.hls) { state.hls.destroy(); state.hls = null; }
+    if (d.type === 'auto' && window.fetch) {                                              // an address with no .m3u8 / .mp4 in it: look at the first bytes through the relay to see whether it is an HLS playlist
+      var tk0 = state.token;
+      fetch(d.proxyUrl, { headers: { Range: 'bytes=0-511' } }).then(function (r) {
+        var rd = r.body && r.body.getReader ? r.body.getReader() : null;
+        if (!rd) return r.text().then(function (t) { return t; });
+        return rd.read().then(function (x) { try { rd.cancel(); } catch (e) { /* ignore */ } var b = x.value || [], s = ''; for (var i = 0; i < Math.min(b.length, 7); i++) s += String.fromCharCode(b[i]); return s; });
+      }).then(function (head) {
+        if (tk0 !== state.token) return;
+        var hls = String(head).indexOf('#EXTM3U') === 0; d.type = hls ? 'hls' : 'file';
+        if (hls) d.proxyUrl += '&hls=1';
+        state.triedProxy = false; fallbackToProxy();
+      }).catch(function () { if (tk0 === state.token) { d.type = 'file'; state.triedProxy = false; fallbackToProxy(); } });
+      return true;
+    }
     if (/m3u8/i.test(d.proxyUrl) || d.type === 'hls') {
-      if (window.Hls && Hls.isSupported()) { state.hls = newHls(); state.hls.loadSource(d.proxyUrl); state.hls.attachMedia(video); }
+      if (window.Hls && Hls.isSupported() && !(window.AVP && AVP.use())) { state.hls = newHls(); state.hls.loadSource(d.proxyUrl); state.hls.attachMedia(video); }
       else video.src = d.proxyUrl;
     } else video.src = d.proxyUrl;
     var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});

@@ -1036,6 +1036,7 @@ body.ed-lite .pbtn.focused,body.ed-lite .pbtn:focus{background:#fff;color:#0d0e1
 body.ed-lite #pmenu{border-radius:1.4rem;background:rgba(18,19,24,.97);border:.07rem solid rgba(255,255,255,.12)}
 body.ed-lite .mrow.sel{background:#fff;color:#0d0e12;border-radius:.9rem}
 [data-act=sources]{display:none}
+#player[data-direct="1"] [data-act=sources]{display:none!important}
 body.ed-lite #player[data-kind=movie] [data-act=sources]{display:inline-block}
 #srcSheet{position:absolute;left:0;top:0;right:0;bottom:0;z-index:8;display:-webkit-flex;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,5,8,.62)}
 #srcSheet.hidden{display:none}

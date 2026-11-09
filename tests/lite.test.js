@@ -71,3 +71,13 @@ test('Lite client: Best source is the default, Sources sheet, automatic next sou
   assert.ok(/function liteAdvance\(/.test(m) && /if \(ED_LITE && liteAdvance\('stopped'\)\) return true;/.test(m));
   assert.ok(h.includes('data-act="sources"') && h.includes('id="pSub"'));
 });
+
+test('Direct stream: Samsung player first, the server relay as the second route (no-CORS hosts), address sniffing, relay accepts hls=1', () => {
+  const fs = require('fs'), p = require('path'), r = f => fs.readFileSync(p.join(__dirname, '..', f), 'utf8');
+  const m = r('public/main.js'), avp = r('public/avp.js'), api = r('api/index.js');
+  assert.ok(/function directSrc\(u\)/.test(m) && /proxyUrl: mixed \? '' : px/.test(m));
+  assert.ok(/AVP\.prefer\(!!a\.direct\)/.test(m) && /prefer: function \(v\) \{ prefer = !!v; \}/.test(avp) && /m !== 'html5' && \(m === 'avplay' \|\| prefer/.test(avp));
+  assert.ok(/provider === 'direct' && !state\.triedProxy && \/manifestLoad\|levelLoad\//.test(m), 'a manifest the browser cannot read goes to the relay at once');
+  assert.ok(/d\.type === 'auto' && window\.fetch/.test(m) && /q\.hls === '1'/.test(api));
+  assert.ok(!/addHist\(a, ep\); autoStatus\(a, ep, false\); \}/.test(m.replace('!a.direct', 'X')) || /!keepVia && !a\.direct/.test(m), 'direct streams are not added to History');
+});

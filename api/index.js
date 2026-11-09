@@ -656,7 +656,7 @@ async function proxy(req, res, q, origin) {
     src.on('error', () => res.end()); gz.on('error', () => res.end());
     return src.pipe(gz).pipe(res);
   }
-  if (q.raw !== '1' && (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target))) {
+  if (q.raw !== '1' && (q.hls === '1' || /mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target))) {
     const text = await r.text();
     if (!r.ok || text.indexOf('#EXTM3U') < 0) return send(res, r.ok ? 502 : r.status, { error: 'upstream playlist unavailable (' + r.status + ')' }, 'no-store');
     const abs = u => new URL(u, target).href;
