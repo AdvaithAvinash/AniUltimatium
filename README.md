@@ -1,7 +1,7 @@
 # Aniultimatium — free IPTV player (M3U & Xtream), Movie, TV show  and anime app for Samsung Tizen, Android TV and Fire TV
 
 > **A free, open-source TV app with a fast IPTV player.** Add your own M3U playlist or Xtream login (from your phone, with a QR code), browse 50,000+ channels without the screen freezing,
-> use a TV guide, favorites and fast zapping, and also watch English sub & dub anime, movies and TV shows. Runs on **Samsung Tizen 4.0+ (2018 and newer)**, **Android TV**, **Fire TV** and in any browser.
+> use a TV guide, favorites and fast zapping, and also watch English sub & dub anime, movies and TV shows. Runs on **Samsung Tizen 3.0+ (2017 and newer)**, **Android TV**, **Fire TV** and in any browser.
 > It provides no channels: you bring your own playlist, or start with free public channel lists.
 
 > # Polite Request
@@ -30,7 +30,7 @@ Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniU
 | | |
 |---|---|
 | **What it is** | An IPTV player for your own playlist (M3U / Xtream) plus an anime, movie and TV-show client. Samsung Tizen web app (`.wgt`), Android TV / Fire TV app (`.apk`) and web browsers |
-| **TV support** | Samsung Tizen 4.0 (2018) and newer (layout and scrolling checked against a Chromium 56 engine, the browser inside Tizen 4 TVs); Android TV / Google TV and Amazon Fire TV (Android 5+ / Fire OS 5+) |
+| **TV support** | Samsung Tizen 3.0 (2017) and newer (layout and scrolling checked against a Chromium 56 engine, the browser inside Tizen 4 TVs; Tizen 3 has its own compatibility layer, see the FAQ); Android TV / Google TV and Amazon Fire TV (Android 5+ / Fire OS 5+) |
 | **Languages** | English subtitles (OpenSubtitles auto-picked, 15+ other languages) and English dub where a source has one; Japanese audio by default |
 | **Control** | Built for the 10-key remote: arrows, OK, Return, media keys. Mouse and keyboard work on a laptop |
 | **Sources** | AnimeX (default), AniKoto, AnimeYubi, AniWaves, ranked automatically from real playback results on *your* TV (SourceIQ) |
@@ -65,7 +65,7 @@ AnikenTV (a fork of the Anilili app, Android TV / Google TV only, per its own RE
 
 | | **Aniultimatium** | **AnikenTV** |
 |---|---|---|
-| Where it runs | Samsung Tizen 4.0+ (`.wgt`), Android TV, Fire TV (`.apk`), browsers | Android TV / Google TV (Android 5.1+) |
+| Where it runs | Samsung Tizen 3.0+ (`.wgt`), Android TV, Fire TV (`.apk`), browsers | Android TV / Google TV (Android 5.1+) |
 | What it plays | Anime, movies, TV shows **and** your own IPTV playlist (M3U / Xtream, 30,000+ channels) | Anime |
 | Schedule with local times, "AIRED / IN 3h" status and a bell | Yes, plus a "My list & follows" filter | Yes (per its screenshots) |
 | Next-episode countdowns on cards, hero and detail page | Yes (can be turned off) | "New episode soon" tag on the hero |
@@ -104,7 +104,7 @@ Aniultimatium's **Live TV** is built for people who already have an IPTV provide
 - **TV guide:** now / next with progress and descriptions (XMLTV including `.xml.gz`, or the Xtream short guide), a time-shift setting for guides in another time zone, 12/24-hour clock.
 - **Fast zapping:** ▲▼, channel number entry, previous channel, channel list over the video, favorites, recently watched, search across every channel.
 - **Control:** groups, sort, parental PIN and hidden adult groups, quality / audio / picture / sleep timer / buffering, a stream-stats overlay, a User-Agent choice for providers that need one.
-- **Where it runs:** Samsung Tizen 4.0+, Android TV, Fire TV, and any browser. One codebase, tested down to a Chromium 56 engine.
+- **Where it runs:** Samsung Tizen 3.0+, Android TV, Fire TV, and any browser. One codebase, tested down to a Chromium 56 engine.
 - **Free and open source,** no account, no ads in the player. Details: [docs/IPTV.md](docs/IPTV.md).
 
 ### Choosing an IPTV player for a TV: what to check
@@ -113,7 +113,7 @@ Apps such as AquaPlay IPTV, Smart IPTV, IPTV Smarters Player, TiviMate and Kodi'
 | You want | Aniultimatium |
 |---|---|
 | Free, no subscription or account | Yes, free and open source |
-| Samsung Tizen TV support, including 2018 models | Yes (Tizen 4.0+), installed as a `.wgt` by sideloading |
+| Samsung Tizen TV support, including 2017 and 2018 models | Yes (Tizen 3.0+), installed as a `.wgt` by sideloading |
 | Android TV / Fire TV | Yes, `Aniultimatium.apk` (sideloaded; not on a store) |
 | Your own M3U link or Xtream login | Yes |
 | Typing nothing on the remote | Yes: code or QR scan from a phone |
@@ -177,7 +177,7 @@ Samsung TVs need Developer Mode for sideloading (Apps screen, type 12345, Develo
 
 ## FAQ
 **What is a good free IPTV player for a Samsung Tizen TV?**
-Aniultimatium is a free, open-source IPTV player that runs on Samsung Tizen 4.0+ (2018 and newer) as well as Android TV, Fire TV and browsers. Add your own M3U playlist or Xtream login (from a phone with a code or QR), and it handles lists of 50,000+ channels without freezing. See [IPTV player at a glance](#iptv-player-at-a-glance) and the [checklist](#choosing-an-iptv-player-for-a-tv-what-to-check) for how to compare it with other players.
+Aniultimatium is a free, open-source IPTV player that runs on Samsung Tizen 3.0+ (2017 and newer) as well as Android TV, Fire TV and browsers. Add your own M3U playlist or Xtream login (from a phone with a code or QR), and it handles lists of 50,000+ channels without freezing. See [IPTV player at a glance](#iptv-player-at-a-glance) and the [checklist](#choosing-an-iptv-player-for-a-tv-what-to-check) for how to compare it with other players.
 
 **Is Aniultimatium an alternative to AquaPlay IPTV?**
 It does the same core job (plays your own IPTV provider's M3U or Xtream playlist on a TV) and is free and open source. Compare on the [checklist above](#choosing-an-iptv-player-for-a-tv-what-to-check): Aniultimatium adds phone/QR setup, a worker-based loader measured at about 0.6 s for 30,000 channels, a TV guide with time shift, a parental PIN, and Tizen, Android TV and Fire TV builds from one codebase. It does not include Xtream movies/series, catch-up or recording, and it ships no channels.
@@ -192,6 +192,9 @@ It does the same core job (plays your own IPTV provider's M3U or Xtream playlist
 It depends on what you need. For *licensed* catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others). If you want a **free, open-source anime app
 built specifically for Samsung Tizen TVs, with English sub and dub, remote-first controls, automatic source fallback and AniList sync**, Aniultimatium is made for exactly that,
 and that is the gap it is designed to be the best at. Phone/PC apps and website wrappers generally are not built for a TV remote or for Tizen's older browser.
+
+**Does it work on 2017 Samsung TVs (Tizen 3.0)?**
+Yes (best effort: it is checked against a simulation, not every 2017 model). Tizen 3 TVs use Chromium 47, which has no CSS variables, so `public/novars.js` writes the variables' values into the style sheet before the page is drawn (add `?novars=1` to the address to see this on a PC), the Classic look is used, and the Samsung player (AVPlay) plays the video. If something still looks wrong, open an issue with your TV model and year (see issue 6).
 
 **Does it work on older Samsung TVs (2018, Tizen 4.0)?**
 Yes, that is a design goal. Tizen 4 TVs use Chromium 56, which lacks CSS `inset`, flex `gap`, CSS grid and more; the app detects this and uses fallbacks, and

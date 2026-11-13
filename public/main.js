@@ -70,6 +70,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   if (ED_LITE && !/^(best|rand|first|u:)/.test(String(store.get('ea_msrc', 'best')))) store.set('ea_msrc', 'best');
   if (ED_LITE && !store.get('ea_ui_lite2', false)) { store.set('ea_ui', 'modern'); store.set('ea_ui_lite2', true); }      // Lite: side-rail look (the Apple-TV style pill does not suit it)
   if (ED_LITE && store.get('ea_ui', 'modern') === 'cine') store.set('ea_ui', 'modern');
+  if (window.EA_NOVARS && store.get('ea_ui', 'classic') !== 'classic') store.set('ea_ui', 'classic');        // engines without CSS variables (Tizen 3) always use the Classic look
   var UI_MODERN = store.get('ea_ui', 'classic') === 'modern';          // side rail look (its remote navigation differs)
   var UI_CINE = store.get('ea_ui', 'classic') === 'cine';              // Cinematic look: Apple TV style, floating top bar (navigates like Classic)
   function bodyCls() { var pz = store.get('ea_pz', 'normal'); return (IS_TV ? 'tv' : 'desktop') + (ED_LITE ? ' ed-lite' : '') + (LITE ? ' lite' : '') + (UI_MODERN || UI_CINE ? ' ui-modern' : '') + (UI_CINE ? ' ui-cine' : '') + (pz === 'small' ? ' pz-s' : pz === 'large' ? ' pz-l' : ''); }
@@ -1819,6 +1820,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var ACCENTS = { pink: '255,61,127', cyan: '0,200,230', violet: '150,110,255', green: '61,220,151', orange: '255,150,50', red: '235,64,64', blue: '64,132,255', gold: '240,190,50', teal: '20,184,166', white: '230,230,238' };
   function applyAccent() {
     var k = store.get('ea_accent', 'pink'), rgb = ACCENTS[k] || ACCENTS.pink, p = rgb.split(',');
+    if (window.EA_setVars) { window.EA_setVars({ '--accent-rgb': rgb, '--accent': 'rgb(' + rgb + ')' }); return; }        // Tizen 3: no CSS variables (novars.js)
     var r = document.documentElement.style; r.setProperty('--accent-rgb', rgb); r.setProperty('--accent', 'rgb(' + rgb + ')');
   }
   var QOPTS = [['auto', 'Auto'], ['1080', '1080p'], ['720', '720p'], ['480', '480p']];
@@ -1830,7 +1832,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_alerts', 'New-episode alerts on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_recs', 'Recommendations on the home page', true, [[true, 'On'], [false, 'Off']]],
     ['ea_popblock', 'Block popups in hosted movie players', true, [[true, 'On'], [false, 'Off']]],
-    ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']].concat(window.EA_LITE ? [] : [['cine', 'Cinematic · Apple TV style']]), function (v) { UI_MODERN = v === 'modern'; UI_CINE = v === 'cine'; document.body.className = bodyCls(); if (state.hero.length) showHero(state.heroIdx, true); if (state.cache[state.mode]) state.rowsDirty = true; }],
+    ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']].slice(0, window.EA_NOVARS ? 1 : 2).concat(window.EA_LITE || window.EA_NOVARS ? [] : [['cine', 'Cinematic · Apple TV style']]), function (v) { UI_MODERN = v === 'modern'; UI_CINE = v === 'cine'; document.body.className = bodyCls(); if (state.hero.length) showHero(state.heroIdx, true); if (state.cache[state.mode]) state.rowsDirty = true; }],
     ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
     ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
     ['ea_autonext', 'Play the next episode automatically', true, [[true, 'On'], [false, 'Off']]],

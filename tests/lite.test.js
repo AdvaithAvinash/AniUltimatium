@@ -81,3 +81,17 @@ test('Direct stream: Samsung player first, the server relay as the second route 
   assert.ok(/d\.type === 'auto' && window\.fetch/.test(m) && /q\.hls === '1'/.test(api));
   assert.ok(!/addHist\(a, ep\); autoStatus\(a, ep, false\); \}/.test(m.replace('!a.direct', 'X')) || /!keepVia && !a\.direct/.test(m), 'direct streams are not added to History');
 });
+
+test('Tizen 3.0 (Chromium 47): no CSS variables, so novars.js writes their values into styles.css; Classic look forced; accent updates live', () => {
+  const fs = require('fs'), p = require('path'), r = f => fs.readFileSync(p.join(__dirname, '..', f), 'utf8');
+  const nv = r('public/novars.js'), html = r('public/index.html'), m = r('public/main.js');
+  assert.ok(html.includes('<script src="novars.js"></script>') && !/<link rel="stylesheet" href="styles\.css">/.test(html.replace(/<script[\s\S]*?<\/script>/g, '')));
+  assert.ok(/CSS\.supports\('--a', '0'\)/.test(nv) && /novars=1/.test(nv) && /window\.EA_setVars/.test(nv) && !/=>|`|\blet\b|\bconst\b/.test(nv), 'plain ES5');
+  assert.ok(/window\.EA_setVars\(\{ '--accent-rgb': rgb/.test(m) && /window\.EA_NOVARS && store\.get\('ea_ui', 'classic'\) !== 'classic'/.test(m));
+  assert.ok(/first && !window\.EA_NOVARS/.test(r('public/start.js')));
+  // the substitution really leaves no var() behind for the real style sheet
+  const css = r('public/styles.css'), root = /:root\s*\{([^}]*)\}/.exec(css)[1], vars = {};
+  root.split(';').forEach(x => { const i = x.indexOf(':'); if (i > 0) vars[x.slice(0, i).trim()] = x.slice(i + 1).trim(); });
+  const out = css.replace(/(^|[;{\s])--[\w-]+\s*:[^;}]*;?/g, '$1').replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*))?\)/g, (a, n, fb) => vars[n] != null ? vars[n] : (fb || 'inherit').trim());
+  assert.ok(!/var\(/.test(out), 'no var() left');
+});

@@ -245,7 +245,7 @@
     }
     ctx.afterName = function () { lockStep(ctx); };
     ctx.afterLock = function () { listStep(ctx); };
-    ctx.afterList = function () { if (first) lookStep(ctx, save); else save(); };
+    ctx.afterList = function () { if (first && !window.EA_NOVARS) lookStep(ctx, save); else { if (first) set('ea_ui', 'classic'); save(); } };      // Tizen 3 (no CSS variables): Classic only
     chooseAvatar(ctx);
   }
 

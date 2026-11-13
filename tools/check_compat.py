@@ -1,4 +1,4 @@
-"""Fails if the TV app uses browser features that Tizen 4 (Chromium 56) cannot run, unless a fallback exists.
+"""Fails if the TV app uses browser features that Tizen 4 (Chromium 56) or Tizen 3 (Chromium 47) cannot run, unless a fallback exists. (CSS variables are the one Tizen 3 gap that is covered by public/novars.js.)
 Run:  python3 tools/check_compat.py"""
 import re, os, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +24,8 @@ for sel in re.findall(r'([^{}]+)\{[^{}]*?display:\s*(?:inline-)?flex[^{}]*?;gap:
     if s and ('.nogap ' + s.split(',')[0].strip()) not in gen: bad.append('styles.css: flex gap without fallback: ' + s)
 for name, pat in [('?. optional chaining', r'\?\.[A-Za-z_\[(]'), ('?? nullish', r'\?\?[^?]'), ('.finally()', r'\.finally\('), ('padStart/padEnd', r'\.pad(Start|End)\('),
                   ('object spread', r'\{\s*\.\.\.[A-Za-z_]'), ('Object.fromEntries', r'fromEntries'), ('.flat()', r'\.flat(Map)?\('), ('replaceAll', r'replaceAll'),
-                  ('element.scrollBy/scrollTo(options)', r'\.scroll(By|To)\(\{'), ('arrow function', r'=>'), ('template literal', r'`')]:
+                  ('element.scrollBy/scrollTo(options)', r'\.scroll(By|To)\(\{'), ('arrow function', r'=>'), ('template literal', r'`'),
+                  ('Object.entries/values (Chromium 54)', r'Object\.(entries|values)\('), ('URLSearchParams (Chromium 49)', r'URLSearchParams'), ('NodeList.forEach (Chromium 51)', r'querySelectorAll\([^)]*\)\.forEach'), ('lookbehind / named group regex (Chromium 62)', r'\(\?<[=!A-Za-z]')]:
     for f in JS_FILES:
         js = strip_js(open(os.path.join(root, 'public', f)).read())
         if re.search(pat, js): bad.append(f + ': ' + name)

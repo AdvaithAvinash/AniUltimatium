@@ -9,7 +9,7 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
 test('Look setting: Classic, Modern and Cinematic; Cinematic adds both body classes but navigates like Classic', () => {
   const main = read('public/main.js');
-  assert.match(main, /\['classic', 'Classic · low-end devices'\], \['modern', 'Modern · better looking'\]\]\.concat\(window\.EA_LITE \? \[\] : \[\['cine', 'Cinematic · Apple TV style'\]\]\)/);
+  assert.match(main, /\['classic', 'Classic · low-end devices'\], \['modern', 'Modern · better looking'\]\]\.slice\(0, window\.EA_NOVARS \? 1 : 2\)\.concat\(window\.EA_LITE \|\| window\.EA_NOVARS \? \[\] : \[\['cine', 'Cinematic · Apple TV style'\]\]\)/);
   assert.match(main, /var UI_CINE = store\.get\('ea_ui', 'classic'\) === 'cine';/);
   assert.match(main, /var UI_MODERN = store\.get\('ea_ui', 'classic'\) === 'modern';/, 'the side-rail navigation stays Modern only');
   assert.match(main, /\(UI_MODERN \|\| UI_CINE \? ' ui-modern' : ''\) \+ \(UI_CINE \? ' ui-cine' : ''\)/);
