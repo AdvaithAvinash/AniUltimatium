@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var LS = window.localStorage, UA = navigator.userAgent, CV = +((UA.match(/Chrome\/(\d+)/) || [0, 0])[1]);
-  var APP = ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'sponsor.js', 'live.js'];
+  var APP = ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'live.js'];
   function get(k, d) { try { var v = LS.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function set(k, v) { try { LS.setItem(k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   function del(k) { try { LS.removeItem(k); } catch (e) { /* ignore */ } }
@@ -22,7 +22,7 @@
   if (boots >= 4) { window.EA_SAFE = true; set('ea_ui', 'classic'); set('ea_lite', true); set('ea_intro', false); set('ea_boot', 1); }
 
   // ------------------------------------------------------------------ profiles
-  var PERP = /^(ea_list|ea_hist|ea_progress|ea_anilist|ea_al_auto|ea_auth|ea_del|ea_lastsub|ea_ad_day)$/;    // the keys that belong to one profile (the first profile keeps the old, unsuffixed names)
+  var PERP = /^(ea_list|ea_hist|ea_progress|ea_anilist|ea_al_auto|ea_auth|ea_del|ea_lastsub)$/;    // the keys that belong to one profile (the first profile keeps the old, unsuffixed names)
   function profiles() { var l = get('ea_profiles', []); return Array.isArray(l) ? l : []; }
   function byId(id) { var l = profiles(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
   function hash(pin, id) { var h = 2166136261, s = 'aniu|' + id + '|' + pin; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16); }   // a casual lock for the family, not security

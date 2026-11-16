@@ -15,15 +15,15 @@ test('index.html starts through start.js and never loads the app scripts itself'
 
 test('start.js lists every app script, in dependency order, and they exist', () => {
   const js = read('public/start.js'), list = (/var APP = \[([^\]]*)\]/.exec(js)[1].match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
-  assert.deepStrictEqual(list, ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'sponsor.js', 'live.js']);
+  assert.deepStrictEqual(list, ['avp.js', 'iq.js', 'qr.js', 'iptv.js', 'main.js', 'feed.js', 'live.js']);
   list.forEach(f => assert.ok(fs.existsSync(path.join(root, 'public', f)), f));
 });
 
 test('per-profile keys are keys the app really uses; main.js maps them and clears the crash counter', () => {
-  const start = read('public/start.js'), main = read('public/main.js'), app = main + read('public/sponsor.js');
+  const start = read('public/start.js'), main = read('public/main.js'), app = main;
   const keys = /PERP = \/\^\(([^)]*)\)\$\//.exec(start)[1].split('|');
   assert.ok(keys.includes('ea_list') && keys.includes('ea_hist') && keys.includes('ea_progress') && keys.includes('ea_anilist'));
-  keys.forEach(k => assert.ok(app.includes("'" + k + "'"), k + ' is used by the app (main.js / sponsor.js, through the per-profile store)'));
+  keys.forEach(k => assert.ok(app.includes("'" + k + "'"), k + ' is used by the app (main.js, through the per-profile store)'));
   assert.match(main, /EA_PROF\.perProfile\.test\(k\)/);
   assert.match(main, /removeItem\('ea_boot'\)/);
   assert.match(main, /ui-modern/);

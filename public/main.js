@@ -245,11 +245,11 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
 
   // ======================= API =======================
-  // Which backend to use: user-set server (Settings) > the local server that served this page > cloud (Vercel)
+  // Which backend to use: user-set server (Settings) > the site that served this page (website or local server) > VERCEL_API_URL (the packaged TV apps, which run from a local file)
   function apiBase() {
     var custom = (store.get('ea_server', '') || '').trim();
     if (custom) return (/^https?:\/\//i.test(custom) ? custom : 'http://' + custom).replace(/\/+$/, '');
-    if (/^https?:$/.test(location.protocol) && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)) return location.origin;
+    if (/^https?:$/.test(location.protocol)) return location.origin;
     return VERCEL_API_URL.replace(/\/+$/, '');
   }
   // Stability: every API call has a time limit (a hung connection never leaves the screen waiting forever), and a plain GET gets one more try after a dropped connection or a 502/503/504
@@ -1094,12 +1094,6 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (tk === state.token) { state.playFail = true; state.failAt = startAt || 0; pmsg('Could not start playback: ' + e.message + '.   OK: try again   ·   Up: choose another source   ·   Back: leave', false); }
     });
   }
-  // Sponsor pre-roll (public/sponsor.js): one labelled video before a title, anime once per session, movies / TV once per different title; retries and source switches never show another
-  var play0 = play;
-  play = function (a, ep, startAt, keepVia, skip) {
-    if (!keepVia && !(skip && skip.length) && EA.sponsor && EA.sponsor.wants(a)) { EA.sponsor.preroll(a, function (go) { if (go) play0(a, ep, startAt, keepVia, skip); }); return; }
-    return play0(a, ep, startAt, keepVia, skip);
-  };
   // ---- Old TV engines (Tizen 4/5/5.5/6): the hosted movie/TV players are written for 2020+ browsers and do not run there ----
   function showOldEng(failed) {
     pmsg('', false);
@@ -2043,7 +2037,6 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     $('seekBar').style.width = '0'; $('seekBuf').style.width = '0';
   }
   function closePlayer() {
-    if (EA.sponsor) EA.sponsor.hidePause();
     state.token++; abortSources(); dropPrefetch(); state.menuOpen = false; $('pmenu').className = 'hidden'; $('skipBtn').className = 'skipbtn hidden'; hideEmbed();
     if (video.duration && video.currentTime > 3) setProg(state.anime, state.ep, video.currentTime, video.duration);
     stopVideo();
@@ -2218,8 +2211,6 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.__feed && EA.feed) { EA.feed.activate(e); return; }
     if (e.__rows) { rowsAct(e.__rows); return; }
     if (e.id === 'setRowsBtn') { openRows(); return; }
-    if (e.id === 'setAdChk') { if (EA.sponsor) EA.sponsor.check(); return; }
-    if (e.id === 'setSupportBtn') { if (EA.sponsor) EA.sponsor.support(); else toast('Not available right now'); return; }
     if (e.__p) { profAct(e.__p); return; }
     if (e.id === 'navProf') { EA_PROF.switchTo(); return; }
     if (e.__x) { openExtra(e.__x); return; }
