@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
     private View customView;
     private WebChromeClient.CustomViewCallback customCallback;
     private WebChromeClient chrome;
+    private volatile long lastBackAt;                                     // when Back was last pressed (see Bridge.exit)
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,16 +154,20 @@ public class MainActivity extends Activity {
     /** Back goes to the app's own handler (it knows about menus, players and tabs); the app calls AniNative.exit() when there is nothing left to close. */
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.KEYCODE_ESCAPE || e.getKeyCode() == KeyEvent.KEYCODE_DEL) lastBackAt = android.os.SystemClock.elapsedRealtime();   // a keyboard's Esc / Backspace act as Back in the web app
         if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             if (customView != null) {
                 if (e.getAction() == KeyEvent.ACTION_UP && web != null) chrome.onHideCustomView();
                 return true;
             }
-            if (e.getAction() == KeyEvent.ACTION_UP)
+            if (e.getAction() == KeyEvent.ACTION_UP) {
+                lastBackAt = android.os.SystemClock.elapsedRealtime();
                 js("(function(){var e=document.createEvent('Event');e.initEvent('tizenhwkey',true,true);e.keyName='back';document.dispatchEvent(e);})()");
+            }
             return true;
         }
         if (e.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B) {                // game controller: B = Back
+            if (e.getAction() == KeyEvent.ACTION_UP) lastBackAt = android.os.SystemClock.elapsedRealtime();
             if (e.getAction() == KeyEvent.ACTION_UP)
                 js("(function(){var e=document.createEvent('Event');e.initEvent('tizenhwkey',true,true);e.keyName='back';document.dispatchEvent(e);})()");
             return true;
@@ -240,10 +245,13 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    /** What the web app can ask of the shell. */
+    /** What the web app can ask of the shell. Every frame can see this object (also the hosted players), so exit() only works right after the viewer pressed Back. */
     private class Bridge {
         @JavascriptInterface public String version() { return versionName(); }
         @JavascriptInterface public int sdk() { return Build.VERSION.SDK_INT; }
-        @JavascriptInterface public void exit() { runOnUiThread(new Runnable() { public void run() { finish(); } }); }
+        @JavascriptInterface public void exit() {
+            if (android.os.SystemClock.elapsedRealtime() - lastBackAt > 3000) return;      // not a Back press: a page inside a frame may not close the app
+            runOnUiThread(new Runnable() { public void run() { finish(); } });
+        }
     }
 }

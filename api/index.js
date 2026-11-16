@@ -22,6 +22,7 @@ const debrid = require('../lib/debrid');
 const kitsu = require('../lib/kitsu');
 const verify = require('../lib/verify');
 const subsLib = require('../lib/subs');
+const net = require('../lib/net');
 const turbo = require('../lib/turbo');          // TurboScrape: cache + de-duplication + hedged source race + cancellation
 turbo.installFetch();
 
@@ -58,7 +59,7 @@ async function fetchJson(url, opts = {}, timeout = 9000) {
 }
 
 // ---------- AniList ----------
-const hash = str => { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const hash = net.sha;                                    // cache keys: a real hash, so two different queries can never share an entry
 async function anilist(query, variables) {
   const body = JSON.stringify({ query, variables });
   return turbo.cached('al:' + hash(body), 5 * 60 * 1000, async () => {
@@ -224,8 +225,8 @@ function result(d) {
 //     AniWaves, Senshi ... keyed by AniList id. Runs in-process (dependency `all-api`) or remotely via ANIVEXA_URL.
 //     Gives HLS masters (up to 1080p) with English soft-subs, so it is the quality source.
 let avWorker = null;
-async function avGet(pathname) {
-  if (/^\/map\//.test(pathname)) return turbo.cached('av:' + pathname, 6 * 3600 * 1000, () => avGet0(pathname));     // id mapping: stable
+async function avGet(pathname, keyExtra) {
+  if (/^\/map\//.test(pathname)) return turbo.cached('av:' + pathname + (keyExtra || ''), 6 * 3600 * 1000, () => avGet0(pathname));     // id mapping: stable
   return avGet0(pathname);
 }
 async function avGet0(pathname) {
@@ -286,7 +287,7 @@ async function probeStream(r) {
   return verify.verifyStream(r, { fetch: (...a) => fetch(...a), ua: UA, timeout: 5000, deep: !globalThis.__AV_WORKER });
 }
 async function viaAnivexa(anilistId, ep, only, audio) {
-  if (!anilistId) throw new Error('no anilist id');
+  if (!/^\d{1,9}$/.test(String(anilistId || ''))) throw new Error('no anilist id');
   const aud = audio === 'dub' ? 'dub' : 'sub';
   const order = (only && AV_ALL.includes(only) ? [only] : AV_ORDER).filter(p => aud === 'sub' || p !== 'anizone');   // AniZone has no separate dub (its HLS carries an English audio track)
   const T = 14000;
@@ -404,8 +405,12 @@ async function viaAnimeYubi(titles, ep, audio) {
 function parseQuery(q) {
   const titles = [q.title, q.alt, ...String(q.syn || '').split('|')].map(x => (x || '').trim()).filter(Boolean);
   if (!titles.length) { const e = new Error('title required'); e.status = 400; throw e; }
-  return { titles, ep: parseInt(q.ep, 10) || 1 };
+  if (q.id != null && q.id !== '' && !/^\d{1,9}$/.test(String(q.id))) { const e = new Error('bad id'); e.status = 400; throw e; }      // the id goes into provider addresses
+  return { titles, ep: Math.max(1, Math.min(9999, parseInt(q.ep, 10) || 1)) };
 }
+// The app may send the AniList record with a request (?am=, see worker/index.js). Results worked out from it are cached under its hash,
+// so a made-up record can only ever be served back to requests that carry the very same record.
+const amKey = q => (q && q.am ? ':' + hash(String(q.am)) : '');
 
 // ---------- Anime sources ----------
 // Default order (from tests on a Samsung TV): AnimeX > AniKoto > AnimeYubi > AniWaves. The app may send its own order
@@ -435,7 +440,7 @@ function noStream(dub, errs) {
 }
 const pubTrace = tr => (tr || []).map(t => ({ k: t.k, ok: !!t.ok, ms: t.ms, kind: t.kind }));        // no URLs, cookies or messages leave the server
 // a fresh result is reused for 45 s: de-duplicates the prefetch + play of the same episode and double taps, never serves stale media links
-const runSource = (k, titles, ep, q) => turbo.cached(`res:${k}:${q.id || hash(titles.join('|'))}:${ep}:${q.audio === 'dub' ? 'dub' : 'sub'}`, 45 * 1000, () => SOURCES[k](q, titles, ep));
+const runSource = (k, titles, ep, q) => turbo.cached(`res:${k}:${q.id || hash(titles.join('|'))}:${ep}:${q.audio === 'dub' ? 'dub' : 'sub'}${amKey(q)}`, 45 * 1000, () => SOURCES[k](q, titles, ep));
 const candidate = (k, titles, ep, q) => ({ key: k, cost: COST[k], max: MAX_MS[k], run: () => runSource(k, titles, ep, q) });
 
 async function sources(req, q, origin) {
@@ -501,7 +506,8 @@ async function skipTimes(mal, ep) {
 async function subsFor(q, origin) {
   let id = q.imdb;
   if (!id && q.anilist) {
-    const m = await avGet('/map/' + encodeURIComponent(q.anilist));
+    if (!/^\d{1,9}$/.test(String(q.anilist))) return [];
+    const m = await avGet('/map/' + q.anilist, amKey(q));
     const mm = m.mappings || m;
     if (!mm.imdbId) return [];
     id = `${mm.imdbId}:${mm.defaultTvdbSeason || 1}:${(parseInt(q.ep, 10) || 1) + (parseInt(mm.episodeOffset, 10) || 0)}`;
@@ -512,8 +518,9 @@ async function subsFor(q, origin) {
 }
 
 async function readBody(req) {
-  if (req.body !== undefined && req.body !== null && req.body !== '') return typeof req.body === 'string' ? (JSON.parse(req.body || '{}')) : req.body;
-  return {};
+  let b = req.body;
+  if (typeof b === 'string' && b) { try { b = JSON.parse(b); } catch (e) { const er = new Error('The request is not valid JSON'); er.status = 400; throw er; } }
+  return b && typeof b === 'object' && !Array.isArray(b) ? b : {};
 }
 
 // ---------- AniList linking ----------
@@ -521,17 +528,24 @@ async function readBody(req) {
 // redirect URL <this site>/link.html; put its id in ANILIST_CLIENT_ID (wrangler.jsonc "vars" or env).
 const alClientId = () => String((typeof process !== 'undefined' && process.env && process.env.ANILIST_CLIENT_ID) || (globalThis.__ENV && globalThis.__ENV.ANILIST_CLIENT_ID) || '').trim();
 const AL_TTL = 10 * 60 * 1000;
-function alCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 6; i++) c += A[Math.floor(Math.random() * A.length)]; return c; }
+function alCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = require('crypto').randomBytes(6); let c = ''; for (let i = 0; i < 6; i++) c += A[b[i] & 31]; return c; }   // 32 letters: every byte maps evenly
+// Guessing codes: an address that keeps naming codes that do not exist is refused for a while (a TV that polls its own code never counts)
+const codeMiss = net.limiter(30, 10 * 60 * 1000);
+function codeGate(ip) { if (codeMiss.blocked(ip)) { const e = new Error('Too many wrong codes. Wait a few minutes and try again.'); e.status = 429; throw e; } }
+// Sign-in guessing, sign-ups and the diagnostic calls (they run every scraper) are limited per address too
+const loginFail = net.limiter(10, 10 * 60 * 1000), loginFailIp = net.limiter(40, 10 * 60 * 1000), signups = net.limiter(5, 60 * 60 * 1000), diag = net.limiter(6, 60 * 1000);
+function tooMany(msg) { const e = new Error(msg); e.status = 429; return e; }
 async function alStart(origin) {
   if (!alClientId()) { const e = new Error('AniList is not set up on this server yet (ANILIST_CLIENT_ID is empty).'); e.status = 501; throw e; }
   const code = alCode();
   await accounts.store.set('al:' + code, { at: Date.now(), token: null }, AL_TTL);
   return { code, url: origin + '/link.html', expiresIn: AL_TTL / 1000, persistent: accounts.store.persistent() };
 }
-async function alPoll(code) {
+async function alPoll(code, ip) {
   code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  codeGate(ip);
   const v = code && await accounts.store.get('al:' + code);
-  if (!v || Date.now() - v.at > AL_TTL) return { status: 'expired' };
+  if (!v || Date.now() - v.at > AL_TTL) { codeMiss.hit(ip); return { status: 'expired' }; }
   if (!v.token) return { status: 'waiting' };
   await accounts.store.set('al:' + code, { at: 0, token: null }, 60000);      // hand the token out once
   return { status: 'ok', token: v.token, expiresIn: v.expiresIn || null };
@@ -544,20 +558,22 @@ async function pairStart(origin) {
   await accounts.store.set('ip:' + code, { at: Date.now(), data: null }, IP_TTL);
   return { code, url: origin + '/add.html', expiresIn: IP_TTL / 1000, persistent: accounts.store.persistent() };
 }
-async function pairPoll(code) {
+async function pairPoll(code, ip) {
   code = cleanCode(code);
+  codeGate(ip);
   const v = code && await accounts.store.get('ip:' + code);
-  if (!v || Date.now() - v.at > IP_TTL) return { status: 'expired' };
+  if (!v || Date.now() - v.at > IP_TTL) { codeMiss.hit(ip); return { status: 'expired' }; }
   if (!v.data) return { status: 'waiting' };
   await accounts.store.set('ip:' + code, { at: 0, data: null }, 60000);          // hand the playlist out once and forget it
   return { status: 'ok', playlist: v.data };
 }
-async function pairPut(b) {
+async function pairPut(b, ip) {
+  codeGate(ip);
   const code = cleanCode(b && b.code), bad = m => { const e = new Error(m); e.status = 400; return e; };
   const str = (x, n) => String(x == null ? '' : x).trim().slice(0, n);
   if (!code) throw bad('Missing code');
   const v = await accounts.store.get('ip:' + code);
-  if (!v || Date.now() - v.at > IP_TTL) { const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
+  if (!v || Date.now() - v.at > IP_TTL) { codeMiss.hit(ip); const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
   const name = str(b.name, 60);
   let data;
   if (b.kind === 'xtream') {
@@ -580,12 +596,13 @@ async function pairPut(b) {
   await accounts.store.set('ip:' + code, { at: v.at, data }, IP_TTL);
   return { ok: true };
 }
-async function alPut(b) {
+async function alPut(b, ip) {
+  codeGate(ip);
   const code = String((b && b.code) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const token = String((b && b.token) || '');
   if (!code || token.length < 20 || token.length > 4000) { const e = new Error('Missing code or token'); e.status = 400; throw e; }
   const v = await accounts.store.get('al:' + code);
-  if (!v || Date.now() - v.at > AL_TTL) { const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
+  if (!v || Date.now() - v.at > AL_TTL) { codeMiss.hit(ip); const e = new Error('That code has expired — start again on the TV.'); e.status = 410; throw e; }
   await accounts.store.set('al:' + code, { at: v.at, token, expiresIn: parseInt(b.expiresIn, 10) || null }, AL_TTL);
   return { ok: true };
 }
@@ -625,24 +642,51 @@ function toVtt(text, url) {
 }
 
 // ---------- Proxy ----------
+// The relay exists for video, playlists, subtitles and TV guides. Three rules keep it from being anything else:
+//   - only public addresses are fetched, and every redirect hop is checked (lib/net.js);
+//   - the answer is never served as a web page: media types pass through, text-like answers become text/plain, everything else a download,
+//     and every answer carries "nosniff" and a sandboxing policy (a page opened through the relay cannot run script as this site);
+//   - connecting has a time limit, and answers that are read whole (playlists, subtitles) have a size limit.
+const MEDIA_TYPE = /^(video|audio)\/|^image\/(jpeg|png|gif|webp|bmp|avif|x-icon|vnd\.microsoft\.icon)\b|^application\/(octet-stream|vnd\.apple\.mpegurl|x-mpegurl|mp4|mp2t|dash\+xml|x-subrip)\b|^binary\//i;
+const TEXT_TYPE = /^text\/|json|xml|javascript|x-www-form-urlencoded/i;
+function relayType(type) {
+  const t = String(type || '').split(';')[0].trim();
+  if (MEDIA_TYPE.test(t)) return t;
+  return TEXT_TYPE.test(t) ? 'text/plain; charset=utf-8' : 'application/octet-stream';
+}
+function relayHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
+}
 async function proxy(req, res, q, origin) {
   const target = q.url;
-  if (!/^https?:\/\//i.test(target || '')) return send(res, 400, { error: 'bad url' }, 'no-store');
-  const ref = q.ref || '';
+  if (!/^https?:\/\//i.test(target || '') || target.length > 4000) return send(res, 400, { error: 'bad url' }, 'no-store');
+  const ref = /^https?:\/\//i.test(q.ref || '') ? q.ref : '';
   const headers = { 'User-Agent': /^[\x20-\x7e]{3,120}$/.test(q.ua || '') ? q.ua : UA };       // IPTV providers often only answer a player-like User-Agent (ua=...)
   if (ref) { headers.Referer = ref; try { headers.Origin = new URL(ref).origin; } catch (e) { /* ignore */ } }
   if (req.headers.range) headers.Range = req.headers.range;
-  const r = await fetch(target, { headers });
-  cors(res);
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);            // time limit for the connection and the first answer (the stream itself may run as long as it likes)
+  let r;
+  try { r = await net.safeFetch(target, { headers, signal: ctl.signal }, { check: net.resolvesPublic }); }
+  catch (e) {
+    clearTimeout(timer);
+    if (e && e.refused) return send(res, 400, { error: 'That address cannot be reached through this server' }, 'no-store');
+    if (turbo.isAbort(e) && !(req.signal && req.signal.aborted)) return send(res, 504, { error: 'upstream did not answer in time' }, 'no-store');
+    throw e;
+  }
+  clearTimeout(timer);
+  cors(res); relayHeaders(res);
   if (q.fmt === 'vtt') {
+    if (!r.ok) return send(res, r.status === 404 ? 404 : 502, { error: 'subtitles unavailable (' + r.status + ')' }, 'no-store');
+    const text = await net.readText(r, 3 * 1048576);
     res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    return res.status(200).send(toVtt(await r.text(), target));
+    return res.status(200).send(toVtt(text, target));
   }
   const type = r.headers.get('content-type') || '';
   if (q.gunzip === '1') {                                              // .xml.gz guides: unpacked here because a TV browser cannot (Workers: native DecompressionStream, Node: zlib)
     if (!r.ok || !r.body) return send(res, r.ok ? 502 : r.status, { error: 'upstream unavailable (' + r.status + ')' }, 'no-store');
-    res.setHeader('Content-Type', 'text/xml; charset=utf-8'); res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.setHeader('Cache-Control', 'no-store');      // the app reads the guide as text; text/plain cannot run as a page
     if (typeof res.sendWebStream === 'function' && typeof DecompressionStream === 'function') return res.sendWebStream(r.body.pipeThrough(new DecompressionStream('gzip')));
     const zlib = require('zlib'), { Readable } = require('stream'), gz = zlib.createGunzip(), src = Readable.fromWeb(r.body);
     res.statusCode = 200; res.on('close', () => { src.destroy(); gz.destroy(); });
@@ -650,7 +694,7 @@ async function proxy(req, res, q, origin) {
     return src.pipe(gz).pipe(res);
   }
   if (q.raw !== '1' && (/mpegurl/i.test(type) || /\.m3u8(\?|$)/i.test(target))) {
-    const text = await r.text();
+    const text = r.ok ? await net.readText(r, 8 * 1048576) : '';
     if (!r.ok || text.indexOf('#EXTM3U') < 0) return send(res, r.ok ? 502 : r.status, { error: 'upstream playlist unavailable (' + r.status + ')' }, 'no-store');
     const abs = u => new URL(u, target).href;
     const wrap = u => `${origin}/api?action=proxy&ref=${encodeURIComponent(ref)}${q.ua ? '&ua=' + encodeURIComponent(q.ua) : ''}&url=${encodeURIComponent(abs(u))}`;
@@ -665,7 +709,7 @@ async function proxy(req, res, q, origin) {
     return res.status(200).send(out);
   }
   // Stream everything else (mp4 etc.) straight through, honouring Range requests
-  res.setHeader('Content-Type', type || 'application/octet-stream');
+  res.setHeader('Content-Type', relayType(type));
   ['content-range', 'content-length', 'accept-ranges'].forEach(h => { const v = r.headers.get(h); if (v) res.setHeader(h, v); });
   res.setHeader('Cache-Control', q.live === '1' || q.raw === '1' ? 'no-store' : 'public, max-age=3600');        // live TV and playlists are never cached
   res.statusCode = r.status;
@@ -685,7 +729,7 @@ async function handle(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   const q = req.query || {};
   const proto = req.headers['x-forwarded-proto'] || 'http';
-  const origin = `${proto}://${req.headers.host}`;
+  const origin = `${proto}://${req.headers.host}`, ip = net.clientIp(req);
   try {
     switch (q.action) {
       case 'search':
@@ -694,6 +738,7 @@ async function handle(req, res) {
       case 'sources':
         return send(res, 200, await sources(req, q, origin), 's-maxage=60');
       case 'debug':
+        if (!diag.hit(ip)) throw tooMany('Too many tests in a row. Wait a minute.');
         return send(res, 200, await debug(q), 'no-store');
       // ---- movies (Cinemeta metadata; Stremio addons + Internet Archive streams) ----
       case 'movies_home':                                  // type=series: TV shows
@@ -721,13 +766,22 @@ async function handle(req, res) {
       case 'skip':
         return send(res, 200, await skipTimes(q.mal, q.ep || 1), 's-maxage=86400');
       // ---- accounts & sync ----
-      case 'register': return send(res, 200, await accounts.register(await readBody(req)), 'no-store');
-      case 'login': return send(res, 200, await accounts.login(await readBody(req)), 'no-store');
+      case 'register':
+        if (!signups.hit(ip)) throw tooMany('Too many new accounts from this address. Try again later.');
+        return send(res, 200, await accounts.register(await readBody(req)), 'no-store');
+      case 'login': {
+        const b = await readBody(req), who = ip + '|' + String(b.username || '').trim().toLowerCase().slice(0, 24);
+        if (loginFail.blocked(who) || loginFailIp.blocked(ip)) throw tooMany('Too many wrong passwords. Wait a few minutes and try again.');
+        try { const r = await accounts.login(b); loginFail.reset(who); return send(res, 200, r, 'no-store'); }
+        catch (e) { if (e.status === 401) { loginFail.hit(who); loginFailIp.hit(ip); } throw e; }
+      }
       case 'me': return send(res, 200, await accounts.me(bearer(req)), 'no-store');
       case 'sync_get': return send(res, 200, await accounts.syncGet(bearer(req)), 'no-store');
       case 'sync_put': return send(res, 200, await accounts.syncPut(bearer(req), (await readBody(req)).data), 'no-store');
       case 'avtest': {           // diagnostics: run one Anivexa provider from this host and check that its stream loads
         const t0 = Date.now(), p = String(q.p || ''), aud = q.audio === 'dub' ? 'dub' : 'sub';
+        if (!diag.hit(ip)) throw tooMany('Too many tests in a row. Wait a minute.');
+        if (!/^\d{1,9}$/.test(String(q.id || ''))) return send(res, 400, { error: 'id required' }, 'no-store');
         if (!AV_ALL.includes(p)) return send(res, 400, { error: 'unknown provider', providers: AV_ALL }, 'no-store');
         try {
           const d = await withTimeout(avGet(`/watch/${p}/${q.id}/${aud}/${p}-${parseInt(q.ep, 10) || 1}`), 20000, p);
@@ -735,18 +789,18 @@ async function handle(req, res) {
           const t1 = Date.now();
           let probe = 'ok';
           try { await probeStream(r); } catch (e) { probe = clean(e.message, 80); }
-          return send(res, 200, { p, ok: probe === 'ok', ms: t1 - t0, probeMs: Date.now() - t1, probe, url: r.url, mp4: r.mp4, quality: r.quality, subs: (r.subtitles || []).length, ref: (r.headers && r.headers.Referer) || '' }, 'no-store');
+          return send(res, 200, { p, ok: probe === 'ok', ms: t1 - t0, probeMs: Date.now() - t1, probe, host: (() => { try { return new URL(r.url).host; } catch (e) { return ''; } })(), mp4: r.mp4, quality: r.quality, subs: (r.subtitles || []).length, ref: (r.headers && r.headers.Referer) || '' }, 'no-store');
         } catch (e) { return send(res, 200, { p, ok: false, ms: Date.now() - t0, error: clean(e.message, 160) }, 'no-store'); }
       }
       // ---- AniList account linking (TV shows a code; a phone/laptop signs in at /link.html) ----
       case 'config':
         return send(res, 200, { anilistClientId: alClientId(), persistentStore: accounts.store.persistent() }, 'no-store');
       case 'pair_start': return send(res, 200, await pairStart(origin), 'no-store');
-      case 'pair_poll': return send(res, 200, await pairPoll(q.code), 'no-store');
-      case 'pair_put': return send(res, 200, await pairPut(await readBody(req)), 'no-store');
+      case 'pair_poll': return send(res, 200, await pairPoll(q.code, ip), 'no-store');
+      case 'pair_put': return send(res, 200, await pairPut(await readBody(req), ip), 'no-store');
       case 'al_start': return send(res, 200, await alStart(origin), 'no-store');
-      case 'al_poll': return send(res, 200, await alPoll(q.code), 'no-store');
-      case 'al_put': return send(res, 200, await alPut(await readBody(req)), 'no-store');
+      case 'al_poll': return send(res, 200, await alPoll(q.code, ip), 'no-store');
+      case 'al_put': return send(res, 200, await alPut(await readBody(req), ip), 'no-store');
       case 'proxy':
         return await proxy(req, res, q, origin);
       case 'home':
@@ -760,7 +814,9 @@ async function handle(req, res) {
     if (/limit exceeded|KV (GET|PUT|DELETE)|quota|too many requests to storage|storage error 5/i.test(String(e.message))) {
       return send(res, 503, { error: 'The server\'s storage is at its daily limit, so codes cannot be saved right now. Try again later, or add the playlist directly with Xtream login / M3U link on the TV.' }, 'no-store');
     }
-    return send(res, e.status || 500, { error: e.message, detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace }, 'no-store');
+    // errors we raised ourselves (they carry a status) are shown as written; anything unexpected is shortened and stripped of addresses first
+    return send(res, e.status || 500, { error: e.status ? e.message : clean(e.message, 200) || 'Server error', detail: e.detail, retry: e.retry, skip: e.skip, trace: e.trace }, 'no-store');
   }
 }
 module.exports = (req, res) => turbo.scope(req.signal, () => handle(req, res), { noCache: !!(req.query && req.query.turbo === '0') });       // cancels this request's outgoing work when the client leaves
+module.exports.relayType = relayType;

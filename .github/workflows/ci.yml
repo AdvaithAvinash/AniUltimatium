@@ -1,0 +1,20 @@
+# Runs the tests and the Tizen 4 compatibility check on every push and pull request (they used to run only when a release was made).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Tests and Tizen 4 compatibility check
+        run: npm test

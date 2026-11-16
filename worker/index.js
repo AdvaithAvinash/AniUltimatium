@@ -1,5 +1,6 @@
 // Cloudflare Workers entry: serves the static app from ./public (ASSETS binding) and runs the same
 // /api handler that used to live on Vercel, via a small Node-style req/res shim.
+import { AsyncLocalStorage } from 'node:async_hooks';
 import avWorker from 'all-api/index.js';
 import handler from '../api/index.js';
 export { PairBox } from './pairbox.mjs';                    // Durable Object class used as storage (see wrangler.jsonc)
@@ -8,13 +9,14 @@ globalThis.__AV_WORKER = avWorker;                      // Anivexa aggregator (f
 
 // AniList refuses Cloudflare Workers (HTTP 403). The app sends the AniList record along with each request (?am=...)
 // and every in-process lookup of that media id (Anivexa's getMedia) is answered from it instead of the network.
+// The record is kept for that one request only (never shared between requests), and results worked out from it are cached under its hash (api/index.js amKey).
 const realFetch = globalThis.fetch.bind(globalThis);
-const AL_MEDIA = {};
+const reqMedia = new AsyncLocalStorage();
 globalThis.fetch = function (input, init) {
   try {
     const u = typeof input === 'string' ? input : (input && input.url) || '';
     if (/graphql\.anilist\.co/.test(u) && init && typeof init.body === 'string') {
-      const b = JSON.parse(init.body), m = b.variables && AL_MEDIA[b.variables.id];
+      const mine = reqMedia.getStore(), b = mine ? JSON.parse(init.body) : null, m = b && b.variables && String(b.variables.id) === String(mine.id) ? mine : null;
       if (m && /Media\(id/.test(b.query)) return Promise.resolve(new Response(JSON.stringify({ data: { Media: m } }), { headers: { 'content-type': 'application/json' } }));
     }
   } catch (e) { /* fall through to the real network */ }
@@ -59,10 +61,12 @@ async function runApi(request) {
   headers['x-forwarded-proto'] = 'https';
   let body;
   if (request.method === 'POST') { try { body = await request.json(); } catch (e) { body = {}; } }
-  if (url.searchParams.get('am')) { try { const m = JSON.parse(url.searchParams.get('am')); if (m && m.id) AL_MEDIA[m.id] = m; } catch (e) { /* ignore */ } }
+  let media = null;
+  const am = url.searchParams.get('am'), wantId = url.searchParams.get('id') || url.searchParams.get('anilist') || '';
+  if (am && am.length <= 20000) { try { const m = JSON.parse(am); if (m && typeof m === 'object' && /^\d{1,9}$/.test(String(m.id)) && String(m.id) === wantId) media = m; } catch (e) { /* ignore */ } }   // only the record of the title this request is about
   const req = { method: request.method, url: url.pathname + url.search, query: Object.fromEntries(url.searchParams), headers, body, signal: request.signal };
   const res = makeRes();
-  try { await handler(req, res); } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+  try { await reqMedia.run(media, () => handler(req, res)); } catch (e) { res.status(500).json({ error: 'Server error' }); }
   await res.whenDone;
   return res.toResponse();
 }

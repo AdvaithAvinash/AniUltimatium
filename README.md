@@ -201,6 +201,8 @@ Sources differ per title. Open the player menu, then **Source**, to try another;
 
 **Can I run it without Cloudflare?** Yes: `npm install && npm start` on a computer on your Wi-Fi, then enter its address in the TV app (Settings, Stream server). A home IP is the most reliable for streaming sites.
 
+**My IPTV provider or add-on is on my own network and the server refuses it.** The server only fetches public internet addresses, so that nobody can use it to reach devices on your network. If you run it at home and really want it to reach a private address (for example a tuner at `192.168.x.x`), start it with `ALLOW_PRIVATE_ADDONS=1 npm start`.
+
 ## Performance (measured)
 `tools/bench_sources.js` compares the old behaviour (`?turbo=0`) with TurboScrape **on the same live Cloudflare Worker, interleaved**, following the same retry loop the app uses.
 Time = until a usable (playlist-verified) stream is returned; 12 popular shows, 3 rounds, 36 samples per cell, run from a cloud server (absolute numbers depend on network and time of day):

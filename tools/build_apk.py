@@ -12,7 +12,10 @@ ver = json.load(open(os.path.join(root, 'package.json')))['version']            
 m = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$', ver)
 if not m: sys.exit('package.json version must look like 1.7.0 or 1.7.0-beta.1, got ' + ver)
 major, minor, patch, beta = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
-code = major * 10000 + minor * 100 + patch * 1 + (int(beta) if beta else 99)                    # betas sort before the stable release of the same number
+if minor > 99 or patch > 99 or (beta and int(beta) > 98): sys.exit('version parts must be below 100 (beta below 99), got ' + ver)
+# Each part has its own two digits, so no two versions can share a code: 1.10.2 -> 1100299, 1.11.0-beta.1 -> 1110001, 1.11.0 -> 1110099.
+# A beta sorts just below its own stable release and above every older release. (The earlier formula mixed patch and beta: 1.10.2 and 1.11.0-beta.1 were both 11101.)
+code = major * 1000000 + minor * 10000 + patch * 100 + (int(beta) if beta else 99)
 
 if os.path.isdir(assets): shutil.rmtree(assets)
 os.makedirs(assets)

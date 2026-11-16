@@ -25,6 +25,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4          # the Android build needs JDK 17+; the runner image already carries the Android SDK (ANDROID_HOME)
+        with:
+          distribution: temurin
+          java-version: 17
+
       - name: Tests and Tizen 4 compatibility check
         run: |
           node --test tests/*.test.js
@@ -37,15 +46,15 @@ jobs:
           head -1 public/main.js
 
       - name: Build Aniultimatium.apk (Android TV / Fire TV)
-        continue-on-error: true            # a Gradle or SDK hiccup must not block the Samsung release
-        run: |
+        run: |                             # a failed Android build stops the release: the README links to the .apk of the latest release, so it must be there
           python3 tools/build_apk.py
           ls -l Aniultimatium.apk
 
       - name: Release name
         id: meta
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}      # passed as a variable, never pasted into the script
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
           NAME="${TAG#stable-}"; NAME="${NAME#beta-}"; PRE=false
           case "$TAG" in stable-*) NAME="Aniultimatium Stable ${NAME}";; beta-*) NAME="Aniultimatium Beta ${NAME}"; PRE=true;; *) NAME="Aniultimatium ${NAME}";; esac
           echo "pre=$PRE" >> "$GITHUB_OUTPUT"
@@ -59,6 +68,7 @@ jobs:
           name: ${{ steps.meta.outputs.name }}
           draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
           prerelease: ${{ steps.meta.outputs.pre == 'true' }}
+          fail_on_unmatched_files: true
           files: |
             Aniultimatium.wgt
             Aniultimatium.apk

@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 
 // Version comes from package.json through tools/build_apk.py (-PappVersionName / -PappVersionCode)
 def vName = project.findProperty('appVersionName') ?: '1.7.0-beta.1'
-def vCode = (project.findProperty('appVersionCode') ?: '10701') as int
+def vCode = (project.findProperty('appVersionCode') ?: '1070001') as int
 
 android {
     namespace 'com.aniultimatium.tv'

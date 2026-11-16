@@ -26,24 +26,34 @@ http.createServer(async (req, res) => {
     res.send = b => { res.end(b); return res; };
     const ac = new AbortController(); req.signal = ac.signal;          // client left (app closed the player / changed episode): cancel the scraping work
     res.on('close', () => { if (!res.writableEnded) ac.abort(); });
-    try { await handler(req, res); } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })); }
+    try { await handler(req, res); } catch (e) { console.error('api error:', e && e.message); if (!res.headersSent) res.statusCode = 500; res.end(JSON.stringify({ error: 'Server error' })); }
     return;
   }
-  const file = path.join(PUBLIC, u.pathname === '/' ? 'index.html' : path.normalize(u.pathname).replace(/^(\.\.[/\\])+/, ''));
-  if (!file.startsWith(PUBLIC)) { res.statusCode = 403; return res.end(); }
-  fs.readFile(file, (err, data) => {
-    if (err) { res.statusCode = 404; return res.end('Not found'); }
+  // Static files: only what is inside ./public, sent as a stream (a large file is never read into memory whole)
+  let rel; try { rel = decodeURIComponent(u.pathname); } catch (e) { res.statusCode = 400; return res.end(); }
+  if (rel === '/') rel = '/index.html';
+  let file = path.join(PUBLIC, path.normalize(rel));
+  if (file !== PUBLIC && !file.startsWith(PUBLIC + path.sep)) { res.statusCode = 403; return res.end(); }
+  if (!path.extname(file) && fs.existsSync(file + '.html')) file += '.html';      // /about, /link, /add like the hosted site
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) { res.statusCode = 404; return res.end('Not found'); }
     res.setHeader('Content-Type', MIME[path.extname(file)] || 'application/octet-stream');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Accept-Ranges', 'bytes');
     const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
-    if (m) {                                            // Range support (video seeking)
-      const start = m[1] ? parseInt(m[1], 10) : 0, end = m[2] ? Math.min(parseInt(m[2], 10), data.length - 1) : data.length - 1;
+    let start = 0, end = st.size - 1;
+    if (m && (m[1] || m[2])) {                          // Range support (video seeking)
+      if (m[1]) { start = parseInt(m[1], 10); if (m[2]) end = Math.min(parseInt(m[2], 10), end); } else start = Math.max(0, st.size - parseInt(m[2], 10));
+      if (start > end || start >= st.size) { res.statusCode = 416; res.setHeader('Content-Range', `bytes */${st.size}`); return res.end(); }
       res.statusCode = 206;
-      res.setHeader('Content-Range', `bytes ${start}-${end}/${data.length}`);
-      res.setHeader('Content-Length', end - start + 1);
-      return res.end(data.subarray(start, end + 1));
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${st.size}`);
     }
-    res.end(data);
+    res.setHeader('Content-Length', end - start + 1);
+    if (req.method === 'HEAD' || st.size === 0) return res.end();
+    const stream = fs.createReadStream(file, { start, end });
+    stream.on('error', () => res.destroy());
+    res.on('close', () => stream.destroy());
+    stream.pipe(res);
   });
 }).listen(PORT, '0.0.0.0', () => {
   console.log('\nAniultimatium local server running\n');

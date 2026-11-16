@@ -29,6 +29,12 @@ export class PairBox {
       if (ttl) await this.schedule(ttl + 5000);
       return json(true);
     }
+    if (m.op === 'add') {                                         // set only when the key is free (one call = one step, so two sign-ups cannot both win)
+      if (await this.s.get(key)) return json(false);
+      if (JSON.stringify(m.value === undefined ? null : m.value).length > MAX_BYTES) return new Response('too large', { status: 413 });
+      await this.s.put(key, { v: m.value, x: 0 });
+      return json(true);
+    }
     if (m.op === 'del') { await this.s.delete('t:' + key); await this.s.delete(key); return json(true); }
     return new Response('unknown op', { status: 400 });
   }
