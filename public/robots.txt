@@ -46,4 +46,4 @@ User-agent: Google-Extended
 Allow: /
 Disallow: /api
 
-Sitemap: https://aniultimatium.advaithavinash404.workers.dev/sitemap.xml
+Sitemap: https://aniultimatium.animeforalyssa.workers.dev/sitemap.xml

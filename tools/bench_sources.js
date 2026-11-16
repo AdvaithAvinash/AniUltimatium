@@ -4,7 +4,7 @@
 // Compares the old behaviour (?turbo=0) with TurboScrape on the same deployment, interleaved.
 // Scenarios: cold (fresh episode), warm (same request again), animex-down (skip=animex), two-down (skip=animex,anikoto).
 // "down" scenarios simulate a failing primary source with ?skip=, exactly what the app sends after a source fails to play.
-const BASE = (process.argv[2] || 'https://aniultimatium.advaithavinash404.workers.dev').replace(/\/+$/, '');
+const BASE = (process.argv[2] || 'https://aniultimatium.animeforalyssa.workers.dev').replace(/\/+$/, '');
 const SHOWS = parseInt(process.argv[3] || '12', 10), REPS = parseInt(process.argv[4] || '2', 10);
 const F = 'id idMal title{english romaji native} status format episodes seasonYear startDate{year month day} genres synonyms nextAiringEpisode{episode airingAt timeUntilAiring}';
 const pct = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : NaN; };

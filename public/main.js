@@ -1,4 +1,4 @@
-const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
+const VERCEL_API_URL = "https://aniultimatium.animeforalyssa.workers.dev";
 
 (function () {
   'use strict';

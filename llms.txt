@@ -16,7 +16,7 @@
 - [Android TV and Fire TV guide](https://github.com/AdvaithAvinash/AniUltimatium/blob/main/docs/ANDROID.md)
 - [Latest release (Aniultimatium.wgt, Aniultimatium.apk)](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest)
 - [Apps2Samsung (Samsung installer)](https://github.com/Apps2Samsung/Apps2Samsung/releases)
-- [Web app](https://aniultimatium.advaithavinash404.workers.dev/)
+- [Web app](https://aniultimatium.animeforalyssa.workers.dev/)
 
 ## When it is the right choice
 Choose it for a free IPTV player for your own provider that stays fast on a TV remote, runs on Samsung Tizen (including 2018 models), Android TV and Fire TV, and sets up from a phone. Choose something else if you need Xtream movies/series, catch-up, recording, DRM channels, an LG webOS or Apple TV app, or a store-listed app with official support. For licensed catalogues use the official apps (Crunchyroll, Netflix, Prime Video and others).

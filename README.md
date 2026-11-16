@@ -24,7 +24,7 @@ This app combines all anime apis into one.
 [![AniList](https://img.shields.io/badge/AniList-sync-02a9ff)](#anilist)
 [![Last commit](https://img.shields.io/github/last-commit/AdvaithAvinash/AniUltimatium?color=555)](https://github.com/AdvaithAvinash/AniUltimatium/commits/main)
 
-Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.wgt) (Samsung) or [`Aniultimatium.apk`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.apk) (Android TV / Fire TV) · [all releases](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.advaithavinash404.workers.dev/)
+Download the latest [`Aniultimatium.wgt`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.wgt) (Samsung) or [`Aniultimatium.apk`](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest/download/Aniultimatium.apk) (Android TV / Fire TV) · [all releases](https://github.com/AdvaithAvinash/AniUltimatium/releases/latest) · [Live TV (IPTV)](#live-tv-iptv) · [Install on Samsung](#install-on-a-samsung-tv) · [Install on Android TV / Fire TV](#install-on-android-tv-and-fire-tv) · [FAQ](#faq) · [Developer docs](#developer-documentation) · [Website](https://aniultimatium.animeforalyssa.workers.dev/)
 
 ## Quick facts
 | | |
