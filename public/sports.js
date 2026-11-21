@@ -7,6 +7,7 @@
 (function (root) {
   'use strict';
   var M = root.Matchora || (typeof require === 'function' ? require('./matchora.js') : null);
+  var SP = root.SportProviders || (typeof require === 'function' ? require('./providers.js') : null);
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // ====================================================================== pure helpers (tested)
@@ -18,7 +19,7 @@
   function hueOf(name) { var h = 7, s = String(name || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
   // A crest: the initials are always drawn; Matchora's image (only from its own image proxy) sits on top and simply disappears if it cannot load.
   function badgeHtml(url, name, cls) {
-    var src = M.safeBadge(url), bg = 'background:hsl(' + hueOf(name) + ',42%,30%)';
+    var src = SP.safeImg(url), bg = 'background:hsl(' + hueOf(name) + ',42%,30%)';
     return '<span class="sp-bd ' + (cls || '') + '" style="' + bg + '"><b>' + esc(initials(name)) + '</b>' + (src ? '<img src="' + esc(src) + '" alt="" data-bd="1">' : '') + '</span>';
   }
   function num(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
@@ -35,7 +36,7 @@
       : '<div class="sp-solo">' + badgeHtml(ev.badges.league, ev.league || ev.home, 'big') + '<span class="sp-tn">' + esc(ev.home || ev.away) + '</span></div>';
     return '<div class="sp-top">' + pill + (ev.watching ? '<span class="sp-view">' + num(ev.watching) + ' watching</span>' : '') + '</div>'
       + '<div class="sp-teams">' + teams + '</div>'
-      + '<div class="sp-foot"><span class="sp-lg">' + esc(ev.league || ev.sport) + '</span>' + (feeds ? '<span class="sp-ch on">' + feeds + (feeds === 1 ? ' channel' : ' channels') + '</span>' : '<span class="sp-ch">No channels yet</span>') + '</div>';
+      + '<div class="sp-foot"><span class="sp-lg">' + esc(ev.league || ev.sport) + '</span>' + (feeds ? '<span class="sp-ch on">' + feeds + (feeds === 1 ? ' channel' : ' channels') + '</span>' : ev.lazy ? '<span class="sp-ch on">Streams available</span>' : '<span class="sp-ch">No channels yet</span>') + '</div>';
   }
   // Saved choices (the sport filter survives restarts; a sport that is not on today's list simply does not apply, it is not forgotten).
   function createPrefs(store) {
@@ -47,19 +48,31 @@
       liveOnly: function () { return get('ea_sp_live', true) !== false; },
       setLiveOnly: function (b) { set('ea_sp_live', !!b); },
       withChannels: function () { return get('ea_sp_ch', true) !== false; },
-      setWithChannels: function (b) { set('ea_sp_ch', !!b); }
+      setWithChannels: function (b) { set('ea_sp_ch', !!b); },
+      src: function () { var v = get('ea_sp_src', 'matchora'); return SP.ORDER.indexOf(v) >= 0 ? v : 'matchora'; },
+      setSrc: function (v) { if (SP.ORDER.indexOf(v) >= 0) set('ea_sp_src', v); }
     };
   }
-  var pure = { initials: initials, hueOf: hueOf, badgeHtml: badgeHtml, cardHtml: cardHtml, createPrefs: createPrefs, esc: esc };
+  // Which frame restrictions an embed gets. Matchora's own player refuses to run in a sandboxed frame (checked), so only its validated hosts go without; every other source's player
+  // is sandboxed (no pop-ups, no top-level redirects) unless the viewer turned pop-up blocking off in Settings.
+  var SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-presentation';
+  function frameRules(url, popBlock) { var mt = !!M.safeEmbed(url); return { sandbox: mt || popBlock === false ? '' : SANDBOX, referrer: mt ? 'origin' : 'no-referrer' }; }
+  // The address a feed may be opened with, or null: Matchora feeds on Matchora hosts, other sources' feeds as https on a real host (EmbedSportex only on its own domain).
+  function embedFor(ev, url) { return ev && ev.src ? SP.safeHttps(url, ev.src === 'ex' ? SP.ES_HOST : null) : M.safeEmbed(url); }
+  var pure = { frameRules: frameRules, embedFor: embedFor, SANDBOX: SANDBOX, initials: initials, hueOf: hueOf, badgeHtml: badgeHtml, cardHtml: cardHtml, createPrefs: createPrefs, esc: esc };
   if (typeof module === 'object' && module.exports) module.exports = pure;
   var EA = root.EA;
   if (!EA || !root.document || !M) return;
 
   // ====================================================================== the tab
   var $ = EA.$, el = EA.el, KEY = EA.KEY, state = EA.state, store = EA.store, toast = EA.toast, setFocus = EA.setFocus;
-  var prefs = createPrefs(store), client = M.createClient(), PAGE = 48;
+  var prefs = createPrefs(store), client = M.createClient(), prov = SP.create({ apiBase: EA.apiBase, matchora: client }), badges = SP.createBadges({ store: store }), PAGE = 48, PEN = {};
   var S = { liveList: [], list: [], days: [], dayIdx: 0, seq: 0, at: 0, error: null, loading: false, shown: PAGE, built: false, ev: null, feeds: [], fi: 0, cands: null, busy: false, retFocus: null, lastRefresh: 0 };
-  var barTimer = null, loadTimer = null, tick = null;
+  var barTimer = null, loadTimer = null, tick = null, repaintT = null;
+  function P() { return prov[prefs.src()]; }
+  function provOf(ev) { return ev.src === 'ss' ? prov.sportsrc : ev.src === 'sc' ? prov.streamcenter : ev.src === 'ex' ? prov.embedsportex : prov.matchora; }
+  function repaintSoon() { clearTimeout(repaintT); repaintT = setTimeout(function () { if (active()) paint(); }, 500); }
+  function popBlock() { return store.get('ea_popblock', true) !== false; }
 
   function clock12() { var s = store.get('ea_live_set', {}); return !!(s && s.clock12); }
   function active() { return state.tab === 'sports' && state.view === 'sports' && !root.document.hidden; }
@@ -72,14 +85,14 @@
   function refresh(force) {
     var seq = ++S.seq, liveOnly = prefs.liveOnly(), day = days()[S.dayIdx] || days()[0];
     S.loading = true; S.lastRefresh = Date.now(); paintStatus();
-    var pLive = client.live({ force: force }), pMain = liveOnly ? pLive : client.day(day, { force: force });
+    var pr = P(), pLive = pr.live({ force: force }), pMain = liveOnly ? pLive : pr.day(day, { force: force });
     return Promise.all([pMain, pLive.then(function (r) { return r; }, function () { return null; })]).then(function (rs) {
       if (seq !== S.seq) return;
       var main = rs[0], live = rs[1];
       S.liveList = live ? live.data.events : S.liveList;
       S.list = liveOnly ? main.data.events : M.mergeLive(main.data.events, live ? live.data.events.filter(function (e) { return M.inDay(e, day); }) : []);
       S.at = main.at; S.error = main.error || null; S.loading = false; S.first = false;
-      paint();
+      paint(); badges.fill(visible().slice(0, 24), repaintSoon);
     }, function (e) {
       if (seq !== S.seq) return;
       S.loading = false; S.error = e; S.first = false; if (!S.list.length) S.list = []; paint();
@@ -102,9 +115,12 @@
     var sports = M.sportsOf(S.list), cur = M.effectiveSport(prefs.sport(), sports), liveOnly = prefs.liveOnly(), now = Date.now();
     var head = $('spHead'); head.innerHTML = '';
     var liveN = S.liveList.length;
-    head.appendChild(mk('div', 'sp-title', '<h2>Live Sports</h2><p>' + (liveN ? '<b class="sp-dot"></b>' + liveN + ' live now' : 'Nothing live right now') + ' · powered by Matchora</p>'));
+    head.appendChild(mk('div', 'sp-title', '<h2>Live Sports</h2><p>' + (liveN ? '<b class="sp-dot"></b>' + liveN + ' live now' : 'Nothing live right now') + ' · source: ' + esc(P().name) + '</p>'));
     var right = mk('div', 'sp-right', ''); right.appendChild(mk('span', 'sp-stat', '', null)); right.lastChild.id = 'spStatus';
     right.appendChild(mk('button', 'btn sm focusable', '↻ Refresh', { a: 'refresh' })); head.appendChild(right);
+    var sb = $('spSrc'); sb.innerHTML = '<span class="sp-srclabel">Source</span>';
+    SP.ORDER.forEach(function (id) { sb.appendChild(chip(esc(prov[id].name), { a: 'src', v: id }, prefs.src() === id, 'sp-srcchip')); });
+    sb.appendChild(mk('span', 'sp-note', esc(P().note), null));
     var bar = $('spSports'); bar.innerHTML = '';
     bar.appendChild(chip('All Sports', { a: 'sport', v: 'all' }, cur === 'all'));
     sports.forEach(function (s) { bar.appendChild(chip(esc(s.name) + ' <i>' + s.n + '</i>', { a: 'sport', v: s.name }, cur === s.name)); });
@@ -118,8 +134,9 @@
     var list = visible();
     if (S.loading && !S.list.length && !S.error) { skeleton(body); }
     else if (S.error && !S.list.length) {
-      body.appendChild(mk('div', 'sp-empty', '<h3>' + (S.error.kind === 'rate' ? 'Matchora is busy' : 'Matchora could not be reached') + '</h3><p>' + esc(S.error.message || 'Something went wrong.') + '</p>'));
+      body.appendChild(mk('div', 'sp-empty', '<h3>' + (S.error.kind === 'rate' ? esc(P().name) + ' is busy' : esc(P().name) + ' could not be reached') + '</h3><p>' + esc(S.error.message || 'Something went wrong.') + '</p>'));
       body.lastChild.appendChild(mk('button', 'btn primary focusable', 'Try again', { a: 'refresh' }));
+      SP.ORDER.forEach(function (id) { if (id !== prefs.src()) body.lastChild.appendChild(mk('button', 'btn focusable sp-alt', 'Use ' + esc(prov[id].name), { a: 'src', v: id })); });
     } else if (!list.length) {
       var msg, btn;
       if (liveOnly && !S.list.length) { msg = '<h3>Nothing is live right now</h3><p>Matches appear here as soon as they start. This list refreshes by itself every minute.</p>'; btn = mk('button', 'btn primary focusable', 'Show today’s schedule', { a: 'day', v: 0 }); }
@@ -156,7 +173,7 @@
   }
   function build() {
     if (S.built) return; S.built = true;
-    var v = $('viewSports'); v.innerHTML = '<div id="spHead"></div><div id="spSports" class="sp-bar"></div><div id="spDays" class="sp-bar sp-days"></div><div id="spBody"></div><div id="spHint">OK open · Red ↻ refresh · Back to home</div>';
+    var v = $('viewSports'); v.innerHTML = '<div id="spHead"></div><div id="spSrc" class="sp-bar"></div><div id="spSports" class="sp-bar"></div><div id="spDays" class="sp-bar sp-days"></div><div id="spBody"></div><div id="spHint">OK open · Red ↻ refresh · Green Live Now · Yellow next source · Blue channels filter · Back to home</div>';
     tick = setInterval(onTick, 60000);
   }
   function show(focusContent) {
@@ -178,33 +195,43 @@
     S.retFocus = state.focusEl; S.ev = ev; S.cands = null; state.sportsPlay = null;
     state.view = 'sportssheet'; paintSheet();
     sheetEl().className = ''; var f = sheetEl().querySelector('.focusable'); if (f) setFocus(f, true);
-    client.event(ev.id).then(function (r) {                                                         // fresh channels and dead flags for this one match
-      if (S.ev !== ev || state.view !== 'sportssheet') return;
-      S.ev = r.data; paintSheet(true);
+    loadStreams(ev);
+  }
+  function loadStreams(ev, force) {                                                                  // fresh channels (and dead flags) for this one match; lazy sources only list streams now
+    if (ev.src === 'ex') return;
+    S.loadingStreams = !!ev.lazy; if (ev.lazy) paintSheet(true);
+    provOf(ev).event(ev, { force: force }).then(function (r) {
+      if (S.ev !== ev && S.ev && S.ev.id !== ev.id || state.view !== 'sportssheet') return;
+      S.loadingStreams = false; S.streamError = ''; S.ev = r.data; paintSheet(true);
     }, function (e) {
-      if (S.ev !== ev || state.view !== 'sportssheet') return;
-      if (e.kind === 'unknown') { paintSheet(false, 'This match is no longer listed. Refreshing the list…'); S.at = 0; refresh(true); }
+      if (!S.ev || S.ev.id !== ev.id || state.view !== 'sportssheet') return;
+      S.loadingStreams = false;
+      if (e.kind === 'unknown') { S.streamError = ''; paintSheet(false, 'This match is no longer listed. Refreshing the list…'); S.at = 0; refresh(true); }
+      else if (ev.lazy) { S.streamError = e.message || 'The streams could not be loaded.'; paintSheet(true); }
     });
   }
   function paintSheet(keepFocus, notice) {
     var ev = S.ev, box = $('spSheetBox'); if (!ev) return;
     var prevKey = keepFocus && state.focusEl && state.focusEl.__spkey || '';
-    S.feeds = M.feedsOf(ev, client.penalties());
+    S.feeds = M.feedsOf(ev, PEN, Date.now());
     var st = M.statusInfo(ev, Date.now(), clock12()), sc = ev.score && ev.score.h != null ? ev.score.h + ' – ' + ev.score.a : ev.score ? ev.score.raw : '';
     box.innerHTML = '';
     box.appendChild(mk('div', 'sp-sh-head', '<div class="sp-sh-l">' + (ev.home && ev.away ? badgeHtml(ev.badges.home, ev.home, 'big') : badgeHtml(ev.badges.league, ev.league || ev.home, 'big')) + '<b>' + esc(ev.home) + '</b></div>'
       + '<div class="sp-sh-m"><span class="sp-pill ' + st.kind + '">' + (st.kind === 'live' ? '<i></i>LIVE' + (st.text ? ' <em>' + esc(st.text) + '</em>' : '') : esc(st.label)) + '</span><strong>' + esc(sc || (ev.kickoff ? M.fmtClock(ev.kickoff, clock12()) : '')) + '</strong><small>' + esc(ev.league) + (ev.kickoff ? ' · ' + (new Date(ev.kickoff * 1000)).toLocaleDateString() : '') + '</small></div>'
       + (ev.away ? '<div class="sp-sh-r"><b>' + esc(ev.away) + '</b>' + badgeHtml(ev.badges.away, ev.away, 'big') + '</div>' : '')));
     if (notice) box.appendChild(mk('p', 'sp-sh-note', esc(notice)));
-    box.appendChild(mk('h4', '', 'Watch in the Matchora player'));
+    box.appendChild(mk('h4', '', ev.src ? 'Watch · ' + esc(provOf(ev).name) : 'Watch in the Matchora player'));
     if (S.feeds.length) {
       if (ev.embed) box.appendChild(mk('button', 'sp-row focusable best', '<span class="sp-rn">Matchora player · all channels</span><span class="sp-rt">Pick the channel inside the player</span><span class="sp-rw">▶ Play</span>', { a: 'match' }));
       S.feeds.slice(0, 14).forEach(function (f, i) { box.appendChild(feedRow(f, i, ev)); });
       if (S.feeds.length > 14) box.appendChild(mk('p', 'sp-sh-note', (S.feeds.length - 14) + ' more channels are listed inside the Matchora player.'));
-    } else box.appendChild(mk('p', 'sp-sh-note', ev.live ? 'No channel is available for this match right now. Try your add-ons below, or check back in a few minutes.' : 'No channels yet — they usually appear shortly before kick-off.'));
-    box.appendChild(mk('h4', '', 'Find it in your add-ons'));
+    } else if (S.loadingStreams) box.appendChild(mk('p', 'sp-sh-note', 'Looking for streams…'));
+    else if (S.streamError) { box.appendChild(mk('p', 'sp-sh-note', esc(S.streamError))); box.appendChild(mk('button', 'sp-row focusable', '<span class="sp-rn">Try again</span>', { a: 'reload' })); }
+    else box.appendChild(mk('p', 'sp-sh-note', ev.live ? 'No channel is available for this match right now. Try another source (back to the list, Source), or your add-ons below.' : 'No channels yet — they usually appear shortly before kick-off.'));
     var ad = EA.addons ? EA.addons() : { n: 0 };
-    if (!ad.n) box.appendChild(mk('p', 'sp-sh-note', 'Add a Stremio or Nuvio add-on that offers live TV (Settings → Extra sources → Add-ons) to look for this match in your own channels.'));
+    if (!ev.src) box.appendChild(mk('h4', '', 'Find it in your add-ons'));      // the other sources' feeds are server labels, not TV channel names: nothing to look up in add-ons
+    if (ev.src) { /* no add-on search for these */ }
+    else if (!ad.n) box.appendChild(mk('p', 'sp-sh-note', 'Add a Stremio or Nuvio add-on that offers live TV (Settings → Extra sources → Add-ons) to look for this match in your own channels.'));
     else if (!S.feeds.length && !M.channelTerms(ev, 1).length) box.appendChild(mk('p', 'sp-sh-note', 'No channel names are known for this match yet, so there is nothing to look for.'));
     else {
       box.appendChild(mk('button', 'sp-row focusable', '<span class="sp-rn">' + (S.busy ? 'Searching your add-ons…' : S.cands ? 'Search again' : 'Search your ' + ad.n + ' add-on' + (ad.n === 1 ? '' : 's')) + '</span><span class="sp-rt">Looks for the same channels as above</span><span class="sp-rw">⌕</span>', { a: 'find' }));
@@ -254,20 +281,22 @@
   function embedFrame() { return $('spFrame'); }
   function playFeed(i) {
     var f = S.feeds[i], ev = S.ev; if (!f && i !== -1) return;
-    var url = i === -1 ? M.safeEmbed(ev.embed) : M.safeEmbed(f.embed);                              // checked again right before it is used
-    if (!url) { toast('That player address is not on a trusted Matchora host, so it was not opened'); return; }
+    var url = i === -1 ? M.safeEmbed(ev.embed) : embedFor(ev, f.embed);                             // checked again right before it is used
+    if (!url) { toast('That player address was not accepted (' + (ev.src ? 'not a safe https address' : 'not on a trusted Matchora host') + '), so it was not opened'); return; }
     S.fi = i; var fr = embedFrame();
     $('spPlayer').className = ''; state.view = 'sportsplay';
-    // Matchora's player refuses to run in a sandboxed frame (checked: it shows "does not play inside a sandboxed iframe"), so these frames - and only these, on a host that safeEmbed() has
-    // just validated - get no sandbox. The Android app still refuses pop-ups and top-level redirects (MainActivity); a browser's own pop-up blocker applies on the web.
-    fr.removeAttribute('sandbox');
-    fr.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');                // permissions are granted to the validated Matchora address only
-    $('spLoad').className = 'sp-load'; $('spLoadTxt').textContent = 'Opening ' + (i === -1 ? 'the Matchora player' : f.name) + '…';
+    // Matchora's player refuses to run in a sandboxed frame (checked), so only its validated hosts go without; other sources' players are sandboxed (no pop-ups, no top-level redirects).
+    // The Android app also refuses pop-ups and redirects (MainActivity). The sandbox attribute is set before the address.
+    var rules = frameRules(url, popBlock());
+    if (rules.sandbox) fr.setAttribute('sandbox', rules.sandbox); else fr.removeAttribute('sandbox');
+    fr.setAttribute('referrerpolicy', rules.referrer);
+    fr.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');                // permissions are granted to the validated address only
+    $('spLoad').className = 'sp-load'; $('spLoadTxt').textContent = 'Opening ' + (i === -1 ? 'the player' : f.name) + '…';
     fr.onload = function () { clearTimeout(loadTimer); $('spLoad').className = 'sp-load hidden'; };
     clearTimeout(loadTimer);
     loadTimer = setTimeout(function () {
       if (state.view !== 'sportsplay') return;
-      if (i !== -1 && f) client.penalize(f.id);                                                      // only moves it down this list for a few minutes
+      if (i !== -1 && f) PEN[f.id] = Date.now() + M.PENALTY_MS;                                                      // only moves it down this list for a few minutes
       $('spLoadTxt').textContent = 'This channel is slow to open. Press ◄ ► for another channel.'; showBar();
     }, 25000);
     fr.src = url;
@@ -276,7 +305,7 @@
   function paintBar() {
     var ev = S.ev, f = S.fi === -1 ? null : S.feeds[S.fi]; if (!ev) return;
     $('spTitle').textContent = (ev.away ? ev.home + ' v ' + ev.away : ev.home);
-    $('spChan').textContent = S.fi === -1 ? 'Matchora player · all channels' : f ? f.name + (f.country ? ' ' + f.country : '') + (f.quality ? ' · ' + f.quality : '') + '  (' + (S.fi + 1) + '/' + S.feeds.length + ')' : '';
+    $('spChan').textContent = S.fi === -1 ? 'All channels' : f ? f.name + (f.country ? ' ' + f.country : '') + (f.quality ? ' · ' + f.quality : '') + '  (' + (S.fi + 1) + '/' + S.feeds.length + ')' : '';
   }
   function showBar() { $('spBar').className = 'sp-bar-on'; clearTimeout(barTimer); barTimer = setTimeout(function () { $('spBar').className = ''; }, 7000); }
   function step(d) {
@@ -304,6 +333,8 @@
       case 'feed': playFeed(d.v); break;
       case 'match': playFeed(-1); break;
       case 'find': findInAddons(); break;
+      case 'reload': S.streamError = ''; loadStreams(S.ev, true); break;
+      case 'src': if (prefs.src() === d.v) break; prefs.setSrc(d.v); S.list = []; S.liveList = []; S.at = 0; S.error = null; S.shown = PAGE; S.loading = true; paint(); refresh(false); break;
       case 'cand': playCand(S.cands && S.cands.matches[d.v]); break;
       case 'close': closeSheet(); break;
       case 'barback': exitPlayer(); break;
@@ -318,12 +349,17 @@
   }
   function onKey(e) {
     var k = e.keyCode, v = state.view;
-    if (v === 'sports' && state.tab === 'sports') { if (k === 403) { e.preventDefault(); activate({ __sports: { a: 'refresh' } }); return true; } return false; }
+    if (v === 'sports' && state.tab === 'sports') {                                                  // colour keys: Red refresh, Green Live Now, Yellow next source, Blue channels filter
+      var act = k === 403 ? { a: 'refresh' } : k === 404 ? { a: 'live' } : k === 405 ? { a: 'src', v: SP.ORDER[(SP.ORDER.indexOf(prefs.src()) + 1) % SP.ORDER.length] } : k === 406 ? { a: 'ch' } : null;
+      if (act) { e.preventDefault(); activate({ __sports: act }); return true; }
+      return false;
+    }
     if (v === 'sportsplay') {
       e.preventDefault();
       if (EA.isBackKey(k) || k === KEY.STOP) { state.lastBack = Date.now(); exitPlayer(); }
-      else if (k === KEY.LEFT || k === KEY.RW) { step(-1); }
-      else if (k === KEY.RIGHT || k === KEY.FF) { step(1); }
+      else if (k === KEY.LEFT || k === KEY.RW || k === 428) { step(-1); }                           // Left / rewind / channel down: previous channel
+      else if (k === KEY.RIGHT || k === KEY.FF || k === 427) { step(1); }                           // Right / fast-forward / channel up: next channel
+      else if (k === 403 || k === 457) { showBar(); }                                               // Red / Info: show the bar
       else if (k === KEY.ENTER) { try { embedFrame().focus(); } catch (er) { /* ignore */ } toast('Player selected — press Back to leave'); showBar(); }
       else showBar();
       return true;

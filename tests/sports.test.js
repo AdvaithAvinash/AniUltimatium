@@ -64,7 +64,7 @@ test('wiring: tab, view, sheet and player exist; scripts load after main.js; Bac
   const html = read('public/index.html'), main = read('public/main.js'), start = read('public/start.js');
   assert.match(html, /data-tab="sports"/); assert.match(html, /<main id="viewSports" class="view hidden">/);
   assert.match(html, /<iframe id="spFrame"[^>]*referrerpolicy="origin"[^>]*allowfullscreen/); assert.ok(!/<iframe id="spFrame"[^>]*src=/.test(html), 'no address until the player opens');
-  assert.match(start, /'live\.js', 'matchora\.js', 'sports\.js'\]/);
+  assert.match(start, /'live\.js', 'matchora\.js', 'providers\.js', 'sports\.js'\]/);
   assert.match(main, /sports: 'viewSports'/); assert.match(main, /sports: 'sports'/); assert.match(main, /if \(t === 'sports' && EA\.sports\) EA\.sports\.show\(focusContent\)/);
   assert.match(main, /\['sports', 'ea_c_sports'\]/); assert.match(main, /\['ea_c_sports', 'Live Sports', true, SHOWN, applyCats\]/);
   assert.match(main, /if \(tab === 'sports'\) return !ED_LITE/);
@@ -72,17 +72,17 @@ test('wiring: tab, view, sheet and player exist; scripts load after main.js; Bac
   assert.match(main, /if \(EA\.sports && EA\.sports\.key\(e\)\) return;/); assert.match(main, /if \(e\.__sports && EA\.sports\)/);
   assert.match(main, /if \(state\.sportsPlay && state\.anime && state\.anime\.sports && EA\.sports\) \{ EA\.sports\.afterPlayer\(\); return; \}/, 'add-on channel: Back from the normal player returns to the match, and only for a sports title');
   assert.match(main, /directSrc\(a\.direct, a\.directRef\)/);
-  assert.match(read('tools/check_compat.py'), /'matchora\.js', 'sports\.js'/);
+  assert.match(read('tools/check_compat.py'), /'matchora\.js', 'providers\.js', 'sports\.js'/);
   assert.ok(!/matchora/i.test(read('public/lite.html')), 'Lite (no hosted players) has no Matchora');
 });
 
 test('player safety in the module: the embed address is validated again before use; frames get permissions only for it; no sandbox is claimed', () => {
   const s = read('public/sports.js');
-  assert.match(s, /M\.safeEmbed\(f\.embed\)/); assert.match(s, /not on a trusted Matchora host/);
-  assert.match(s, /fr\.removeAttribute\('sandbox'\)/); assert.match(s, /autoplay; fullscreen; encrypted-media; picture-in-picture/);
+  assert.match(s, /embedFor\(ev, f\.embed\)/); assert.match(s, /not on a trusted Matchora host/);
+  assert.match(s, /fr\.removeAttribute\('sandbox'\)/); assert.match(s, /fr\.setAttribute\('sandbox', rules\.sandbox\)/); assert.match(s, /autoplay; fullscreen; encrypted-media; picture-in-picture/);
   assert.ok(!/\.src = [^;]*(http|\+)/.test(s.replace(/fr\.src = url;/, '').replace(/'about:blank'/g, '')), 'the frame only ever gets the validated address or about:blank');
   assert.match(s, /exitPlayer[\s\S]*fr\.src = 'about:blank'/, 'leaving stops the stream');
-  assert.match(s, /client\.penalize\(f\.id\)/); assert.ok(!/localStorage|store\.set\([^)]*penal|ea_sp_dead/i.test(s), 'a failed channel is never stored as dead');
+  assert.match(s, /PEN\[f\.id\] = Date\.now\(\) \+ M\.PENALTY_MS/); assert.ok(!/localStorage|store\.set\([^)]*penal|ea_sp_dead/i.test(s), 'a failed channel is never stored as dead');
   assert.ok(!/matchora\.to/.test(s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')));
   assert.ok(!/=>|`|\blet |\bconst |AbortController/.test(s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/'(?:\\.|[^'\\\n])*'/g, "''")), 'ES5 only');
 });

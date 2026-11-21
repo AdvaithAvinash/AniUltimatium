@@ -123,7 +123,7 @@
   var LIVE_TEXT = { HT: 'HT', ET: 'ET', BT: 'Break', Q1: 'Q1', Q2: 'Q2', Q3: 'Q3', Q4: 'Q4', OT: 'OT', P1: 'P1', P2: 'P2', P3: 'P3', PEN: 'PEN', SO: 'SO', INT: 'INT' };
   // What the card shows in its status corner.
   function statusInfo(ev, nowMs, clock12) {
-    if (ev.live) return { kind: 'live', text: ev.minute ? ev.minute + "'" : (LIVE_TEXT[ev.status] || ''), label: 'LIVE' };
+    if (ev.live) return { kind: 'live', text: ev.minute ? ev.minute + "'" : (LIVE_TEXT[ev.status] || ev.note || ''), label: 'LIVE' };
     if (ev.cancelled) return { kind: 'cancelled', text: '', label: ev.status === 'PST' ? 'POSTPONED' : 'CANCELLED' };
     if (ev.finished) return { kind: 'finished', text: '', label: ev.status === 'AP' ? 'AP' : 'FT' };
     if (!ev.kickoff) return { kind: 'unknown', text: '', label: 'TBA' };
@@ -182,6 +182,7 @@
     return out;
   }
   function withPenalty(c, penalties, nowMs) { var o = {}; for (var k in c) if (c.hasOwnProperty(k)) o[k] = c[k]; o.penalized = (penalties[c.id] || 0) > nowMs; return o; }
+  function hasFeeds(ev) { return !!ev.lazy || feedsOf(ev).length > 0; }                          // a source that lists channels only when a match is opened (lazy) counts as having them
   function channelTerms(ev, max) {                                                                // distinct channel names to look for in the viewer's add-ons
     var feeds = feedsOf(ev), seen = {}, out = [];
     for (var i = 0; i < feeds.length && out.length < (max || 6); i++) { var n = normName(feeds[i].name); if (n && !seen[n]) { seen[n] = 1; out.push(feeds[i].name); } }
@@ -205,7 +206,7 @@
       var e = events[i];
       if (f.sport && f.sport !== 'all' && e.sport !== f.sport) continue;
       if (f.live && !e.live) continue;
-      if (f.withChannels && !feedsOf(e).length) continue;
+      if (f.withChannels && !hasFeeds(e)) continue;
       out.push(e);
     }
     return out;
@@ -231,12 +232,12 @@
   }
 
   // ---------------------------------------------------------------- client: caching, retries, back-off
-  function createClient(opts) {
+  function createFetcher(opts) {
     opts = opts || {};
     var fetchFn = opts.fetch || (typeof fetch === 'function' ? function (u, i) { return fetch(u, i); } : null);
-    var nowFn = opts.now || function () { return Date.now(); }, base = opts.base || BASE, timeout = opts.timeout || TIMEOUT, retryMs = opts.retryDelay != null ? opts.retryDelay : RETRY_MS;
+    var nowFn = opts.now || function () { return Date.now(); }, timeout = opts.timeout || TIMEOUT, retryMs = opts.retryDelay != null ? opts.retryDelay : RETRY_MS;
     var wait = opts.wait || function (ms) { return new Promise(function (res) { setTimeout(res, ms); }); };
-    var cache = {}, inflight = {}, blockedUntil = 0, penalties = {}, stats = { requests: 0 };
+    var cache = {}, inflight = {}, blockedUntil = 0, stats = { requests: 0 };
 
     function raceTimeout(p) {
       return new Promise(function (resolve, reject) {
@@ -244,29 +245,30 @@
         p.then(function (v) { clearTimeout(t); resolve(v); }, function (e) { clearTimeout(t); reject(e); });
       });
     }
-    function once(path) {
+    function once(url) {
       stats.requests++;
-      return raceTimeout(Promise.resolve().then(function () { return fetchFn(base + path, { headers: { Accept: 'application/json' } }); })).then(function (r) {
+      return raceTimeout(Promise.resolve().then(function () { return fetchFn(url, { headers: opts.headers || { Accept: 'application/json' } }); })).then(function (r) {
         return r.text().then(function (text) { return { status: r.status, ok: r.ok, text: text, retryAfter: r.headers && r.headers.get ? r.headers.get('Retry-After') : null }; }, function () { return { status: r.status, ok: r.ok, text: '', retryAfter: null }; });
       }, function (e) { if (e && e.kind) throw e; throw MatchoraError('offline', MESSAGES.offline); });
     }
-    function load(path, validate) {
+    function load(url, validate) {
       function attempt(n) {
-        return once(path).then(function (r) {
+        return once(url).then(function (r) {
           if (r.status === 429) { var ra = parseFloat(r.retryAfter), ms = isFinite(ra) && ra > 0 ? ra * 1000 : BACKOFF_DEFAULT; blockedUntil = nowFn() + Math.min(ms, BACKOFF_MAX); throw MatchoraError('rate', MESSAGES.rate, { retryAt: blockedUntil }); }
           if (/unknown (fixture|event)/i.test(r.text) || r.status === 404) throw MatchoraError('unknown', MESSAGES.unknown);
           if (r.status === 502 || r.status === 503 || r.status === 504) {
             if (n < 1) return wait(retryMs).then(function () { return attempt(n + 1); });
-            throw MatchoraError('upstream', MESSAGES.upstream, { status: r.status });
+            var why2 = ''; try { why2 = str(JSON.parse(r.text).error); } catch (e) { /* not JSON */ }
+            throw MatchoraError('upstream', MESSAGES.upstream + (why2 ? ' (' + why2.slice(0, 120) + ')' : ''), { status: r.status });   // a source's own explanation (e.g. "no key on this server") is kept
           }
-          if (!r.ok) throw MatchoraError('http', MESSAGES.http, { status: r.status });
+          if (!r.ok) { var why = ''; try { why = str(JSON.parse(r.text).error); } catch (e) { /* not JSON */ } throw MatchoraError('http', MESSAGES.http + (why ? ' (' + why.slice(0, 120) + ')' : ''), { status: r.status }); }
           var doc; try { doc = JSON.parse(r.text); } catch (e) { throw MatchoraError('malformed', MESSAGES.malformed); }
           return validate(doc);
         });
       }
       return attempt(0);
     }
-    function get(key, path, ttl, force, validate) {
+    function get(key, url, ttl, force, validate) {
       var hit = cache[key], now = nowFn();
       if (hit && !force && now - hit.at < ttl) return Promise.resolve({ data: hit.data, at: hit.at, cached: true, stale: false });
       if (inflight[key]) return inflight[key];
@@ -274,7 +276,7 @@
         if (hit) return Promise.resolve({ data: hit.data, at: hit.at, cached: true, stale: true, error: MatchoraError('rate', MESSAGES.rate, { retryAt: blockedUntil }) });
         return Promise.reject(MatchoraError('rate', MESSAGES.rate, { retryAt: blockedUntil }));
       }
-      var p = load(path, validate).then(function (data) {
+      var p = load(url, validate).then(function (data) {
         cache[key] = { data: data, at: nowFn() };
         var ks = Object.keys(cache); if (ks.length > 24) { ks.sort(function (a, b) { return cache[a].at - cache[b].at; }); delete cache[ks[0]]; }
         delete inflight[key];
@@ -286,6 +288,13 @@
       });
       inflight[key] = p; return p;
     }
+    return { get: get, blockedUntil: function () { return blockedUntil; }, forget: function () { cache = {}; inflight = {}; }, stats: stats, now: nowFn };
+  }
+
+  function createClient(opts) {
+    opts = opts || {};
+    var base = opts.base || BASE, fx = createFetcher(opts), nowFn = fx.now, penalties = {};
+    function get(key, path, ttl, force, validate) { return fx.get(key, base + path, ttl, force, validate); }
     var api = {
       live: function (o) { return get('live', '/api/v1/live', TTL.live, o && o.force, parseList); },
       day: function (day, o) {                                                                     // one local day: the UTC day(s) it touches, cut to the local day
@@ -315,9 +324,9 @@
       // A feed that failed to play is moved down the list for a few minutes. It is never removed: the next refresh, or the next visit, offers it again.
       penalize: function (id) { penalties[id] = nowFn() + PENALTY_MS; },
       penalties: function () { return penalties; },
-      forget: function () { cache = {}; inflight = {}; },
-      blockedUntil: function () { return blockedUntil; },
-      stats: stats
+      forget: fx.forget,
+      blockedUntil: fx.blockedUntil,
+      stats: fx.stats
     };
     return api;
   }
@@ -327,6 +336,6 @@
     weekDays: weekDays, inDay: inDay, fmtClock: fmtClock, statusInfo: statusInfo, localKey: localKey, utcKey: utcKey,
     feedsOf: feedsOf, channelTerms: channelTerms, normName: normName, nameScore: nameScore,
     sportsOf: sportsOf, effectiveSport: effectiveSport, applyFilters: applyFilters, groupByLeague: groupByLeague, mergeLive: mergeLive, sortEvents: sortEvents,
-    createClient: createClient };
+    createClient: createClient, createFetcher: createFetcher, hasFeeds: hasFeeds, PENALTY_MS: PENALTY_MS };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.Matchora = api;
 })(typeof window !== 'undefined' ? window : this);

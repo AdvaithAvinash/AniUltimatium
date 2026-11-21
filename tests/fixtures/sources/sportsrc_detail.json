@@ -1,0 +1,79 @@
+{
+ "success": true,
+ "data": {
+  "match_info": {
+   "id": "gimpo-citizen-suwon-city-fc-ZjoxNTEwNTAxOjMxMTljY2YwZjY",
+   "title": "Gimpo Citizen vs Suwon City FC",
+   "timestamp": 1795246200000,
+   "status": "inprogress",
+   "status_detail": "2nd half",
+   "has_stats": false,
+   "has_highlights": false,
+   "league": {
+    "name": "K League 2",
+    "season": "2026",
+    "round": "Regular Season - 33",
+    "country": "South-Korea",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9rci5zdmc6YzJkZTk1N2Y0NA.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzI5My5wbmc6YTg5MTkyOTFiOA.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "teams": {
+    "home": {
+     "name": "Gimpo Citizen",
+     "code": "GIM",
+     "color": "",
+     "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy83MDc4LnBuZzpmYTQ0ZDg2Zjk2.png"
+    },
+    "away": {
+     "name": "Suwon City FC",
+     "code": "SUW",
+     "color": "",
+     "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzU2LnBuZzowNTRmMjczMjdm.png"
+    }
+   },
+   "score": {
+    "current": {
+     "home": 0,
+     "away": 1
+    },
+    "period_1": {
+     "home": 0,
+     "away": 1
+    },
+    "period_2": null,
+    "normal_time": null,
+    "display": "0 - 1"
+   },
+   "time_info": {
+    "injury_time_1": null,
+    "injury_time_2": null,
+    "period_start": 1795249800
+   }
+  },
+  "sources": [
+   {
+    "id": "stream-1",
+    "streamNo": 1,
+    "embedUrl": "https://football77.org/embed/?id=ZjoxNTEwNTAxOjMxMTljY2YwZjY&source=lola",
+    "source": "lola",
+    "hd": true,
+    "language": "Unknown"
+   }
+  ],
+  "info": {
+   "venue": {
+    "stadium": "Gimpo Salter Soccer Field",
+    "address": "",
+    "city": "Gimpo",
+    "country": "",
+    "image": "",
+    "capacity": null,
+    "surface": ""
+   },
+   "referee": null,
+   "managers": null
+  }
+ }
+}

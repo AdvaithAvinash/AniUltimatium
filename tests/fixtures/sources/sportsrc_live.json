@@ -1,0 +1,270 @@
+{
+ "success": true,
+ "filters": {
+  "sport": "football",
+  "status": "inprogress",
+  "date": "upcoming"
+ },
+ "total_leagues": 7,
+ "total_matches": 11,
+ "data": [
+  {
+   "league": {
+    "name": "K League 2",
+    "country": "South-Korea",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9rci5zdmc6YzJkZTk1N2Y0NA.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzI5My5wbmc6YTg5MTkyOTFiOA.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "gimpo-citizen-suwon-city-fc-ZjoxNTEwNTAxOjMxMTljY2YwZjY",
+     "title": "Gimpo Citizen vs Suwon City FC",
+     "timestamp": 1795246200000,
+     "status": "inprogress",
+     "status_detail": "2nd half",
+     "round": "Regular Season - 33",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Gimpo Citizen",
+       "code": "GIM",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy83MDc4LnBuZzpmYTQ0ZDg2Zjk2.png"
+      },
+      "away": {
+       "name": "Suwon City FC",
+       "code": "SUW",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzU2LnBuZzowNTRmMjczMjdm.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 0,
+       "away": 1
+      },
+      "period_1": {
+       "home": 0,
+       "away": 1
+      },
+      "period_2": null,
+      "normal_time": null,
+      "display": "0 - 1"
+     }
+    },
+    {
+     "id": "seongnam-fc-yongin-city-ZjoxNTEwNTAyOjMwOWM1YTkxYTc",
+     "title": "Seongnam FC vs Yongin City",
+     "timestamp": 1795246200000,
+     "status": "inprogress",
+     "status_detail": "2nd half",
+     "round": "Regular Season - 33",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Seongnam FC",
+       "code": "SEO",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzU3LnBuZzpjZDNlZWE3YTA0.png"
+      },
+      "away": {
+       "name": "Yongin City",
+       "code": "YON",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy85MTcxLnBuZzpiMWQ5OTEwNTky.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 4,
+       "away": 0
+      },
+      "period_1": {
+       "home": 1,
+       "away": 0
+      },
+      "period_2": null,
+      "normal_time": null,
+      "display": "4 - 0"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "K League 1",
+    "country": "South-Korea",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9rci5zdmc6YzJkZTk1N2Y0NA.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzI5Mi5wbmc6NGVmYmViMjliYg.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "gangwon-fc-daejeon-citizen-ZjoxNjQ3MzgyOmU0YjdmZGU0ZTc",
+     "title": "Gangwon FC vs Daejeon Citizen",
+     "timestamp": 1795246200000,
+     "status": "inprogress",
+     "status_detail": "2nd half",
+     "round": "Championship Group - 36",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Gangwon FC",
+       "code": "GAN",
+       "color": "#1c2081",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzQ2LnBuZzo1YzcyYzhkNmY4.png"
+      },
+      "away": {
+       "name": "Daejeon Citizen",
+       "code": "DAE",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzUwLnBuZzplYzk0ZmFkNmI3.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 1,
+       "away": 3
+      },
+      "period_1": {
+       "home": 1,
+       "away": 1
+      },
+      "period_2": null,
+      "normal_time": null,
+      "display": "1 - 3"
+     }
+    },
+    {
+     "id": "incheon-united-ulsan-hyundai-fc-ZjoxNjQ3MzgzOjkxMmE2YmIwNDg",
+     "title": "Incheon United vs Ulsan Hyundai FC",
+     "timestamp": 1795246200000,
+     "status": "inprogress",
+     "status_detail": "2nd half",
+     "round": "Championship Group - 36",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Incheon United",
+       "code": "INC",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzYzLnBuZzowNGY2ODY5MTBj.png"
+      },
+      "away": {
+       "name": "Ulsan Hyundai FC",
+       "code": "ULS",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzY3LnBuZzpiOTVjYzlhYzYx.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 2,
+       "away": 1
+      },
+      "period_1": {
+       "home": 1,
+       "away": 0
+      },
+      "period_2": null,
+      "normal_time": null,
+      "display": "2 - 1"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "Liga 1",
+    "country": "Indonesia",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9pZC5zdmc6YjhlZmRmMzU1Ng.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzI3NC5wbmc6ZjBjYzA2YmU1MQ.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "persebaya-surabaya-java-united-ZjoxNjIyODM4OjEyMzNiNjg0YWQ",
+     "title": "Persebaya Surabaya vs Java United",
+     "timestamp": 1795249800000,
+     "status": "inprogress",
+     "status_detail": "1st half",
+     "round": "Regular Season - 10",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Persebaya Surabaya",
+       "code": "PER",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNDQ2LnBuZzplMzE2ZGNmNDIy.png"
+      },
+      "away": {
+       "name": "Java United",
+       "code": "JAV",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMjQwOS5wbmc6NjI5MTJhNzMyNw.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 1,
+       "away": 1
+      },
+      "period_1": {
+       "home": 1,
+       "away": 1
+      },
+      "period_2": null,
+      "normal_time": null,
+      "display": "1 - 1"
+     }
+    },
+    {
+     "id": "persik-kediri-psim-yogyakarta-ZjoxNjIyODM5Ojc5NDY4YTU0YWY",
+     "title": "Persik Kediri vs PSIM Yogyakarta",
+     "timestamp": 1795249800000,
+     "status": "inprogress",
+     "status_detail": "1st half",
+     "round": "Regular Season - 10",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Persik Kediri",
+       "code": "PER",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy80MjQxLnBuZzpmMjQzNjNjYWEz.png"
+      },
+      "away": {
+       "name": "PSIM Yogyakarta",
+       "code": "PSI",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy80MjM1LnBuZzplZGE4ODllZjMx.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 0,
+       "away": 0
+      },
+      "period_1": {
+       "home": 0,
+       "away": 0
+      },
+      "period_2": null,
+      "normal_time": null,
+      "display": "0 - 0"
+     }
+    }
+   ]
+  }
+ ]
+}

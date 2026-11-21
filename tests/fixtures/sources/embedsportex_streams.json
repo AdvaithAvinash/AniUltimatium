@@ -1,0 +1,619 @@
+{
+ "success": true,
+ "timestamp": 1795252025,
+ "READ_ME": "Interested in using our API? Contact us for more information.",
+ "football": [
+  {
+   "slug": "persebaya-java",
+   "tag": "Persebaya Surabaya vs Java United",
+   "kickoff": "2026-11-21 15:30",
+   "endTime": "2026-11-21 18:00",
+   "poster": "https://thumbor.prod.vidiocdn.com/-hPt7DX_4Z7D2zDsNQx2PwTRcGk=/640x360/filters:strip_icc():quality(70)/vidio-media-production/uploads/livestreaming/schedule/thumbnail/5442836/ea7199.jpg",
+   "iframes": [
+    {
+     "server": "AUTO/iOS",
+     "url": "https://streams.esportex.site/player#eG8vbGlnYTE="
+    },
+    {
+     "server": "VN/iOS",
+     "url": "https://streams.esportex.site/player#Y28vbGlnYTE="
+    },
+    {
+     "server": "ID/iOS",
+     "url": "https://streams.esportex.site/player#amwvbGlnYTE="
+    },
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#eW9uZy9hc2lhMQ=="
+    }
+   ],
+   "league": "BRI Super League"
+  },
+  {
+   "slug": "persik-psim",
+   "tag": "Persik Kediri vs PSIM Yogyakarta",
+   "kickoff": "2026-11-21 15:30",
+   "endTime": "2026-11-21 18:00",
+   "poster": "https://thumbor.prod.vidiocdn.com/6xG0fcAbYkyKkbhW3wiCiqH2Pes=/640x360/filters:strip_icc():quality(70)/vidio-media-production/uploads/livestreaming/schedule/thumbnail/5442838/67928c.jpg",
+   "iframes": [
+    {
+     "server": "AUTO/iOS",
+     "url": "https://streams.esportex.site/player#eG8vbGlnYTI="
+    },
+    {
+     "server": "VN/iOS",
+     "url": "https://streams.esportex.site/player#Y28vbGlnYTI="
+    },
+    {
+     "server": "ID/iOS",
+     "url": "https://streams.esportex.site/player#amwvbGlnYTI="
+    },
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#eW9uZy9hc2lhMg=="
+    }
+   ],
+   "league": "BRI Super League"
+  },
+  {
+   "slug": "psm-persija",
+   "tag": "PSM Makassar vs Persija Jakarta",
+   "kickoff": "2026-11-21 19:00",
+   "endTime": "2026-11-21 21:30",
+   "poster": "https://thumbor.prod.vidiocdn.com/Q2KhRTVhxYZ3AGoPmFWC1FxdhUQ=/640x360/filters:strip_icc():quality(70)/vidio-media-production/uploads/livestreaming/schedule/thumbnail/5442837/0212fd.jpg",
+   "iframes": [
+    {
+     "server": "AUTO/iOS",
+     "url": "https://streams.esportex.site/player#eG8vbGlnYTM="
+    },
+    {
+     "server": "ID1/iOS",
+     "url": "https://streams.esportex.site/player#Y28vbGlnYTM="
+    },
+    {
+     "server": "ID2/iOS",
+     "url": "https://streams.esportex.site/player#amwvbGlnYTM="
+    },
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#eW9uZy9hc2lhMw=="
+    }
+   ],
+   "league": "BRI Super League"
+  }
+ ],
+ "basketball": [
+  {
+   "slug": "nbl-2026-11-21-tas-hwk",
+   "tag": "Tasmania JackJumpers vs Illawarra Hawks",
+   "kickoff": "2026-11-21 13:30",
+   "endTime": "2026-11-21 16:30",
+   "poster": "https://static.ppvservices.st/assets/thumb/076176202ebe7d94ce25e0e68ddf3649-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNjA2"
+    }
+   ],
+   "league": "NBL"
+  },
+  {
+   "slug": "nbl-2026-11-21-mel-nzl",
+   "tag": "Melbourne United vs New Zealand Breakers",
+   "kickoff": "2026-11-21 15:30",
+   "endTime": "2026-11-21 18:30",
+   "poster": "https://static.ppvservices.st/assets/thumb/c91ed693652c01cb6f76b8875f775e02-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNjA3"
+    }
+   ],
+   "league": "NBL"
+  },
+  {
+   "slug": "cbb-2026-11-21-detm-msu",
+   "tag": "Detroit Mercy Titans at Michigan State Spartans",
+   "kickoff": "2026-11-22 00:00",
+   "endTime": "2026-11-22 03:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/a214dcacf161ffbc677d909e905d44af-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNjA5"
+    }
+   ],
+   "league": "College Basketball"
+  }
+ ],
+ "amfootball": [
+  {
+   "slug": "vanderbilt-commodores-at-florida-gators",
+   "tag": "Vanderbilt Commodores vs Florida Gators",
+   "kickoff": "2026-11-22 00:00",
+   "endTime": "2026-11-22 04:00",
+   "poster": null,
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvZXZlbnQtZXNwbi1sZWFndWUtZm9vdGJhbGwtY29sbGVnZS1mb290YmFsbC00MDE4NTY3NDg="
+    }
+   ],
+   "league": "NCAA"
+  },
+  {
+   "slug": "wofford-terriers-at-ole-miss-rebels",
+   "tag": "Wofford Terriers vs Ole Miss Rebels",
+   "kickoff": "2026-11-22 00:00",
+   "endTime": "2026-11-22 04:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/bda7888547b98ea1b401f52e145d8282-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvZXZlbnQtZXNwbi1sZWFndWUtZm9vdGJhbGwtY29sbGVnZS1mb290YmFsbC00MDE4NTY3NDk="
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyMjk0"
+    }
+   ],
+   "league": "NCAA"
+  },
+  {
+   "slug": "byu-cougars-at-kansas-jayhawks",
+   "tag": "BYU Cougars vs Kansas Jayhawks",
+   "kickoff": "2026-11-22 00:00",
+   "endTime": "2026-11-22 04:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/2d5035d494f6bed4eb31ec4fbe6d1f2d-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvZXZlbnQtZXNwbi1sZWFndWUtZm9vdGJhbGwtY29sbGVnZS1mb290YmFsbC00MDE4NTY4NjY="
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyMjg4"
+    }
+   ],
+   "league": "NCAA"
+  }
+ ],
+ "volleyball": [
+  {
+   "slug": "kovo-soop-daejeon",
+   "tag": "SOOP SOOPers W vs Daejeon JKJ W",
+   "kickoff": "2026-11-21 14:00",
+   "endTime": "2026-11-21 17:30",
+   "poster": "https://bobeytv.asia/assets/CHZZK_korea/20261121023F38.jpg",
+   "iframes": [
+    {
+     "server": "PPV/iOS",
+     "url": "https://streams.esportex.site/player#c20vdm9saTQ="
+    },
+    {
+     "server": "HD/iOS",
+     "url": "https://streams.esportex.site/player#amwvdm9saTQ="
+    }
+   ],
+   "league": "Korean V-League W"
+  }
+ ],
+ "badminton": [
+  {
+   "slug": "bwf-world-tour-4",
+   "tag": "LI-NING Hong Kong Open 2026",
+   "kickoff": "2026-11-17 06:00",
+   "endTime": "2026-11-22 23:30",
+   "poster": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRNl_2JTrqvdLIC0dNslX5jbG-SH-ar6rzapCvDgjuz0Q&s=10",
+   "iframes": [
+    {
+     "server": "C1",
+     "url": "https://streams.esportex.site/player#ZW0vYndmMQ=="
+    },
+    {
+     "server": "C2",
+     "url": "https://streams.esportex.site/player#ZW0vYndmMg=="
+    },
+    {
+     "server": "C3",
+     "url": "https://streams.esportex.site/player#ZW0vYndmMw=="
+    },
+    {
+     "server": "C4",
+     "url": "https://streams.esportex.site/player#ZW0vYndmNA=="
+    },
+    {
+     "server": "C1+",
+     "url": "https://streams.esportex.site/player#dGMvYndmMQ=="
+    },
+    {
+     "server": "C2+",
+     "url": "https://streams.esportex.site/player#dGMvYndmMg=="
+    },
+    {
+     "server": "C3+",
+     "url": "https://streams.esportex.site/player#dGMvYndmMw=="
+    },
+    {
+     "server": "C4+",
+     "url": "https://streams.esportex.site/player#dGMvYndmNA=="
+    },
+    {
+     "server": "C1cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmMQ=="
+    },
+    {
+     "server": "C2cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmMg=="
+    },
+    {
+     "server": "C3cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmMw=="
+    },
+    {
+     "server": "C4cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmNA=="
+    },
+    {
+     "server": "C1vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjE="
+    },
+    {
+     "server": "C2vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjI="
+    },
+    {
+     "server": "C3vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjM="
+    },
+    {
+     "server": "C4vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjQ="
+    }
+   ],
+   "league": "BWF"
+  },
+  {
+   "slug": "bwf-world-tour-5",
+   "tag": "Syed Modi India International 2026",
+   "kickoff": "2026-11-24 06:00",
+   "endTime": "2026-11-29 23:30",
+   "poster": "https://mmc.tirto.id/image/otf/1240x0/2023/11/25/syed-modi-india-wiki_ratio-16x9.jpg",
+   "iframes": [
+    {
+     "server": "C1",
+     "url": "https://streams.esportex.site/player#ZW0vYndmMQ=="
+    },
+    {
+     "server": "C2",
+     "url": "https://streams.esportex.site/player#ZW0vYndmMg=="
+    },
+    {
+     "server": "C3",
+     "url": "https://streams.esportex.site/player#ZW0vYndmMw=="
+    },
+    {
+     "server": "C4",
+     "url": "https://streams.esportex.site/player#ZW0vYndmNA=="
+    },
+    {
+     "server": "C1+",
+     "url": "https://streams.esportex.site/player#dGMvYndmMQ=="
+    },
+    {
+     "server": "C2+",
+     "url": "https://streams.esportex.site/player#dGMvYndmMg=="
+    },
+    {
+     "server": "C3+",
+     "url": "https://streams.esportex.site/player#dGMvYndmMw=="
+    },
+    {
+     "server": "C4+",
+     "url": "https://streams.esportex.site/player#dGMvYndmNA=="
+    },
+    {
+     "server": "C1cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmMQ=="
+    },
+    {
+     "server": "C2cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmMg=="
+    },
+    {
+     "server": "C3cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmMw=="
+    },
+    {
+     "server": "C4cn",
+     "url": "https://streams.esportex.site/player#eWsvYndmNA=="
+    },
+    {
+     "server": "C1vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjE="
+    },
+    {
+     "server": "C2vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjI="
+    },
+    {
+     "server": "C3vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjM="
+    },
+    {
+     "server": "C4vn",
+     "url": "https://streams.esportex.site/player#eG9pL2J3ZjQ="
+    }
+   ],
+   "league": "BWF"
+  }
+ ],
+ "race": [
+  {
+   "slug": "motogp-portugal",
+   "tag": "MotoGP - Repsol Grand Prix of Portugal",
+   "kickoff": "2026-11-20 16:00",
+   "endTime": "2026-11-22 23:30",
+   "poster": "https://resources.motogp.pulselive.com/photo-resources/2025/11/06/e9c2f2d6-01ae-44e7-ad4d-489ca9bd2438/MGP-GP-PT.jpg?width=400&height=225",
+   "iframes": [
+    {
+     "server": "TNT",
+     "url": "https://streams.esportex.site/player#dWsvdG50Mg=="
+    },
+    {
+     "server": "SPOTV",
+     "url": "https://streams.esportex.site/player#cGgvc3BvdHYy"
+    },
+    {
+     "server": "MGP",
+     "url": "https://streams.esportex.site/player#dWsvbWdw"
+    },
+    {
+     "server": "Fancode",
+     "url": "https://streams.esportex.site/player#aW5kL2ZhbmNvZGVncDI="
+    },
+    {
+     "server": "TNT/iOS",
+     "url": "https://streams.esportex.site/player#dG9wL3RudDI="
+    },
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2NlL2NoNDc="
+    },
+    {
+     "server": "HD1/iOS",
+     "url": "https://streams.esportex.site/player#cGUvZXZlbnQz"
+    }
+   ],
+   "league": "MotoGP"
+  },
+  {
+   "slug": "f1-race",
+   "tag": "Las Vegas Grand Prix - Race",
+   "kickoff": "2026-11-22 04:00",
+   "endTime": "2026-11-22 14:00",
+   "poster": "https://r2.thesportsdb.com/images/media/event/thumb/nctulb1787425654.jpg",
+   "iframes": [
+    {
+     "server": "SKY F1",
+     "url": "https://streams.esportex.site/player#ZGUvc2t5ZjE="
+    },
+    {
+     "server": "Fancode",
+     "url": "https://streams.esportex.site/player#aW5kL2ZhbmNvZGVmMQ=="
+    },
+    {
+     "server": "TSN",
+     "url": "https://streams.esportex.site/player#dHNuNQ=="
+    },
+    {
+     "server": "ENG/iOS",
+     "url": "https://streams.esportex.site/player#cHB2L2YxLTE="
+    },
+    {
+     "server": "ESP/iOS",
+     "url": "https://streams.esportex.site/player#cHB2L2YxLTI="
+    },
+    {
+     "server": "Bein/iOS",
+     "url": "https://streams.esportex.site/player#ZGRoL2JlaW4xbXk="
+    },
+    {
+     "server": "SKYuk/iOS",
+     "url": "https://streams.esportex.site/player#ZGRoL3NreWYxdWs="
+    },
+    {
+     "server": "SKYde/iOS",
+     "url": "https://streams.esportex.site/player#ZGRoL3NreWYxZGU="
+    },
+    {
+     "server": "SKYit/iOS",
+     "url": "https://streams.esportex.site/player#ZGRoL3NreWYxaXQ="
+    },
+    {
+     "server": "TSN/iOS",
+     "url": "https://streams.esportex.site/player#ZGRoL2Rhem4xZXM="
+    },
+    {
+     "server": "HD/iOS",
+     "url": "https://streams.esportex.site/player#c28vaGQx"
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNDY4"
+    }
+   ],
+   "league": "Formula 1"
+  },
+  {
+   "slug": "motogp-valencia",
+   "tag": "MotoGP - Motul Grand Prix of Valencia",
+   "kickoff": "2026-11-27 15:00",
+   "endTime": "2026-11-29 23:00",
+   "poster": "https://resources.motogp.pulselive.com/photo-resources/2025/11/13/a61c9c17-e800-4d37-aaf3-46acd7697128/MGP-GP-VAL.jpg?width=400&height=225",
+   "iframes": [
+    {
+     "server": "TNT",
+     "url": "https://streams.esportex.site/player#dWsvdG50Mg=="
+    },
+    {
+     "server": "SPOTV",
+     "url": "https://streams.esportex.site/player#cGgvc3BvdHYy"
+    },
+    {
+     "server": "MGP",
+     "url": "https://streams.esportex.site/player#dWsvbWdw"
+    },
+    {
+     "server": "Fancode",
+     "url": "https://streams.esportex.site/player#aW5kL2ZhbmNvZGVncDI="
+    },
+    {
+     "server": "TNT/iOS",
+     "url": "https://streams.esportex.site/player#dG9wL3RudDI="
+    },
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2NlL2NoNDc="
+    },
+    {
+     "server": "HD1/iOS",
+     "url": "https://streams.esportex.site/player#cGUvZXZlbnQz"
+    }
+   ],
+   "league": "MotoGP"
+  }
+ ],
+ "tennis": [],
+ "baseball": [],
+ "fight": [
+  {
+   "slug": "aew-2026-11-21",
+   "tag": "AEW Saturday Night Collision",
+   "kickoff": "2026-11-22 08:00",
+   "endTime": "2026-11-22 11:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/6e29b1bb679dd5133c85bbaadc2c4b13-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNDA3"
+    }
+   ],
+   "league": "Wrestling"
+  }
+ ],
+ "hockey": [
+  {
+   "slug": "edmonton-oilers-at-carolina-hurricanes",
+   "tag": "Edmonton Oilers vs Carolina Hurricanes",
+   "kickoff": "2026-11-22 01:00",
+   "endTime": "2026-11-22 05:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/2fcd33cb7dd8f7f641cb9e925663478f-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvZXZlbnQtZXNwbi1sZWFndWUtaG9ja2V5LW5obC00MDE4OTI3NTQ="
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNjE0"
+    }
+   ],
+   "league": "NHL"
+  },
+  {
+   "slug": "chicago-blackhawks-at-calgary-flames",
+   "tag": "Chicago Blackhawks vs Calgary Flames",
+   "kickoff": "2026-11-22 03:30",
+   "endTime": "2026-11-22 07:30",
+   "poster": "https://static.ppvservices.st/assets/thumb/6456d8dea2521a525ee34bbd43b7a6a7-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvZXZlbnQtZXNwbi1sZWFndWUtaG9ja2V5LW5obC00MDE4OTI3NTU="
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNjE1"
+    }
+   ],
+   "league": "NHL"
+  },
+  {
+   "slug": "buffalo-sabres-at-florida-panthers",
+   "tag": "Buffalo Sabres vs Florida Panthers",
+   "kickoff": "2026-11-22 06:00",
+   "endTime": "2026-11-22 10:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/268800077b726a02be359e2d4e94a392-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvZXZlbnQtZXNwbi1sZWFndWUtaG9ja2V5LW5obC00MDE4OTI3NTY="
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyNjE2"
+    }
+   ],
+   "league": "NHL"
+  }
+ ],
+ "rugby": [],
+ "cricket": [],
+ "other": [
+  {
+   "slug": "motogp",
+   "tag": "MotoGP",
+   "kickoff": "2026-11-21 17:00",
+   "endTime": "2026-11-21 21:00",
+   "poster": null,
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvY3VzdG9tLTZhN2E1MmVkLWRhYTMtNDExOS1hNWZkLTI5YWY2YmYwZWE4NQ=="
+    },
+    {
+     "server": "HD/iOS",
+     "url": "https://streams.esportex.site/player#c28vaGQy"
+    }
+   ],
+   "league": "Other"
+  },
+  {
+   "slug": "ufc-fight-night-proch-zka-vs-stirling",
+   "tag": "UFC Fight Night: Procházka vs. Stirling",
+   "kickoff": "2026-11-21 22:00",
+   "endTime": "2026-11-22 02:00",
+   "poster": null,
+   "iframes": [
+    {
+     "server": "SD/iOS",
+     "url": "https://streams.esportex.site/player#c2MvY3VzdG9tLWUxY2MxZmI2LTliMDYtNDZiNy1iNmI3LWFjYWNkZTBjZTM3ZQ=="
+    },
+    {
+     "server": "HD/iOS",
+     "url": "https://streams.esportex.site/player#c28vaGQy"
+    }
+   ],
+   "league": "UFC"
+  },
+  {
+   "slug": "grand-slam-of-darts-day-8-32258",
+   "tag": "Grand Slam of Darts | Day 8",
+   "kickoff": "2026-11-22 02:00",
+   "endTime": "2026-11-22 07:00",
+   "poster": "https://static.ppvservices.st/assets/thumb/44d919e74b19b6693673efa9a6748015-thumbnail.jpg",
+   "iframes": [
+    {
+     "server": "HD/iOS",
+     "url": "https://streams.esportex.site/player#c28vaGQx"
+    },
+    {
+     "server": "FHD/iOS",
+     "url": "https://streams.esportex.site/player#cHB2LzMyMjU4"
+    }
+   ],
+   "league": "PDC Darts"
+  }
+ ]
+}
