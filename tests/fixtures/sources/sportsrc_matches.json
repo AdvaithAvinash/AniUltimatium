@@ -1,0 +1,695 @@
+{
+ "success": true,
+ "filters": {
+  "sport": "football",
+  "status": "all",
+  "date": "2026-11-21"
+ },
+ "total_leagues": 8,
+ "total_matches": 14,
+ "data": [
+  {
+   "league": {
+    "name": "National League - National",
+    "country": "New-Zealand",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9uei5zdmc6MTVkYmNmMTY2Mg.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzk1NS5wbmc6NjUzZWNhOTc5OA.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "auckland-city-napier-city-rovers-ZjoxNjM5MDU2OjlmMmQ1MWIxYzU",
+     "title": "Auckland City vs Napier City Rovers",
+     "timestamp": 1795219200000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Championship Group - 9",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Auckland City",
+       "code": "AUC",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNTM3LnBuZzo5NTNlYmRiYTg4.png"
+      },
+      "away": {
+       "name": "Napier City Rovers",
+       "code": "NAP",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMDY0Mi5wbmc6ZDJiYjMyNmE5Zg.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 7,
+       "away": 1
+      },
+      "period_1": {
+       "home": 4,
+       "away": 0
+      },
+      "period_2": {
+       "home": 3,
+       "away": 1
+      },
+      "normal_time": {
+       "home": 7,
+       "away": 1
+      },
+      "display": "7 - 1"
+     }
+    },
+    {
+     "id": "miramar-cashmere-technical-ZjoxNjM5MDU3OjMxOTQyMjY4MDU",
+     "title": "Miramar vs Cashmere Technical",
+     "timestamp": 1795222800000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Championship Group - 9",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Miramar",
+       "code": "MIR",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMDY3Mi5wbmc6YTI1ZTU5NGVjMw.png"
+      },
+      "away": {
+       "name": "Cashmere Technical",
+       "code": "CAS",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMDY1MS5wbmc6YzUwY2I1MzQ3Nw.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 1,
+       "away": 0
+      },
+      "period_1": {
+       "home": 0,
+       "away": 0
+      },
+      "period_2": {
+       "home": 1,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 1,
+       "away": 0
+      },
+      "display": "1 - 0"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "Primera Division",
+    "country": "Nicaragua",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9uaS5zdmc6ZDMwM2UzMzQ5Ng.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzM5Ni5wbmc6ZDI1NGZjOWJiNw.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "rancho-santana-jalapa-ZjoxNjUwODM3OjFhMjM2NzBmNjY",
+     "title": "Rancho Santana vs Jalapa",
+     "timestamp": 1795219200000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Apertura - 17",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Rancho Santana",
+       "code": "RAN",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNDUxMC5wbmc6OTU0OGQ4ZjllNw.png"
+      },
+      "away": {
+       "name": "Jalapa",
+       "code": "JAL",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8xMDE2MC5wbmc6NTAyMjVjY2E0ZQ.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 3,
+       "away": 2
+      },
+      "period_1": {
+       "home": 1,
+       "away": 2
+      },
+      "period_2": {
+       "home": 2,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 3,
+       "away": 2
+      },
+      "display": "3 - 2"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "Division di Honor",
+    "country": "Aruba",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9hdy5zdmc6ZGUyZDc4MjJjNw.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzQyMS5wbmc6YzhjYjMxYTUxZQ.png",
+    "has_standings": false,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "la-fama-rca-ZjoxNjQ3MTI4OjAyMDZkMWY0Mzc",
+     "title": "La Fama vs RCA",
+     "timestamp": 1795221000000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Regular Season - 5",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "La Fama",
+       "code": "LAF",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy84MjM5LnBuZzo4NWM0MzQyMmMz.png"
+      },
+      "away": {
+       "name": "RCA",
+       "code": "RCA",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy84MjQwLnBuZzo1NmI5ODk1MDc4.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 2,
+       "away": 3
+      },
+      "period_1": null,
+      "period_2": null,
+      "normal_time": {
+       "home": 2,
+       "away": 3
+      },
+      "display": "2 - 3"
+     }
+    },
+    {
+     "id": "caiquetio-nacional-ZjoxNjQ3MTI5OmUyMzhkZTE5NGQ",
+     "title": "Caiquetio vs Nacional",
+     "timestamp": 1795300200000,
+     "status": "notstarted",
+     "status_detail": "Not started",
+     "round": "Regular Season - 5",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Caiquetio",
+       "code": "CAI",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy84MjQzLnBuZzpkYzA4MjYyZmEz.png"
+      },
+      "away": {
+       "name": "Nacional",
+       "code": "NAC",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy84MjMyLnBuZzo0OTk5MWI2ZDk4.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": null,
+       "away": null
+      },
+      "period_1": null,
+      "period_2": null,
+      "normal_time": null,
+      "display": "- - -"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "Liga MX",
+    "country": "Mexico",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9teC5zdmc6YWI4YTY4NGRmOQ.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzI2Mi5wbmc6YzQ2YTNkMzlkNQ.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "puebla-atletico-san-luis-ZjoxNTUxMDM5OmE5NDQxYzZjZGQ",
+     "title": "Puebla vs Atletico San Luis",
+     "timestamp": 1795222800000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Apertura - 17",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Puebla",
+       "code": "PUE",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMjkxLnBuZzo5NDUyZjAzZDU1.png"
+      },
+      "away": {
+       "name": "Atletico San Luis",
+       "code": "ASL",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMzE0LnBuZzozMjU1OTlhZjAz.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 1,
+       "away": 1
+      },
+      "period_1": {
+       "home": 1,
+       "away": 0
+      },
+      "period_2": {
+       "home": 0,
+       "away": 1
+      },
+      "normal_time": {
+       "home": 1,
+       "away": 1
+      },
+      "display": "1 - 1"
+     }
+    },
+    {
+     "id": "fc-juarez-atlas-ZjoxNTUxMDQwOmM2MjExNjRiYTQ",
+     "title": "FC Juarez vs Atlas",
+     "timestamp": 1795230000000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Apertura - 17",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "FC Juarez",
+       "code": "FCJ",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMjk4LnBuZzoyNzJlOTI3MmE3.png"
+      },
+      "away": {
+       "name": "Atlas",
+       "code": "ATL",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yMjgzLnBuZzoxNTdjMDU3ZDI2.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 3,
+       "away": 3
+      },
+      "period_1": {
+       "home": 1,
+       "away": 1
+      },
+      "period_2": {
+       "home": 2,
+       "away": 2
+      },
+      "normal_time": {
+       "home": 3,
+       "away": 3
+      },
+      "display": "3 - 3"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "Primera A",
+    "country": "Colombia",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9jby5zdmc6ZWFjZDE1YTRiOQ.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzIzOS5wbmc6MzIwYjVlYzgxYQ.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "deportivo-cali-millonarios-ZjoxNjUwMTc0OmFkYjQ2MTA1NTY",
+     "title": "Deportivo Cali vs Millonarios",
+     "timestamp": 1795225200000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Clausura - Quadrangular - 1",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Deportivo Cali",
+       "code": "CAL",
+       "color": "#3399a4",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8xMTI3LnBuZzpmM2Y5ZDY4Yjg1.png"
+      },
+      "away": {
+       "name": "Millonarios",
+       "code": "MIL",
+       "color": "#1a3459",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8xMTI1LnBuZzo2M2FlZmUxM2E4.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 0,
+       "away": 0
+      },
+      "period_1": {
+       "home": 0,
+       "away": 0
+      },
+      "period_2": {
+       "home": 0,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 0,
+       "away": 0
+      },
+      "display": "0 - 0"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "A-League",
+    "country": "Australia",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9hdS5zdmc6MmY4NzkyNDVhZg.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzE4OC5wbmc6MmQxYzE4NGVhNg.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "auckland-melbourne-victory-ZjoxNTkzNzA1OjQ3NTk4Y2EyMDg",
+     "title": "Auckland vs Melbourne Victory",
+     "timestamp": 1795233600000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Regular Season - 5",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Auckland",
+       "code": "AUC",
+       "color": "#1061bd",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNDYwOC5wbmc6NmU3NDUxOGUyNQ.png"
+      },
+      "away": {
+       "name": "Melbourne Victory",
+       "code": "MEL",
+       "color": "#25395b",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy85NDQucG5nOjQwYjcyZjgwMGQ.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 1,
+       "away": 1
+      },
+      "period_1": {
+       "home": 0,
+       "away": 1
+      },
+      "period_2": {
+       "home": 1,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 1,
+       "away": 1
+      },
+      "display": "1 - 1"
+     }
+    },
+    {
+     "id": "central-coast-mariners-perth-glory-ZjoxNTkzNzA2OjliYjA4MDg1NGY",
+     "title": "Central Coast Mariners vs Perth Glory",
+     "timestamp": 1795240800000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Regular Season - 5",
+     "has_stats": true,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Central Coast Mariners",
+       "code": "CEN",
+       "color": "#ffd92e",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy85NDEucG5nOjFjNDcxZDY3ZDk.png"
+      },
+      "away": {
+       "name": "Perth Glory",
+       "code": "PER",
+       "color": "#ffffff",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy85NDAucG5nOjIzODYxMDQ2MTg.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 0,
+       "away": 0
+      },
+      "period_1": {
+       "home": 0,
+       "away": 0
+      },
+      "period_2": {
+       "home": 0,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 0,
+       "away": 0
+      },
+      "display": "0 - 0"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "Australian Championship",
+    "country": "Australia",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9hdS5zdmc6MmY4NzkyNDVhZg.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzEyMDIucG5nOjFiOGY2ZmM2YTU.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "marconi-stallions-sydney-olympic-ZjoxNjQwMzcyOjEwYzNkZjg1OTg",
+     "title": "Marconi Stallions vs Sydney Olympic",
+     "timestamp": 1795233600000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Group Stage - 6",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Marconi Stallions",
+       "code": "MAR",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8zNzY4LnBuZzphM2JlZDdjN2Q1.png"
+      },
+      "away": {
+       "name": "Sydney Olympic",
+       "code": "SYD",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8zNzc0LnBuZzo3MTUyZWE4N2Zh.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 2,
+       "away": 1
+      },
+      "period_1": {
+       "home": 0,
+       "away": 1
+      },
+      "period_2": {
+       "home": 2,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 2,
+       "away": 1
+      },
+      "display": "2 - 1"
+     }
+    },
+    {
+     "id": "oakleigh-cannons-bayswater-city-ZjoxNjQwMzczOjc3NGU3NTJiNGQ",
+     "title": "Oakleigh Cannons vs Bayswater City",
+     "timestamp": 1795233600000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Group Stage - 6",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Oakleigh Cannons",
+       "code": "OAK",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8zODA4LnBuZzowY2FiMzUyZjk0.png"
+      },
+      "away": {
+       "name": "Bayswater City",
+       "code": "BAY",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8zODE0LnBuZzo2MmZhMjc1OGZh.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 4,
+       "away": 2
+      },
+      "period_1": {
+       "home": 2,
+       "away": 2
+      },
+      "period_2": {
+       "home": 2,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 4,
+       "away": 2
+      },
+      "display": "4 - 2"
+     }
+    }
+   ]
+  },
+  {
+   "league": {
+    "name": "K League 2",
+    "country": "South-Korea",
+    "flag": "https://img.sportsrc.org/v3/assets/dTpmbGFncy9rci5zdmc6YzJkZTk1N2Y0NA.svg",
+    "logo": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC9sZWFndWVzLzI5My5wbmc6YTg5MTkyOTFiOA.png",
+    "has_standings": true,
+    "has_odds": true
+   },
+   "matches": [
+    {
+     "id": "busan-i-park-cheongju-ZjoxNTEwNDk5OmIyZmY1NWM0MDA",
+     "title": "Busan I Park vs Cheongju",
+     "timestamp": 1795237200000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Regular Season - 33",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Busan I Park",
+       "code": "BUS",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzUyLnBuZzozMWRiNjdiOTNk.png"
+      },
+      "away": {
+       "name": "Cheongju",
+       "code": "CHU",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy83MDYxLnBuZzplYzk5NTgyMGNk.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 0,
+       "away": 0
+      },
+      "period_1": {
+       "home": 0,
+       "away": 0
+      },
+      "period_2": {
+       "home": 0,
+       "away": 0
+      },
+      "normal_time": {
+       "home": 0,
+       "away": 0
+      },
+      "display": "0 - 0"
+     }
+    },
+    {
+     "id": "suwon-bluewings-gyeongnam-fc-ZjoxNTEwNTAwOjJhOWFkNzEwYjQ",
+     "title": "Suwon Bluewings vs Gyeongnam FC",
+     "timestamp": 1795237200000,
+     "status": "finished",
+     "status_detail": "Ended",
+     "round": "Regular Season - 33",
+     "has_stats": false,
+     "has_highlights": false,
+     "teams": {
+      "home": {
+       "name": "Suwon Bluewings",
+       "code": "SUW",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzY1LnBuZzozY2YxMDRhMTJi.png"
+      },
+      "away": {
+       "name": "Gyeongnam FC",
+       "code": "GYE",
+       "color": "",
+       "badge": "https://img.sportsrc.org/v3/assets/dTpmb290YmFsbC90ZWFtcy8yNzUxLnBuZzpiOTE1ZmNlZTA0.png"
+      }
+     },
+     "score": {
+      "current": {
+       "home": 3,
+       "away": 1
+      },
+      "period_1": {
+       "home": 1,
+       "away": 0
+      },
+      "period_2": {
+       "home": 2,
+       "away": 1
+      },
+      "normal_time": {
+       "home": 3,
+       "away": 1
+      },
+      "display": "3 - 1"
+     }
+    }
+   ]
+  }
+ ]
+}

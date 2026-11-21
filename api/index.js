@@ -22,6 +22,7 @@ const cinemeta = require('../lib/cinemeta');
 const addons = require('../lib/addons');
 const lite = require('../lib/lite');
 const sportsrc = require('../lib/sportsrc');
+const sportsapi = require('../lib/sportsapi');
 const debrid = require('../lib/debrid');
 const kitsu = require('../lib/kitsu');
 const verify = require('../lib/verify');
@@ -730,6 +731,8 @@ async function handle(req, res) {
       }
       case 'sports_sources':        // Live Sports option A: the match's channels found through the viewer's own add-ons (lib/sportsrc.js)
         return send(res, 200, await sportsrc.find(q), 'no-store');
+      case 'sportsrc':              // Live Sports source "SportSRC": matches and stream embeds through the server's licence key (lib/sportsapi.js)
+        return send(res, 200, await sportsapi.call(q, { key: req.headers['x-sportsrc-key'] }), 's-maxage=60');
       case 'addon_check':
         return send(res, 200, await addons.addonInfo(q.url), 'no-store');
       case 'subs':
