@@ -1,0 +1,121 @@
+{
+ "id": "2626486",
+ "home": "BKFC Fight Night Myrtle Beach Richardson vs Oxendine",
+ "away": "",
+ "league": "BKFC",
+ "sport": "Fighting",
+ "watching": 29,
+ "home_badge": null,
+ "away_badge": null,
+ "league_badge": "https://matchora.pro/img?k=ew2dArfrDpt26l8BnVUBMgNOJnGmtnkLll5w9jePyrx1ZyPCg1WMjiet6ZESaFfoAMUtfoNgtyzIHSrj0DHx9pGiMmamk_avKotFCbOtMdWW2AjqsZNLzO0su55cqfu4FKDnjlY",
+ "kickoff": 1795219200,
+ "status": "LIVE",
+ "minute": null,
+ "score": null,
+ "live": true,
+ "finished": false,
+ "channel_count": 9,
+ "channels": [
+  {
+   "id": "1917231",
+   "name": "FIGHTKLUB",
+   "country": "🇧🇬",
+   "quality": "HD",
+   "lang": "Other",
+   "watching": 16,
+   "playing": true,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/1917231"
+  },
+  {
+   "id": "920093",
+   "name": "DAZN CHANNEL",
+   "country": "🇮🇹",
+   "quality": "",
+   "lang": "Italian",
+   "watching": 11,
+   "playing": true,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/920093"
+  },
+  {
+   "id": "1917589",
+   "name": "CANAL+ SPORT",
+   "country": "🇵🇱",
+   "quality": "",
+   "lang": "Other",
+   "watching": 2,
+   "playing": true,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/1917589"
+  },
+  {
+   "id": "2066935",
+   "name": "Soccer Brazil",
+   "country": "🇧🇷",
+   "quality": "",
+   "lang": "Other",
+   "watching": 0,
+   "playing": false,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/2066935"
+  },
+  {
+   "id": "2054977",
+   "name": "Soccer Germany",
+   "country": "🇩🇪",
+   "quality": "",
+   "lang": "Other",
+   "watching": 0,
+   "playing": false,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/2054977"
+  },
+  {
+   "id": "1917567",
+   "name": "FIGHTKLUB",
+   "country": "🇵🇱",
+   "quality": "HD",
+   "lang": "Other",
+   "watching": 0,
+   "playing": false,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/1917567"
+  },
+  {
+   "id": "2061992",
+   "name": "Soccer USA",
+   "country": "🇺🇸",
+   "quality": "",
+   "lang": "Other",
+   "watching": 0,
+   "playing": false,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/2061992"
+  },
+  {
+   "id": "2062282",
+   "name": "Soccer Canada",
+   "country": "🇨🇦",
+   "quality": "",
+   "lang": "Other",
+   "watching": 0,
+   "playing": false,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/2062282"
+  },
+  {
+   "id": "2072491",
+   "name": "Soccer Spain",
+   "country": "🇪🇸",
+   "quality": "",
+   "lang": "Other",
+   "watching": 0,
+   "playing": false,
+   "dead": false,
+   "embed_url": "https://matchora.pro/embed/channel/2072491"
+  }
+ ],
+ "page_url": "https://matchora.pro/match/bkfc-fight-night-myrtle-beach-richardson-vs-oxendine-2626486",
+ "embed_url": "https://matchora.pro/embed/match/2626486"
+}
