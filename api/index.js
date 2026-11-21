@@ -21,6 +21,7 @@ const movies = require('../lib/movies');
 const cinemeta = require('../lib/cinemeta');
 const addons = require('../lib/addons');
 const lite = require('../lib/lite');
+const sportsrc = require('../lib/sportsrc');
 const debrid = require('../lib/debrid');
 const kitsu = require('../lib/kitsu');
 const verify = require('../lib/verify');
@@ -727,6 +728,8 @@ async function handle(req, res) {
         const a = debrid.parseAuth(req.headers['x-debrid']); if (!a) return send(res, 400, { error: 'Missing or malformed key' }, 'no-store');
         return send(res, 200, await debrid.check(a.p, a.k), 'no-store');
       }
+      case 'sports_sources':        // Live Sports option A: the match's channels found through the viewer's own add-ons (lib/sportsrc.js)
+        return send(res, 200, await sportsrc.find(q), 'no-store');
       case 'addon_check':
         return send(res, 200, await addons.addonInfo(q.url), 'no-store');
       case 'subs':

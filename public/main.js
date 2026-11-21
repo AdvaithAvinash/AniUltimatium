@@ -11,6 +11,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   var GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural'];
   var IS_TV = /Tizen|SMART-?TV|Web0S|NetCast|AniUltimatiumTV|AFT[A-Z]/i.test(navigator.userAgent);      // AniUltimatiumTV = the Android TV / Fire TV app
   var ICONS = {
+    sports: 'M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z',
     cal: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z', bell: 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z',
     play: 'M8 5v14l11-7z', pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
     back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
@@ -644,10 +645,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
 
   // ======================= Tabs =======================
-  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', schedule: 'viewSchedule', games: 'viewGames', direct: 'viewDirect', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
-  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', schedule: 'cal', games: 'game', direct: 'play', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
+  var VIEW_OF = { home: 'viewHome', movies: 'viewHome', tv: 'viewHome', live: 'viewLive', sports: 'viewSports', schedule: 'viewSchedule', games: 'viewGames', direct: 'viewDirect', search: 'viewSearch', list: 'viewList', history: 'viewHistory', account: 'viewAccount', settings: 'viewSettings' };
+  var TAB_ICON = { home: 'home', movies: 'film', tv: 'tv', live: 'live', sports: 'sports', schedule: 'cal', games: 'game', direct: 'play', search: 'search', list: 'list', history: 'history', account: 'person', settings: 'gear' };
   function paintTabs() {
-    var tabs = document.querySelectorAll('.tab'), names = { direct: 'Direct stream', home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', schedule: 'Schedule', games: 'Gamehub', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
+    var tabs = document.querySelectorAll('.tab'), names = { direct: 'Direct stream', home: 'Anime', movies: 'Movies', tv: 'TV Shows', live: 'Live TV', sports: 'Sports', schedule: 'Schedule', games: 'Gamehub', search: 'Search', list: 'My List', history: 'History', account: auth() ? auth().username : 'Account', settings: 'Settings' };
     for (var i = 0; i < tabs.length; i++) {
       var t = tabs[i].getAttribute('data-tab');
       tabs[i].innerHTML = ic(TAB_ICON[t]) + '<span class="tl">' + esc(names[t]) + '</span>';
@@ -665,7 +666,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (t === 'movies') state.mode = 'movies';
     if (t === 'tv') state.mode = 'tv';
     var shown = VIEW_OF[t];
-    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive', 'viewSchedule', 'viewGames', 'viewDirect'].forEach(function (id) {
+    ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewLive', 'viewSports', 'viewSchedule', 'viewGames', 'viewDirect'].forEach(function (id) {
       $(id).className = 'view' + (id === shown ? '' : ' hidden');
     });
     $('nav').className = t === 'live' || activeView().scrollTop > 40 ? 'solid' : '';
@@ -681,6 +682,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       if (focusContent !== false) { setFocus($('searchInput')); if (!IS_TV) $('searchInput').focus(); }
     }
     if (t === 'live' && EA.live) EA.live.show(focusContent);
+    if (t === 'sports' && EA.sports) EA.sports.show(focusContent);
     if (t === 'schedule' && EA.feed) EA.feed.show(focusContent);
     if (t === 'list') renderList();
     if (t === 'history') renderHistory();
@@ -1127,10 +1129,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!box.firstChild) box.innerHTML = '<p class="hint">Saved streams appear here.</p>';
     if (focusIt !== false) setFocus($('dirUrl'));
   }
-  function directSrc(u) {                                                               // what the player gets for a typed-in address: the address itself, and the server relay as the second route
+  function directSrc(u, ref) {                                                               // what the player gets for a typed-in address: the address itself, and the server relay as the second route
     var hls = /\.m3u8(\?|#|$)|m3u8/i.test(u), file = /\.(mp4|m4v|mkv|webm|mov|avi)(\?|#|$)/i.test(u), mixed = location.protocol === 'https:' && /^http:/i.test(u);
-    var px = apiBase() + '/api?action=proxy&ref=&url=' + encodeURIComponent(u);
-    return { url: mixed ? px : u, proxyUrl: mixed ? '' : px, type: hls ? 'hls' : file ? 'file' : 'auto', mp4: file, headers: {}, subtitles: [], quality: 'auto', matched: 'Direct stream', provider: 'direct' };
+    var px = apiBase() + '/api?action=proxy&ref=' + encodeURIComponent(ref || '') + '&url=' + encodeURIComponent(u);
+    return { url: mixed || ref ? px : u, proxyUrl: mixed || ref ? '' : px, type: hls ? 'hls' : file ? 'file' : 'auto', mp4: file, headers: {}, subtitles: [], quality: 'auto', matched: 'Direct stream', provider: 'direct' };
   }
   function directPlay(x) { play({ id: 'direct:' + x.url.slice(-40), kind: 'movie', title: x.name, direct: x.url }, 1, 0); }
   function directSave(go) {
@@ -1271,7 +1273,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (!keepVia && !a.direct) { addHist(a, ep); autoStatus(a, ep, false); }
     if (window.AVP && AVP.prefer) AVP.prefer(!!a.direct);                                  // a typed-in address: the Samsung player first (it has no cross-origin limits and plays HLS, TS, MP4, MKV)
     $('player').setAttribute('data-direct', a.direct ? '1' : '');
-    if (a.direct) { state.liteList = []; state.liteChosen = null; if ($('pSub')) $('pSub').textContent = 'Direct stream'; pmsg('Opening the stream…', true); startVideo(directSrc(a.direct), startAt || 0, tk); return; }
+    if (a.direct) { state.liteList = []; state.liteChosen = null; if ($('pSub')) $('pSub').textContent = 'Direct stream'; pmsg('Opening the stream…', true); startVideo(directSrc(a.direct, a.directRef), startAt || 0, tk); return; }
     pmsg(movie ? 'Finding a stream…' : state.srcSkip.length ? 'Trying more sources… (' + state.srcSkip.length + ' checked)' : 'Finding an English-subbed stream…', true);
     state.srcCtl = !movie && window.AbortController ? new AbortController() : null;                  // Tizen 4 has no AbortController: stale answers are ignored instead
     var usedPre = false;
@@ -1834,7 +1836,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_popblock', 'Block popups in hosted movie players', true, [[true, 'On'], [false, 'Off']]],
     ['ea_ui', 'Look', 'classic', [['classic', 'Classic · low-end devices'], ['modern', 'Modern · better looking']].slice(0, window.EA_NOVARS ? 1 : 2).concat(window.EA_LITE || window.EA_NOVARS ? [] : [['cine', 'Cinematic · Apple TV style']]), function (v) { UI_MODERN = v === 'modern'; UI_CINE = v === 'cine'; document.body.className = bodyCls(); if (state.hero.length) showHero(state.heroIdx, true); if (state.cache[state.mode]) state.rowsDirty = true; }],
     ['ea_intro', 'Opening animation', true, [[true, 'On'], [false, 'Off']]],
-    ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV']]],
+    ['ea_start', 'Start on', 'home', [['home', 'Anime'], ['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV'], ['sports', 'Sports']]],
     ['ea_autonext', 'Play the next episode automatically', true, [[true, 'On'], [false, 'Off']]],
     ['ea_autoskip', 'Skip intro and outro automatically', false, [[false, 'Off'], [true, 'On']]],
     ['ea_audio', 'Default audio (anime)', 'sub', [['sub', 'Japanese (sub)'], ['dub', 'English (dub)']], function (v) { state.audioPref = v; }],
@@ -1846,9 +1848,10 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   ];
   if (ED_LITE) APPSET.forEach(function (r) { if (r[0] === 'ea_start') { r[2] = 'movies'; r[3] = [['movies', 'Movies'], ['tv', 'TV Shows'], ['live', 'Live TV'], ['direct', 'Direct stream']]; } });
   // ----- Customize: colour, categories (each can be switched off; at least one stays on), ads -----
-  var CATS = [['home', 'ea_c_anime'], ['movies', 'ea_c_movies'], ['tv', 'ea_c_tv'], ['live', 'ea_c_live'], ['games', 'ea_c_games']];
+  var CATS = [['home', 'ea_c_anime'], ['movies', 'ea_c_movies'], ['tv', 'ea_c_tv'], ['live', 'ea_c_live'], ['sports', 'ea_c_sports'], ['games', 'ea_c_games']];
   function catOn(tab) {
     if (tab === 'direct') return ED_LITE;
+    if (tab === 'sports') return !ED_LITE && store.get('ea_c_sports', true) !== false;                  // Lite has no hosted players: Matchora's player is one
     if (ED_LITE && (tab === 'home' || tab === 'schedule')) return false;
     if (tab === 'schedule') return catOn('home');                                  // the airing schedule is anime only
     for (var i = 0; i < CATS.length; i++) if (CATS[i][0] === tab) return store.get(CATS[i][1], true) !== false;
@@ -1868,6 +1871,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     ['ea_c_movies', 'Movies', true, SHOWN, applyCats],
     ['ea_c_tv', 'TV Shows', true, SHOWN, applyCats],
     ['ea_c_live', 'Live TV (IPTV)', true, SHOWN, applyCats],
+    ['ea_c_sports', 'Live Sports', true, SHOWN, applyCats],
     ['ea_c_games', 'Gamehub', true, SHOWN, applyCats],
     ['ea_ads', 'Ads', true, [[true, 'On · supports the app'], [false, 'Off']], function () { if (EA.sponsor && EA.sponsor.hidePause) EA.sponsor.hidePause(); }]
   ];
@@ -2447,6 +2451,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     stopVideo();
     if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }
     $('player').className = 'hidden';
+    if (state.sportsPlay && state.anime && state.anime.sports && EA.sports) { EA.sports.afterPlayer(); return; }                   // Live Sports (add-on channel): back to the match sheet
     state.view = 'detail';
     paintDetailButtons(); renderEpisodes();
     var cur = $('dEps').querySelector('.cur');
@@ -2588,6 +2593,8 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     if (e.tagName === 'INPUT') { e.focus(); return; }
     if (e.__live && EA.live) { EA.live.activate(e); return; }
     if (e.id && /^live[A-Z]/.test(e.id) && EA.live) { EA.live.activate(e); return; }
+    if (e.__sports && EA.sports) { EA.sports.activate(e); return; }
+    if (e.id === 'spBack' && EA.sports) { EA.sports.activate({ __sports: { a: 'barback' } }); return; }
     if (e.__game) { openGame(e.__game); return; }
     if (e.id === 'gameExit') { closeGame(); return; }
     if (e.__tab) { showTab(e.__tab, e.__tab !== 'search'); if (e.__tab === 'search') setFocus($('searchInput')); return; }
@@ -2769,6 +2776,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   }
   function paintTipsBtn() { var off = store.get('ea_notice_off', false); $('setTips').innerHTML = (off ? '✕ Startup tips: Off' : '✔ Startup tips: On'); }
   function goBack() {
+    if (EA.sports && EA.sports.back()) return;                                              // Live Sports: the match sheet and its embedded player have their own Back
     if (state.view === 'game') { gameBack(); return; }                                      // Gamehub: Back pauses the game, Back again leaves it
     if (state.liveOn && EA.live) { EA.live.back(); return; }                           // Live TV player: its own Back
     if (state.view === 'gate') { askExit(); return; }
@@ -2820,6 +2828,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
       try { $('gameFrame').focus(); if ($('gameFrame').contentWindow) $('gameFrame').contentWindow.focus(); } catch (er) { /* ignore */ }
       return;
     }
+    if (EA.sports && EA.sports.key(e)) return;                                        // Live Sports: match sheet and embedded player keys
     if (EA.live && EA.live.key(e)) return;                                            // Live TV: its own lists, zapping and player keys
     if (state.view === 'player' && state.oldEng) { oldEngKey(e); return; }
     if (state.view === 'player') {
@@ -2908,7 +2917,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
     clearTimeout(state.searchTimer);
     state.searchTimer = setTimeout(runSearch, 450);
   });
-  ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewSchedule'].forEach(function (id) {
+  ['viewHome', 'viewSearch', 'viewList', 'viewHistory', 'viewAccount', 'viewSettings', 'viewSchedule', 'viewSports'].forEach(function (id) {
     $(id).addEventListener('scroll', function () { $('nav').className = this.scrollTop > 40 ? 'solid' : ''; });
   });
   document.addEventListener('visibilitychange', function () { if (document.hidden && state.view === 'player' && !(EA.live && EA.live.playing())) video.pause(); });
@@ -2916,7 +2925,7 @@ const VERCEL_API_URL = "https://aniultimatium.advaithavinash404.workers.dev";
   // ======================= Bridge for public/live.js (Live TV) =======================
   var EA = window.EA = { state: state, $: $, el: el, esc: esc, ic: ic, fmt: fmt, store: store, toast: toast, setFocus: setFocus, KEY: KEY, isBackKey: isBackKey, apiBase: apiBase, video: video,
     card: card, keyOf: keyOf, progOf: progOf, getProg: getProg, getHist: getHist, inList: inList, listItem: listItem, openDetail: openDetail, aniQuery: aniQuery, aniMap: aniMap, tname: tname, airIn: airIn, fmtTime: fmtTime, paintAir: paintAir, paintAirBadges: paintAirBadges, makeRow: makeRow, showHero: showHero, refreshDetailTags: refreshDetailTags, ST_LABEL: ST_LABEL, feed: null,
-    hasCls: hasCls, up: up, srcOpts: srcOpts, play: function (a, ep, t) { return play(a, ep, t); }, IS_TV: IS_TV, OLD_ENGINE: OLD_ENGINE, CHROME_V: CHROME_V, lite: function () { return LITE; }, stopVideo: stopVideo, showTab: showTab, paintTabs: paintTabs, live: null };
+    hasCls: hasCls, up: up, srcOpts: srcOpts, play: function (a, ep, t) { return play(a, ep, t); }, IS_TV: IS_TV, OLD_ENGINE: OLD_ENGINE, CHROME_V: CHROME_V, lite: function () { return LITE; }, stopVideo: stopVideo, addons: function () { return { n: addonList().length, list: addonsParam(), names: addonNamesParam() }; }, showTab: showTab, paintTabs: paintTabs, live: null };
 
   // ======================= Init =======================
   try {

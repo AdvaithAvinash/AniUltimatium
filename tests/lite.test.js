@@ -75,7 +75,7 @@ test('Lite client: Best source is the default, Sources sheet, automatic next sou
 test('Direct stream: Samsung player first, the server relay as the second route (no-CORS hosts), address sniffing, relay accepts hls=1', () => {
   const fs = require('fs'), p = require('path'), r = f => fs.readFileSync(p.join(__dirname, '..', f), 'utf8');
   const m = r('public/main.js'), avp = r('public/avp.js'), api = r('api/index.js');
-  assert.ok(/function directSrc\(u\)/.test(m) && /proxyUrl: mixed \? '' : px/.test(m));
+  assert.ok(/function directSrc\(u(, ref)?\)/.test(m) && /proxyUrl: mixed (\|\| ref )?\? '' : px/.test(m));   // (ref: Live Sports channels that need a Referer go through the relay)
   assert.ok(/AVP\.prefer\(!!a\.direct\)/.test(m) && /prefer: function \(v\) \{ prefer = !!v; \}/.test(avp) && /m !== 'html5' && \(m === 'avplay' \|\| prefer/.test(avp));
   assert.ok(/provider === 'direct' && !state\.triedProxy && \/manifestLoad\|levelLoad\//.test(m), 'a manifest the browser cannot read goes to the relay at once');
   assert.ok(/d\.type === 'auto' && window\.fetch/.test(m) && /q\.hls === '1'/.test(api));

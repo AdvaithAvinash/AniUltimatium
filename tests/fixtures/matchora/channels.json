@@ -1,0 +1,146 @@
+{
+ "count": 8,
+ "channels": [
+  {
+   "name": "#Vamos",
+   "countries": [
+    "ES"
+   ],
+   "quality": "SD",
+   "featured": true,
+   "feeds": [
+    {
+     "label": "#Vamos",
+     "country": "ES",
+     "quality": "SD",
+     "embed_url": "https://matchora.to/embed/channel/1547292"
+    }
+   ]
+  },
+  {
+   "name": "1° Federacion",
+   "countries": [
+    "ES"
+   ],
+   "quality": "SD",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "1° Federacion",
+     "country": "ES",
+     "quality": "SD",
+     "embed_url": "https://matchora.to/embed/channel/1936134"
+    }
+   ]
+  },
+  {
+   "name": "1° Federacion (Laliga+)",
+   "countries": [
+    "ES"
+   ],
+   "quality": "",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "1° Federacion (Laliga+)",
+     "country": "ES",
+     "quality": "",
+     "embed_url": "https://matchora.to/embed/channel/1936132"
+    }
+   ]
+  },
+  {
+   "name": "1° Federacion (Movistar+)",
+   "countries": [
+    "ES"
+   ],
+   "quality": "",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "1° Federacion (Movistar+)",
+     "country": "ES",
+     "quality": "",
+     "embed_url": "https://matchora.to/embed/channel/1936133"
+    }
+   ]
+  },
+  {
+   "name": "24 Sport",
+   "countries": [
+    "AR"
+   ],
+   "quality": "HD",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "24 Sport",
+     "country": "AR",
+     "quality": "HD",
+     "embed_url": "https://matchora.to/embed/channel/2112609"
+    }
+   ]
+  },
+  {
+   "name": "3 Sport",
+   "countries": [
+    "LT"
+   ],
+   "quality": "HD",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "3 Sport 2",
+     "country": "LT",
+     "quality": "HD",
+     "embed_url": "https://matchora.to/embed/channel/650600"
+    },
+    {
+     "label": "3 Sport",
+     "country": "LT",
+     "quality": "HD",
+     "embed_url": "https://matchora.to/embed/channel/650601"
+    }
+   ]
+  },
+  {
+   "name": "A - Sports",
+   "countries": [
+    "ASIA",
+    "WC"
+   ],
+   "quality": "",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "A - Sports",
+     "country": "ASIA",
+     "quality": "",
+     "embed_url": "https://matchora.to/embed/channel/104791"
+    },
+    {
+     "label": "A Sports",
+     "country": "ASIA",
+     "quality": "HD",
+     "embed_url": "https://matchora.to/embed/channel/281100"
+    }
+   ]
+  },
+  {
+   "name": "A Bola TV",
+   "countries": [
+    "PT"
+   ],
+   "quality": "HD",
+   "featured": false,
+   "feeds": [
+    {
+     "label": "A Bola TV",
+     "country": "PT",
+     "quality": "HD",
+     "embed_url": "https://matchora.to/embed/channel/107522"
+    }
+   ]
+  }
+ ]
+}

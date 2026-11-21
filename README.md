@@ -338,6 +338,15 @@ A fast IPTV section for your **own** playlist. Aniultimatium does not provide, h
 
 **Limits:** streams must be HTTP/HTTPS (RTMP/UDP/RTSP are skipped). HLS (`.m3u8`) works everywhere; raw MPEG-TS plays on TVs but not in desktop browsers. Compressed `.xml.gz` guides are unpacked by the server while relaying (guides over 80 MB are read in part). Live TV on the website goes through the server for providers without CORS, which costs bandwidth; the TV app connects directly first. Movies/series (Xtream VOD) are not included yet.
 
+## Live Sports (Matchora)
+The **Sports** tab lists live and scheduled matches from [Matchora](https://matchora.pro) (`/api/v1/live`, `/schedule`, `/events/{id}`): league-grouped cards with team crests, scores, a LIVE badge with the match minute, viewers and the number of channels, sport chips (All Sports, Soccer, ...; your choice is remembered), **Live Now**, a 7-day picker in your own time zone, **Only with channels** and a Refresh button. The open list refreshes itself every minute (the data module caches for 30 s to 2 min, retries a 502 once, backs off on 429 and falls back to the last list on errors). Red on the remote also refreshes. It can be hidden in Settings -> Customize; AniUltimatium Lite does not include it (no hosted players).
+
+Open a match and choose how to watch:
+- **Matchora player:** Matchora's own embedded page (`https://matchora.pro/embed/...`, also `es.matchora.pro`). Matchora publishes no direct stream addresses, and none are made up. Only addresses on Matchora's own hosts are ever put in the frame (`matchora.to` is never loaded; its channel links are rewritten to `matchora.pro`). Left/Right change channel, OK selects the player, Back leaves (the Samsung / Android hardware Back works inside the frame too). A channel that does not open is only moved down the list for a few minutes, never hidden.
+- **Your add-ons:** the match's channel names are looked up in the live-TV catalogs of your own Stremio / Nuvio add-ons (`/catalog/tv/...`, `/stream/tv/...`), names are matched (quality tags, accents and duplicates ignored, "Sky Sports" is not "Sky Sports Main Event"), the results are checked and played in the normal player. Needs an add-on that offers live TV.
+
+Code: `public/matchora.js` (all Matchora knowledge, tests against real captured responses in `tests/fixtures/matchora`), `public/sports.js` (screen), `lib/sportsrc.js` (add-on search, API action `sports_sources`).
+
 ## Movies, accounts, history
 - **Movies** and **TV Shows** tabs: catalogue/metadata from Cinemeta (free, no key); TV shows list seasons and episodes (`/api?action=tv_meta&id=tt…`). Playback: public-domain films from the Internet Archive play in our
   own player (quality/subtitle menu, resume, skip); every other movie opens a hosted embed player in an iframe: **CineSrc** (default), **VidFast**, **VidCore** or **Videasy**.

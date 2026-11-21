@@ -63,6 +63,7 @@
       <button class="tab focusable" data-tab="movies"></button>
       <button class="tab focusable" data-tab="tv"></button>
       <button class="tab focusable" data-tab="live"></button>
+      <button class="tab focusable" data-tab="sports"></button>
       <button class="tab focusable" data-tab="schedule"></button>
       <button class="tab focusable" data-tab="games"></button>
       <button class="tab focusable" data-tab="direct"></button>
@@ -134,6 +135,8 @@
     <div id="searchMsg" class="msg"></div>
     <div id="searchGrid" class="cards"></div>
   </main>
+
+  <main id="viewSports" class="view hidden"></main>
 
   <main id="viewSchedule" class="view hidden">
     <div class="pagehead"><h2>Schedule</h2></div>
@@ -301,6 +304,18 @@
   <section id="gameView" class="hidden">
     <iframe id="gameFrame" title="Game" allow="gamepad; autoplay; fullscreen" allowfullscreen></iframe>
     <div id="gameBar"><button id="gameExit" class="focusable">&#9664; Back: leave the game</button><span id="gameCredit"></span></div>
+  </section>
+
+  <section id="spSheet" class="hidden"><div id="spSheetBox"></div></section>
+
+  <section id="spPlayer" class="hidden">
+    <iframe id="spFrame" title="Live sports player" referrerpolicy="origin" allowfullscreen></iframe>
+    <div id="spLoad" class="sp-load hidden"><div class="sp-spin"></div><div id="spLoadTxt"></div></div>
+    <div id="spBar">
+      <button id="spBack" class="focusable btn sm" title="Back">&#9664; Back</button>
+      <div id="spInfo"><b id="spTitle"></b><span id="spChan"></span></div>
+      <div id="spHintBar">&#9664; &#9654; change channel · OK select the player · Back leave</div>
+    </div>
   </section>
 
   <section id="player" class="hidden">
